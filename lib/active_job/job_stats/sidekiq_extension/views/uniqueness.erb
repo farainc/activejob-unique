@@ -1,0 +1,85 @@
+<style type="text/css">
+  a.no-decoration:focus, a.no-decoration:hover {
+    text-decoration: none;
+  }
+  header.row .pagination {
+    margin: 25px 0 0 0 !important;
+  }
+  form .btn {
+    margin-right: 0;
+  }
+</style>
+<%
+  def stats_label(value, style)
+    if "#{value}" == "0"
+      return "<span class='label label-none'>#{value}</span>"
+    else
+      return "<span class='label label-#{style}'>#{value}</span>"
+    end
+  end
+%>
+<header class='row'>
+  <div class='col-sm-5 col-xs-12'>
+    <h3>
+      Uniqueness jobs in
+      <span class="title"><%= @queue_name %></span>
+    </h3>
+  </div>
+  <div class='col-sm-5 col-xs-8'>
+    <% if @job_stats.size > 0 && @total_size > @count %>
+      <%= erb :_paging, :locals => { :url => "#{root_path}job_stats/uniqueness/#{@queue_name}" } %>
+    <% end %>
+  </div>
+  <div class='col-sm-2 col-xs-4 text-right'>
+    <form method="POST" style="margin-top: 25px;" action="<%= root_path %>uniqueness/<%= @queue_name %>/delete">
+      <%= csrf_tag %>
+      <input class='btn btn-danger' type="submit" name="delete" value="Delete All" data-confirm="Are you sure you want to delete all uniqueness jobs in: [<%= @queue_name %>]?"/>
+    </form>
+  </div>
+</header>
+<% if @job_stats.size > 0 %>
+  <table class="table table-hover table-bordered table-striped table-white">
+    <thead>
+      <th>Mode</th>
+      <th>Progress</th>
+      <th>Timeout</th>
+      <th>Expires</th>
+      <th>Scheduled</th>
+      <th>Job</th>
+      <th>Id</th>
+      <th></th>
+    </thead>
+    <tbody>
+      <% @job_stats.each do |job| %>
+        <tr>
+          <td>
+            <%= job[:uniqueness_mode] %>
+          </td>
+          <td>
+            <%= job[:progress] %>
+          </td>
+          <td><%= job[:timeout] == 0 ? '' : relative_time(job[:timeout]) %></td>
+          <td><%= job[:expires] == 0 ? '' : relative_time(job[:expires]) %></td>
+          <td><%= job[:scheduled] %></td>
+          <td>
+            <b><%= job[:klass] %></b>
+            <p><%= job[:args] %></p>
+          </td>
+          <td>
+            <%= job[:uniqueness_id] %>
+            <br>
+            <small><%= job[:job_id] %></small>
+          </td>
+          <td>
+            <form action="<%= root_path %>uniqueness/<%= @queue_name %>/<%= job[:uniqueness_id] %>/delete" method="post">
+              <%= csrf_tag if respond_to?(:csrf_tag) %>
+              <input class='btn btn-xs btn-danger pull-right' type="submit" name="delete" value="Delete" data-confirm="Are you sure you want to delete the uniqueness job: [<%= job[:uniqueness_id] %>]?"/>
+            </form>
+          </td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% else %>
+  <div class='alert alert-success'>No uniqueness job found</div>
+<% end %>
