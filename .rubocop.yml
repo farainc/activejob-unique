@@ -1,0 +1,68 @@
+AllCops:
+  TargetRubyVersion: 2.3
+
+Rails:
+  Enabled: true
+
+Rails/OutputSafety:
+  Description: 'The use of `html_safe` or `raw` may be a security risk.'
+  Enabled: false
+
+Documentation:
+  Enabled: false
+
+Metrics/LineLength:
+  Enabled: false
+
+Metrics/AbcSize:
+  Enabled: false
+
+Metrics/ClassLength:
+  Enabled: false
+
+Metrics/ModuleLength:
+  Enabled: false
+
+Metrics/MethodLength:
+  Enabled: false
+
+Metrics/ParameterLists:
+  Enabled: false
+
+Metrics/CyclomaticComplexity:
+  Max: 15
+
+Metrics/PerceivedComplexity:
+  Max: 15
+
+Metrics/BlockNesting:
+  Max: 5
+
+Style/AsciiComments:
+  Enabled: false
+
+Style/ClassAndModuleChildren:
+  Enabled: false
+
+Style/AccessorMethodName:
+  Enabled: false
+
+Style/FrozenStringLiteralComment:
+  Enabled: false
+
+Style/ZeroLengthPredicate:
+  Description: 'Use #empty? when testing for objects of length 0.'
+  Enabled: false
+
+Style/RescueModifier:
+  Description: 'Avoid using rescue in its modifier form.'
+  StyleGuide: 'https://github.com/bbatsov/ruby-style-guide#no-rescue-modifiers'
+  Enabled: false
+
+Lint/RescueException:
+  Enabled: false
+
+Style/FileName:
+  Description: 'Use snake_case for source file names.'
+  StyleGuide: 'https://github.com/bbatsov/ruby-style-guide#snake-case-files'
+  Enabled: false
