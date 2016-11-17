@@ -165,8 +165,8 @@ module ActiveJob
           self.class.clean_uniqueness(*args)
         end
 
-        def cleanup_uniqueness_timeout
-          self.class.cleanup_uniqueness_timeout
+        def cleanup_uniqueness_timeout(*args)
+          self.class.cleanup_uniqueness_timeout(*args)
         end
 
         def incr_job_stats(*args)
