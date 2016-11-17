@@ -57,7 +57,7 @@ module ActiveJob
             end
           end
 
-          def cleanup_uniqueness_timeout
+          def cleanup_uniqueness_timeout(limit = 10000)
             queue_names = Sidekiq::Queue.all.map(&:name)
             output = {}
 
@@ -89,6 +89,7 @@ module ActiveJob
                   end
 
                   break if cursor == '0'
+                  break if output[name] >= limit
                 end
               end
             end
