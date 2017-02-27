@@ -64,12 +64,17 @@ module ActiveJob
 
             write_uniqueness_after_perform(job)
             incr_job_stats(job, :perform_processed)
+            @job_perform_processed = true
           else
             incr_job_stats(job, :perform_skiped)
           end
 
           r
         end
+      end
+
+      def perform_processed?
+        @job_perform_processed == true
       end
 
       def stats_adapter
