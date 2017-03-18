@@ -11,17 +11,14 @@ module ActiveJob
           DATA_SEPARATOR = 0x1E.chr
 
           def perform_stage?(progress)
-            [:perform_processing, :perform_processed].include?(progress.to_sym)
+            [:perform_processed].include?(progress.to_sym)
           end
 
           def sequence_today
             Time.now.utc.to_date.strftime('%Y%m%d').to_i
           end
 
-          def dirty_uniqueness?(queue_name, provider_job_id)
-            job = Sidekiq::Queue.new(queue_name).find_job(provider_job_id)
-
-            job.nil?
+          def dirty_uniqueness?(queue_name)
           end
 
           def read_uniqueness(uniqueness_id, queue_name)
