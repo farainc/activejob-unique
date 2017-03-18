@@ -10,16 +10,18 @@ module ActiveJob
         module ClassMethods
           DATA_SEPARATOR = 0x1E.chr
 
+          def perform_stage?(progress)
+            [:perform_processing, :perform_processed].inclde?(progress.to_sym)
+          end
+
           def sequence_today
             Time.now.utc.to_date.strftime('%Y%m%d').to_i
           end
 
-          def dirty_uniqueness?(queue_name, scheduled)
-            empty_queue = Sidekiq::Queue.new(queue_name).size.zero?
-            empty_worker = Sidekiq::Workers.new.size.zero?
-            empty_scheduled = !scheduled || Sidekiq::ScheduledSet.new.size.zero?
+          def dirty_uniqueness?(queue_name, provider_job_id)
+            job = Sidekiq::Queue.new(queue_name).find_job(provider_job_id)
 
-            empty_queue && empty_worker && empty_scheduled
+            job.nil?
           end
 
           def read_uniqueness(uniqueness_id, queue_name)
@@ -32,19 +34,21 @@ module ActiveJob
             uniqueness
           end
 
-          def write_uniqueness_dump(uniqueness_id, queue_name, klass, args, job_id, uniqueness_mode, timeout = 0, scheduled = false)
+          def write_uniqueness_dump(uniqueness_id, queue_name, klass, args, job_id, uniqueness_mode, expires)
             return if klass.blank?
 
+            expires = 1.hour.from_now.to_i if expires < Time.now.utc.to_i
+
             Sidekiq.redis_pool.with do |conn|
-              conn.hset("uniqueness:dump:#{queue_name}", uniqueness_id, [klass, job_id, uniqueness_mode, timeout, scheduled, args].join(DATA_SEPARATOR).to_s.force_encoding('UTF-8'))
+              conn.hset("uniqueness:dump:#{queue_name}", uniqueness_id, [klass, job_id, uniqueness_mode, expires, expires + 2.hours, args].join(DATA_SEPARATOR).to_s.force_encoding('UTF-8'))
             end
           end
 
-          def write_uniqueness_progress(uniqueness_id, queue_name, progress, timeout = 0, scheduled = false)
-            expires = 30.minutes.from_now.utc.to_i
+          def write_uniqueness_progress(uniqueness_id, queue_name, progress, expires)
+            expires = 1.hour.from_now.to_i if expires < Time.now.utc.to_i
 
             Sidekiq.redis_pool.with do |conn|
-              conn.hset("uniqueness:#{queue_name}", uniqueness_id, [timeout, scheduled, progress, expires].join(DATA_SEPARATOR).to_s)
+              conn.hset("uniqueness:#{queue_name}", uniqueness_id, [progress, expires, expires + 2.hours].join(DATA_SEPARATOR).to_s)
             end
           end
 
@@ -57,7 +61,7 @@ module ActiveJob
             end
           end
 
-          def cleanup_uniqueness_timeout(limit = 10000)
+          def cleanup_uniqueness_timeout(limit = 1000)
             queue_names = Sidekiq::Queue.all.map(&:name)
             output = {}
 
@@ -71,19 +75,47 @@ module ActiveJob
                   cursor, fields = conn.hscan("uniqueness:#{name}", cursor, count: 100)
 
                   fields.each do |uniqueness_id, uniqueness|
+                    now = Time.now.utc.to_i
                     data = uniqueness.split(DATA_SEPARATOR)
 
-                    # timeout, scheduled, progress, expires
-                    timeout, _scheduled, _progress, expires = data
-                    timeout = timeout.to_i
+                    # progress, expires, defaults
+                    progress, expires, defaults = data
+                    defaults = defaults.to_i
                     expires = expires.to_i
 
-                    # expires only without timeout set
-                    should_clean_it = timeout.blank? && expires.present? && Time.now.utc.to_i > expires
-                    should_clean_it ||= timeout.present? && Time.now.utc.to_i > timeout
+                    # expires when default expiration passed
+                    should_clean_it = defaults.positive? && defaults < now
+                    should_clean_it ||= perform_stage?(progress) && expires.positive? && expires < now
 
                     next unless should_clean_it
 
+                    clean_uniqueness(uniqueness_id, name)
+                    output[name] += 1
+                  end
+
+                  break if cursor == '0'
+                  break if output[name] >= limit
+                end
+              end
+            end
+
+            output
+          end
+
+          def cleanup_uniqueness_all(limit = 10000)
+            queue_names = Sidekiq::Queue.all.map(&:name)
+            output = {}
+
+            Sidekiq.redis_pool.with do |conn|
+              queue_names.each do |name|
+                next unless (name =~ /^#{ActiveJob::Base.queue_name_prefix}/i).present?
+                output[name] = 0
+                cursor = '0'
+
+                loop do
+                  cursor, fields = conn.hscan("uniqueness:#{name}", cursor, count: 100)
+
+                  fields.each do |uniqueness_id, uniqueness|
                     clean_uniqueness(uniqueness_id, name)
                     output[name] += 1
                   end
@@ -145,6 +177,10 @@ module ActiveJob
           self.class.sequence_today
         end
 
+        def perform_stage?(*args)
+          self.class.perform_stage?(*args)
+        end
+
         def dirty_uniqueness?(*args)
           self.class.dirty_uniqueness?(*args)
         end
@@ -167,6 +203,10 @@ module ActiveJob
 
         def cleanup_uniqueness_timeout(*args)
           self.class.cleanup_uniqueness_timeout(*args)
+        end
+
+        def cleanup_uniqueness_all(*args)
+          self.class.cleanup_uniqueness_all(*args)
         end
 
         def incr_job_stats(*args)
