@@ -10,12 +10,24 @@ module ActiveJob
         module ClassMethods
           DATA_SEPARATOR = 0x1E.chr
 
-          def perform_stage?(progress)
-            [:perform_processed].include?(progress.to_sym)
-          end
-
           def sequence_today
             Time.now.utc.to_date.strftime('%Y%m%d').to_i
+          end
+
+          def enqueue_stage?(progress)
+            [:enqueue_attempted,
+             :enqueue_processing,
+             :enqueue_failed,
+             :enqueue_processed,
+             :enqueue_skiped].include?(progress.to_sym)
+          end
+
+          def perform_stage?(progress)
+            [:perform_attempted,
+             :perform_processing,
+             :perform_failed,
+             :perform_processed,
+             :perform_skiped].include?(progress.to_sym)
           end
 
           def dirty_uniqueness?(queue_name)
@@ -172,6 +184,10 @@ module ActiveJob
 
         def sequence_today
           self.class.sequence_today
+        end
+
+        def enqueue_stage?(*args)
+          self.class.enqueue_stage?(*args)
         end
 
         def perform_stage?(*args)
