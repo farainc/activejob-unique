@@ -270,16 +270,16 @@ module ActiveJob
         def unique_for(option = nil, expiration = 30.minutes)
 
           if option == true
-            self.class.uniqueness_mode = :until_and_while_executing
+            self.uniqueness_mode = :until_and_while_executing
           elsif option.is_a?(Integer)
-            self.class.uniqueness_mode = :until_timeout
-            self.class.uniqueness_duration = option
+            self.uniqueness_mode = :until_timeout
+            self.uniqueness_duration = option
           else
-            self.class.uniqueness_mode = option
-            self.class.uniqueness_duration = 5.minutes if self.class.uniqueness_mode == :until_timeout
+            self.uniqueness_mode = option
+            self.uniqueness_duration = 5.minutes if self.uniqueness_mode == :until_timeout
           end
 
-          self.class.uniqueness_expiration = expiration
+          self.uniqueness_expiration = expiration
         end
 
         def perform_later_forced(*args)
