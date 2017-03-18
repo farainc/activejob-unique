@@ -130,11 +130,15 @@ module ActiveJob
         uniqueness = stats_adapter.read_uniqueness(prepare_uniqueness_id(job), job.queue_name)
         return true if uniqueness.blank?
 
-        now = Time.now.utc.to_i
         data = uniqueness.split(DATA_SEPARATOR)
 
         # progress, expires, defaults
         progress, expires, defaults = data
+
+        # allow when enqueue_stage
+        return true if stats_adapter.enqueue_stage?(progress)
+
+        now = Time.now.utc.to_i
         defaults = defaults.to_i
         expires = expires.to_i
 
