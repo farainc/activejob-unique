@@ -11,7 +11,7 @@ module ActiveJob
           DATA_SEPARATOR = 0x1E.chr
 
           def perform_stage?(progress)
-            [:perform_processing, :perform_processed].inclde?(progress.to_sym)
+            [:perform_processing, :perform_processed].include?(progress.to_sym)
           end
 
           def sequence_today
