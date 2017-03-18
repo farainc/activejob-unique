@@ -42,9 +42,8 @@
     <thead>
       <th>Mode</th>
       <th>Progress</th>
-      <th>Timeout</th>
       <th>Expires</th>
-      <th>Scheduled</th>
+      <th>Defaults</th>
       <th>Job</th>
       <th>Id</th>
       <th></th>
@@ -58,9 +57,8 @@
           <td>
             <%= job[:progress] %>
           </td>
-          <td><%= job[:timeout] == 0 ? '' : relative_time(job[:timeout]) %></td>
           <td><%= job[:expires] == 0 ? '' : relative_time(job[:expires]) %></td>
-          <td><%= job[:scheduled] %></td>
+          <td><%= job[:defaults] == 0 ? '' : relative_time(job[:defaults]) %></td>
           <td>
             <b><%= job[:klass] %></b>
             <p><%= job[:args] %></p>

@@ -79,14 +79,14 @@ module ActiveJob
               progress_array = (uniqueness_hash[uniqueness_id][:progress_raw]).to_s.split(DATA_SEPARATOR)
               dump_array = (uniqueness_dumps[i]).to_s.split(DATA_SEPARATOR)
 
-              timeout, scheduled, progress, expires = progress_array
+              progress, expires, defaults = progress_array
               klass, job_id, uniqueness_mode, *args = dump_array
-
-              timeout = timeout.to_i
-              timeout = Time.at(timeout).utc if timeout.positive?
 
               expires = expires.to_i
               expires = Time.at(expires).utc if expires.positive?
+
+              defaults = defaults.to_i
+              defaults = Time.at(defaults).utc if defaults.positive?
 
               @job_stats << {
                 uniqueness_id: uniqueness_id,
@@ -95,9 +95,8 @@ module ActiveJob
                 klass: klass,
                 args: args,
                 job_id: job_id,
-                timeout: timeout,
                 expires: expires,
-                scheduled: scheduled
+                defaults: defaults
               }
             end
 
