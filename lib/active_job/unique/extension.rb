@@ -93,7 +93,7 @@ module ActiveJob
         [:while_executing,
          :until_executing,
          :until_and_while_executing,
-         :until_timeout].include?(self.class.uniqueness_mode)
+         :until_timeout].include?(uniqueness_mode)
       end
 
       def allow_enqueue_uniqueness?(job)
@@ -165,20 +165,19 @@ module ActiveJob
         [:while_executing,
          :until_executing,
          :until_and_while_executing,
-         :until_timeout].include?(self.class.uniqueness_mode)
+         :until_timeout].include?(uniqueness_mode)
       end
 
       def write_uniqueness_before_enqueue(job)
         return unless stats_adapter.respond_to?(:write_uniqueness_dump)
         return unless stats_adapter.respond_to?(:write_uniqueness_progress)
-
         return unless allow_write_uniqueness_around_enqueue?
 
-        expires = self.class.uniqueness_expiration.from_now.to_i
+        expires = uniqueness_expiration.from_now.to_i
 
         scheduled = job.scheduled_at.present?
-        if scheduled && self.class.uniqueness_mode == :until_timeout && self.class.uniqueness_duration.to_i.positive?
-          expires = job.scheduled_at + self.class.uniqueness_duration
+        if scheduled && uniqueness_mode == :until_timeout && uniqueness_duration.to_i.positive?
+          expires = job.scheduled_at + uniqueness_duration
         end
 
         stats_adapter.write_uniqueness_dump(prepare_uniqueness_id(job),
@@ -186,7 +185,7 @@ module ActiveJob
                                             job.class.name,
                                             job.arguments,
                                             job.job_id,
-                                            self.class.uniqueness_mode,
+                                            uniqueness_mode,
                                             expires)
 
         stats_adapter.write_uniqueness_progress(prepare_uniqueness_id(job),
@@ -197,14 +196,13 @@ module ActiveJob
 
       def write_uniqueness_after_enqueue(job)
         return unless stats_adapter.respond_to?(:write_uniqueness_progress)
-
         return unless allow_write_uniqueness_around_enqueue?
 
-        expires = self.class.uniqueness_expiration.from_now.to_i
+        expires = uniqueness_expiration.from_now.to_i
 
         scheduled = job.scheduled_at.present?
-        if scheduled && self.class.uniqueness_mode == :until_timeout && self.class.uniqueness_duration.to_i.positive?
-          expires = job.scheduled_at + self.class.uniqueness_duration
+        if scheduled && uniqueness_mode == :until_timeout && uniqueness_duration.to_i.positive?
+          expires = job.scheduled_at + uniqueness_duration
         end
 
         stats_adapter.write_uniqueness_progress(prepare_uniqueness_id(job),
@@ -216,23 +214,23 @@ module ActiveJob
       def write_uniqueness_before_perform(job)
         return unless stats_adapter.respond_to?(:write_uniqueness_dump)
         return unless stats_adapter.respond_to?(:write_uniqueness_progress)
+        return unless uniqueness_mode_available?
 
-        expires = self.class.uniqueness_expiration.from_now.to_i
+        expires = uniqueness_expiration.from_now.to_i
 
         scheduled = job.scheduled_at.present?
-        if scheduled && self.class.uniqueness_mode == :until_timeout && self.class.uniqueness_duration.to_i.positive?
-          expires = job.scheduled_at + self.class.uniqueness_duration
+        if scheduled && uniqueness_mode == :until_timeout && uniqueness_duration.to_i.positive?
+          expires = job.scheduled_at + uniqueness_duration
         end
 
-        if uniqueness_mode_available?
-          stats_adapter.write_uniqueness_dump(prepare_uniqueness_id(job),
-                                              job.queue_name,
-                                              job.class.name,
-                                              job.arguments,
-                                              job.job_id,
-                                              self.class.uniqueness_mode,
-                                              expires)
-        end
+
+        stats_adapter.write_uniqueness_dump(prepare_uniqueness_id(job),
+                                            job.queue_name,
+                                            job.class.name,
+                                            job.arguments,
+                                            job.job_id,
+                                            uniqueness_mode,
+                                            expires)
 
         stats_adapter.write_uniqueness_progress(prepare_uniqueness_id(job),
                                                 job.queue_name,
@@ -242,13 +240,13 @@ module ActiveJob
 
       def write_uniqueness_after_perform(job)
         if stats_adapter.respond_to?(:write_uniqueness_progress) &&
-           self.class.uniqueness_mode == :until_timeout &&
-           self.class.uniqueness_duration.to_i.positive?
+           uniqueness_mode == :until_timeout &&
+           uniqueness_duration.to_i.positive?
 
           stats_adapter.write_uniqueness_progress(prepare_uniqueness_id(job),
                                                   job.queue_name,
                                                   :perform_processed,
-                                                  self.class.uniqueness_duration.from_now.to_i)
+                                                  uniqueness_duration.from_now.to_i)
         else
           clean_uniqueness(job)
         end
@@ -275,7 +273,7 @@ module ActiveJob
             self.uniqueness_mode = :until_timeout
             self.uniqueness_duration = option
           else
-            self.uniqueness_mode = option
+            self.uniqueness_mode = option.to_sym
             self.uniqueness_duration = 5.minutes if self.uniqueness_mode == :until_timeout
           end
 
