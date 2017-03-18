@@ -118,9 +118,6 @@ module ActiveJob
         # allow when perform stage and expiration passed
         return true if stats_adapter.perform_stage?(progress) && expires.positive? && expires < now
 
-        # allow for dirty_uniqueness
-        return true if stats_adapter.dirty_uniqueness?(job.queue_name, job.provider_job_id)
-
         false
       end
 
@@ -146,9 +143,6 @@ module ActiveJob
 
         # allow when perform stage and expiration passed
         return true if stats_adapter.perform_stage?(progress) && expires.positive? && expires < now
-
-        # allow for dirty_uniqueness
-        return true if stats_adapter.dirty_uniqueness?(job.queue_name, job.provider_job_id)
 
         false
       end
