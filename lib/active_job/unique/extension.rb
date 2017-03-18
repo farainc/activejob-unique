@@ -241,7 +241,10 @@ module ActiveJob
       end
 
       def write_uniqueness_after_perform(job)
-        if stats_adapter.respond_to?(:write_uniqueness_progress) && uniqueness_mode == :until_timeout
+        if stats_adapter.respond_to?(:write_uniqueness_progress) &&
+           uniqueness_mode == :until_timeout &&
+           uniqueness_duration.to_i.positive?
+
           stats_adapter.write_uniqueness_progress(prepare_uniqueness_id(job),
                                                   job.queue_name,
                                                   :perform_processed,
@@ -273,6 +276,7 @@ module ActiveJob
             self.uniqueness_duration = option
           else
             self.uniqueness_mode = option
+            self.uniqueness_duration = 5.minutes if self.uniqueness_mode == :until_timeout
           end
 
           self.uniqueness_expiration = expiration
