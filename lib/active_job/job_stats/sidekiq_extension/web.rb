@@ -190,7 +190,7 @@ module ActiveJob
               ActiveJob::JobStats::SidekiqExtension.cleanup_hash_set("jobstats:#{stage}_#{status}:#{queue_name}")
             end
 
-            redirect request.referer
+            redirect URI(request.referer).path
           end
 
           # delete uniqueness jobs per queue
@@ -200,7 +200,7 @@ module ActiveJob
             ActiveJob::JobStats::SidekiqExtension.cleanup_hash_set("uniqueness:#{queue_name}")
             ActiveJob::JobStats::SidekiqExtension.cleanup_hash_set("uniqueness:dump:#{queue_name}")
 
-            redirect request.referer
+            redirect URI(request.referer).path
           end
 
           # delete uniqueness job
@@ -213,7 +213,7 @@ module ActiveJob
               conn.hdel("uniqueness:dump:#{queue_name}", uniqueness_id)
             end
 
-            redirect request.referer
+            redirect URI(request.referer).path
           end
         end
       end
