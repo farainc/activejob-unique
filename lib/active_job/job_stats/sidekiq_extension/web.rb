@@ -65,7 +65,8 @@ module ActiveJob
             Sidekiq.redis_pool.with do |conn|
               cursor, uniqueness_data = conn.hscan("uniqueness:#{queue_name}", begin_index.to_s, count: @count)
               uniqueness_data = uniqueness_data[begin_index..end_index] if cursor == '0'
-              uniqueness_data.map { |k, v| uniqueness_hash[k] = { progress_raw: v } }
+
+              uniqueness_data.map { |k, v| uniqueness_hash[k] = { progress_raw: v } } if uniqueness_data.present?
 
               uniqueness_ids = uniqueness_hash.keys
 
