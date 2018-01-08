@@ -9,6 +9,9 @@ module ActiveJob
 
         module ClassMethods
           DATA_SEPARATOR = 0x1E.chr
+          def ensure_data_utf8(data)
+            data.to_s.encode('utf-8', invalid: :replace, undef: :replace, replace: '')
+          end
 
           def sequence_today
             Time.now.utc.to_date.strftime('%Y%m%d').to_i
@@ -49,7 +52,7 @@ module ActiveJob
             expires = 1.hour.from_now.to_i if expires < Time.now.utc.to_i
 
             Sidekiq.redis_pool.with do |conn|
-              conn.hset("uniqueness:dump:#{queue_name}", uniqueness_id, [klass, job_id, uniqueness_mode, expires, expires + 2.hours, args].join(DATA_SEPARATOR).to_s.force_encoding('UTF-8'))
+              conn.hset("uniqueness:dump:#{queue_name}", uniqueness_id, ensure_data_utf8([klass, job_id, uniqueness_mode, expires, expires + 2.hours, args].join(DATA_SEPARATOR)))
             end
           end
 
@@ -57,7 +60,7 @@ module ActiveJob
             expires = 1.hour.from_now.to_i if expires < Time.now.utc.to_i
 
             Sidekiq.redis_pool.with do |conn|
-              conn.hset("uniqueness:#{queue_name}", uniqueness_id, [progress, expires, expires + 2.hours].join(DATA_SEPARATOR).to_s)
+              conn.hset("uniqueness:#{queue_name}", uniqueness_id, ensure_data_utf8([progress, expires, expires + 2.hours].join(DATA_SEPARATOR)))
             end
           end
 
@@ -85,7 +88,7 @@ module ActiveJob
 
                   fields.each do |uniqueness_id, uniqueness|
                     now = Time.now.utc.to_i
-                    data = uniqueness.split(DATA_SEPARATOR)
+                    data = ensure_data_utf8(uniqueness).split(DATA_SEPARATOR)
 
                     # progress, expires, defaults
                     progress, expires, defaults = data

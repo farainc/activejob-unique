@@ -6,6 +6,9 @@ module ActiveJob
     module Extension
       extend ActiveSupport::Concern
       DATA_SEPARATOR = 0x1E.chr
+      def ensure_data_utf8(data)
+        data.to_s.encode('utf-8', invalid: :replace, undef: :replace, replace: '')
+      end
 
       included do
         class_attribute :uniqueness_mode
@@ -105,7 +108,7 @@ module ActiveJob
         return true if uniqueness.blank?
 
         now = Time.now.utc.to_i
-        data = uniqueness.split(DATA_SEPARATOR)
+        data = ensure_data_utf8(uniqueness).split(DATA_SEPARATOR)
 
         # progress, expires, defaults
         progress, expires, defaults = data
@@ -130,7 +133,7 @@ module ActiveJob
         uniqueness = stats_adapter.read_uniqueness(prepare_uniqueness_id(job), job.queue_name)
         return true if uniqueness.blank?
 
-        data = uniqueness.split(DATA_SEPARATOR)
+        data = ensure_data_utf8(uniqueness).split(DATA_SEPARATOR)
 
         # progress, expires, defaults
         progress, expires, defaults = data
