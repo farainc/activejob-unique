@@ -3,10 +3,6 @@ module ActiveJob
     module SidekiqExtension
       module Web
         DATA_SEPARATOR = 0x1E.chr
-        def self.ensure_data_utf8(data)
-          data.to_s.encode('utf-8', invalid: :replace, undef: :replace, replace: '')
-        end
-
         def self.registered(app)
           # index page of stats
           app.get '/job_stats' do
@@ -79,8 +75,8 @@ module ActiveJob
             end
 
             uniqueness_ids.each_with_index do |uniqueness_id, i|
-              progress_array = ensure_data_utf8(uniqueness_hash[uniqueness_id][:progress_raw]).split(DATA_SEPARATOR)
-              dump_array = ensure_data_utf8(uniqueness_dumps[i]).split(DATA_SEPARATOR)
+              progress_array = uniqueness_hash[uniqueness_id][:progress_raw].to_s.encode('utf-8', invalid: :replace, undef: :replace, replace: '').split(DATA_SEPARATOR)
+              dump_array = uniqueness_dumps[i].to_s.encode('utf-8', invalid: :replace, undef: :replace, replace: '').split(DATA_SEPARATOR)
 
               progress, expires, defaults = progress_array
               klass, job_id, uniqueness_mode, *args = dump_array
