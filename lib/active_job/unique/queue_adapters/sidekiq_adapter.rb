@@ -18,23 +18,35 @@ module ActiveJob
           end
 
           def enqueue_stage?(progress)
-            [:enqueue_attempted,
-             :enqueue_processing,
-             :enqueue_failed,
-             :enqueue_processed,
-             :enqueue_skiped].include?(progress.to_sym)
+            %i[enqueue_attempted
+               enqueue_processing
+               enqueue_failed
+               enqueue_processed
+               enqueue_skiped].include?(progress.to_s.to_sym)
           end
 
           def perform_stage?(progress)
-            [:perform_attempted,
-             :perform_processing,
-             :perform_failed,
-             :perform_processed,
-             :perform_skiped].include?(progress.to_sym)
+            %i[perform_attempted
+               perform_processing
+               perform_failed
+               perform_processed
+               perform_skiped].include?(progress.to_s.to_sym)
           end
 
-          def dirty_uniqueness?(queue_name)
+          def invalid_progress?(progress)
+            !%i[enqueue_attempted
+                enqueue_processing
+                enqueue_failed
+                enqueue_processed
+                enqueue_skiped
+                perform_attempted
+                perform_processing
+                perform_failed
+                perform_processed
+                perform_skiped].include?(progress.to_s.to_sym)
           end
+
+          def dirty_uniqueness?(queue_name); end
 
           def read_uniqueness(uniqueness_id, queue_name)
             uniqueness = nil
@@ -79,7 +91,7 @@ module ActiveJob
 
             Sidekiq.redis_pool.with do |conn|
               queue_names.each do |name|
-                next unless (name =~ /^#{ActiveJob::Base.queue_name_prefix}/i).present?
+                next if (name =~ /^#{ActiveJob::Base.queue_name_prefix}/i).blank?
                 output[name] = 0
                 cursor = '0'
 
@@ -99,6 +111,9 @@ module ActiveJob
                     should_clean_it = defaults.positive? && defaults < now
                     should_clean_it ||= perform_stage?(progress) && expires.positive? && expires < now
 
+                    # delete invalid progress unique jobs
+                    should_clean_it ||= invalid_progress?(progress)
+
                     next unless should_clean_it
 
                     clean_uniqueness(uniqueness_id, name)
@@ -114,20 +129,20 @@ module ActiveJob
             output
           end
 
-          def cleanup_uniqueness_all(limit = 10000)
+          def cleanup_uniqueness_all(limit = 10_000)
             queue_names = Sidekiq::Queue.all.map(&:name)
             output = {}
 
             Sidekiq.redis_pool.with do |conn|
               queue_names.each do |name|
-                next unless (name =~ /^#{ActiveJob::Base.queue_name_prefix}/i).present?
+                next if (name =~ /^#{ActiveJob::Base.queue_name_prefix}/i).blank?
                 output[name] = 0
                 cursor = '0'
 
                 loop do
                   cursor, fields = conn.hscan("uniqueness:#{name}", cursor, count: 100)
 
-                  fields.each do |uniqueness_id, uniqueness|
+                  fields.each do |uniqueness_id, _uniqueness|
                     clean_uniqueness(uniqueness_id, name)
                     output[name] += 1
                   end
@@ -160,15 +175,15 @@ module ActiveJob
 
             Sidekiq.redis_pool.with do |conn|
               queue_names.each do |name|
-                next unless (name =~ /^#{ActiveJob::Base.queue_name_prefix}/i).present?
+                next if (name =~ /^#{ActiveJob::Base.queue_name_prefix}/i).blank?
                 output[name] = 0
 
                 (from..to).each do |day|
-                  [:enqueue, :perform].each do |stage|
+                  %i[enqueue perform].each do |stage|
                     klasses = conn.hkeys("jobstats:#{day}:#{stage}_attempted:#{name}")
 
                     klasses.each do |klass|
-                      [:attempted, :skiped, :processing, :failed, :processed].each do |progress|
+                      %i[attempted skiped processing failed processed].each do |progress|
                         val = conn.hget("jobstats:#{day}:#{stage}_#{progress}:#{name}", klass).to_i
                         if val.positive?
                           conn.hsetnx("jobstats:#{stage}_#{progress}:#{name}", klass, 0)
@@ -195,6 +210,10 @@ module ActiveJob
 
         def perform_stage?(*args)
           self.class.perform_stage?(*args)
+        end
+
+        def invalid_progress?(*args)
+          self.class.invalid_progress?(*args)
         end
 
         def dirty_uniqueness?(*args)
