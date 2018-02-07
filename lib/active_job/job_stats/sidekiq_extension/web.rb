@@ -57,28 +57,31 @@ module ActiveJob
             end_index = begin_index + @count - 1
 
             uniqueness_hash = {}
-            uniqueness_ids = []
-            uniqueness_dumps = []
 
             Sidekiq.redis_pool.with do |conn|
-              cursor, uniqueness_data = conn.hscan("uniqueness:#{queue_name}", begin_index.to_s, count: @count)
-              uniqueness_data = uniqueness_data[begin_index..end_index] if cursor == '0'
+              cursor, raw_data = conn.hscan("uniqueness:#{queue_name}", begin_index.to_s, count: @count)
+              raw_data = raw_data[begin_index..end_index] if cursor == '0'
 
-              uniqueness_data.map { |k, v| uniqueness_hash[k] = { progress_raw: v } } if uniqueness_data.present?
-
-              uniqueness_ids = uniqueness_hash.keys
-
-              unless uniqueness_ids.empty?
-                uniqueness_dumps = conn.hmget("uniqueness:dump:#{queue_name}", uniqueness_ids)
+              if raw_data.present?
+                raw_data.each do |k, v|
+                  dump = conn.hget("uniqueness:dump:#{queue_name}", k)
+                  uniqueness_hash[k] = {
+                    progress: v,
+                    dump: dump
+                  }
+                end
               end
             end
 
-            uniqueness_ids.each_with_index do |uniqueness_id, i|
-              progress_array = uniqueness_hash[uniqueness_id][:progress_raw].to_s.encode('utf-8', invalid: :replace, undef: :replace, replace: '').split(DATA_SEPARATOR)
-              dump_array = uniqueness_dumps[i].to_s.encode('utf-8', invalid: :replace, undef: :replace, replace: '').split(DATA_SEPARATOR)
+            uniqueness_hash.each do |uniqueness_id, data|
+              progress_array = data[:progress].to_s.encode('utf-8', invalid: :replace, undef: :replace, replace: '').split(DATA_SEPARATOR)
+              dump_array = data[:dump].to_s.encode('utf-8', invalid: :replace, undef: :replace, replace: '').split(DATA_SEPARATOR)
 
-              progress, timeout, expires = progress_array
+              progress, timeout, expires, updated_at = progress_array
               klass, job_id, uniqueness_mode, dump_timeout, dump_expires, *args = dump_array
+
+              updated_at = updated_at.to_i
+              updated_at = Time.at(updated_at).utc if updated_at.positive?
 
               timeout = timeout.to_i
               timeout = Time.at(timeout).utc if timeout.positive?
@@ -96,7 +99,8 @@ module ActiveJob
                 args: args,
                 job_id: job_id,
                 timeout: timeout,
-                expires: expires
+                expires: expires,
+                updated_at: updated_at
               }
             end
 

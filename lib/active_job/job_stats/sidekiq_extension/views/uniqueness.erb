@@ -46,24 +46,26 @@
 <% if @job_stats.size > 0 %>
   <table class="table table-hover table-bordered table-striped table-white">
     <thead>
-      <th>State</th>
+      <th>Uniquenes</th>
       <th>Timeout</th>
       <th>Expires</th>
       <th>Job</th>
-      <th>Ids</th>
       <th></th>
     </thead>
     <tbody>
       <% @job_stats.each do |job| %>
         <tr>
           <td>
+            <code><%= job[:uniqueness_id] %></code>
             <div class="nowrap">
               <strong>Mode:&nbsp;</strong><%= job[:uniqueness_mode] %>
             </div>
             <div class="nowrap">
-              <strong>Progress:&nbsp;</strong><%= job[:progress] %>
+              <strong>State:&nbsp;</strong><%= job[:progress] %>
             </div>
-
+            <div class="nowrap">
+              <strong>Updated At:&nbsp;</strong><%= (relative_time(job[:updated_at]) rescue '') %>
+            </div>
           </td>
           <td>
             <div class="nowrap" title="saved in simple state data">
@@ -82,16 +84,11 @@
             </div>
           </td>
           <td>
-            <strong><%= job[:klass] %></strong>
+            <code><%= job[:job_id] %></code>
+            <div class="nowrap">
+              <strong><%= job[:klass] %></strong>
+            </div
             <p class="break-all"><%= job[:args] %></p>
-          </td>
-          <td>
-            <div class="nowrap">
-              <strong>Uniquenes:&nbsp;</strong><code><%= job[:uniqueness_id] %></code>
-            </div>
-            <div class="nowrap">
-              <strong>Job:&nbsp;</strong><code><%= job[:job_id] %></code>
-            </div>
           </td>
           <td>
             <form action="<%= root_path %>uniqueness/<%= @queue_name %>/<%= job[:uniqueness_id] %>/delete" method="post">
