@@ -67,7 +67,17 @@ module ActiveJob
             false
           end
 
-          def invalid_uniqueness?(uniqueness_id, queue_name)
+          def same_job?(uniqueness_id, queue_name, job_id)
+            uniqueness_dump = self.read_uniqueness_dump(uniqueness_id, queue_name)
+            return true if uniqueness_dump.blank?
+
+            data = self.ensure_data_utf8(uniqueness_dump).split(DATA_SEPARATOR)
+            klass, dump_job_id, *args = data
+
+            job_id == dump_job_id
+          end
+
+          def invalid_uniqueness?(uniqueness_id, queue_name, job_id)
             uniqueness = self.read_uniqueness(uniqueness_id, queue_name)
             return true if uniqueness.blank?
 
@@ -79,6 +89,16 @@ module ActiveJob
 
             Sidekiq.redis_pool.with do |conn|
               uniqueness = conn.hget("uniqueness:#{queue_name}", uniqueness_id)
+            end
+
+            uniqueness
+          end
+
+          def read_uniqueness_dump(uniqueness_id, queue_name)
+            uniqueness = nil
+
+            Sidekiq.redis_pool.with do |conn|
+              uniqueness = conn.hget("uniqueness:dump:#{queue_name}", uniqueness_id)
             end
 
             uniqueness

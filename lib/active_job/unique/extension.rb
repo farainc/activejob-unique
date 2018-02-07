@@ -104,15 +104,20 @@ module ActiveJob
         return true unless uniqueness_mode_available?
 
         return true unless stats_adapter.respond_to?(:invalid_uniqueness?)
-        stats_adapter.invalid_uniqueness?(prepare_uniqueness_id(job), jobb.queue_name)
+
+        # only allow invalid_uniqueness to enqueue
+        stats_adapter.invalid_uniqueness?(prepare_uniqueness_id(job), job.queue_name)
       end
 
       def allow_perform_uniqueness?(job)
         return true if job.unique_as_skiped
         return true unless %i[while_executing until_and_while_executing].include?(uniqueness_mode)
 
-        return unless stats_adapter.respond_to?(:invalid_uniqueness?)
-        stats_adapter.invalid_uniqueness?(prepare_uniqueness_id(job), jobb.queue_name)
+        return true unless stats_adapter.respond_to?(:invalid_uniqueness?)
+        return true if stats_adapter.invalid_uniqueness?(prepare_uniqueness_id(job), job.queue_name)
+
+        # allow valid_uniqueness with same job_id to perform
+        stats_adapter.same_job?(prepare_uniqueness_id(job), job.queue_name, job.id)
       end
 
       def allow_write_uniqueness_around_enqueue?
