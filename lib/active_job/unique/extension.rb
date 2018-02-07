@@ -103,21 +103,28 @@ module ActiveJob
         return true if job.unique_as_skiped
         return true unless uniqueness_mode_available?
 
-        return true unless stats_adapter.respond_to?(:invalid_uniqueness?)
-
-        # only allow invalid_uniqueness to enqueue
-        stats_adapter.invalid_uniqueness?(prepare_uniqueness_id(job), job.queue_name)
+        # only allow dirty_uniqueness to enqueue
+        dirty_uniqueness?(job)
       end
 
       def allow_perform_uniqueness?(job)
         return true if job.unique_as_skiped
         return true unless %i[while_executing until_and_while_executing].include?(uniqueness_mode)
+        return true if dirty_uniqueness?(job)
 
-        return true unless stats_adapter.respond_to?(:invalid_uniqueness?)
-        return true if stats_adapter.invalid_uniqueness?(prepare_uniqueness_id(job), job.queue_name)
+        # allow enqueue_stage job to perform as well
+        return true unless stats_adapter.respond_to?(:enqueue_stage_job?)
+        stats_adapter.enqueue_stage_job?(prepare_uniqueness_id(job), job.queue_name)
+      end
 
-        # allow valid_uniqueness with same job_id to perform
-        stats_adapter.same_job?(prepare_uniqueness_id(job), job.queue_name, job.id)
+      def dirty_uniqueness?(job)
+        return true unless stats_adapter.respond_to?(:read_uniqueness)
+        return true unless stats_adapter.respond_to?(:dirty_uniqueness?)
+
+        uniqueness = stats_adapter.read_uniqueness(prepare_uniqueness_id(job), job.queue_name)
+        return true if uniqueness.blank?
+
+        stats_adapter.dirty_uniqueness?(uniqueness)
       end
 
       def allow_write_uniqueness_around_enqueue?

@@ -33,22 +33,33 @@ module ActiveJob
                perform_skiped].include?(progress.to_s.to_sym)
           end
 
-          def invalid_progress?(progress)
-            !%i[enqueue_attempted
-                enqueue_processing
-                enqueue_failed
-                enqueue_processed
-                enqueue_skiped
-                perform_attempted
-                perform_processing
-                perform_failed
-                perform_processed
-                perform_skiped].include?(progress.to_s.to_sym)
+          def unknown_stage?(progress)
+             !enqueue_stage?(progress) && !perform_stage?(progress)
+          end
+
+          def enqueue_stage_job?(uniqueness_id, queue_name)
+            uniqueness = read_uniqueness(uniqueness_id, queue_name)
+            return false if uniqueness.blank?
+
+            data = ensure_data_utf8(uniqueness).split(DATA_SEPARATOR)
+            progress, timeout, expires = data
+
+            enqueue_stage?(progress)
+          end
+
+          def perform_stage_job?(uniqueness_id, queue_name)
+            uniqueness = read_uniqueness(uniqueness_id, queue_name)
+            return false if uniqueness.blank?
+
+            data = ensure_data_utf8(uniqueness).split(DATA_SEPARATOR)
+            progress, timeout, expires = data
+
+            perform_stage?(progress)
           end
 
           def dirty_uniqueness?(uniqueness)
             now = Time.now.utc.to_i
-            data = self.ensure_data_utf8(uniqueness).split(DATA_SEPARATOR)
+            data = ensure_data_utf8(uniqueness).split(DATA_SEPARATOR)
 
             # progress, timeout, expires
             progress, timeout, expires = data
@@ -59,29 +70,12 @@ module ActiveJob
             return true if expires.positive? && expires < now
 
             # allow when perform stage and expiration passed
-            return true if self.perform_stage?(progress) && timeout.positive? && timeout < now
+            return true if perform_stage?(progress) && timeout.positive? && timeout < now
 
-            # allow invalid progress job
-            return true if self.invalid_progress?(progress)
+            # allow unknown stage
+            return true if unknown_stage?(progress)
 
             false
-          end
-
-          def same_job?(uniqueness_id, queue_name, job_id)
-            uniqueness_dump = self.read_uniqueness_dump(uniqueness_id, queue_name)
-            return true if uniqueness_dump.blank?
-
-            data = self.ensure_data_utf8(uniqueness_dump).split(DATA_SEPARATOR)
-            klass, dump_job_id, *args = data
-
-            job_id == dump_job_id
-          end
-
-          def invalid_uniqueness?(uniqueness_id, queue_name, job_id)
-            uniqueness = self.read_uniqueness(uniqueness_id, queue_name)
-            return true if uniqueness.blank?
-
-            self.dirty_uniqueness?(uniqueness)
           end
 
           def read_uniqueness(uniqueness_id, queue_name)
@@ -244,8 +238,12 @@ module ActiveJob
           self.class.perform_stage?(*args)
         end
 
-        def invalid_progress?(*args)
-          self.class.invalid_progress?(*args)
+        def enqueue_stage_job?(*args)
+          self.class.enqueue_stage_job?(*args)
+        end
+
+        def perform_stage_job?(*args)
+          self.class.perform_stage_job?(*args)
         end
 
         def dirty_uniqueness?(*args)
