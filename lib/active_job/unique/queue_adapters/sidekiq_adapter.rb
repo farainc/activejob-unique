@@ -254,6 +254,10 @@ module ActiveJob
           self.class.read_uniqueness(*args)
         end
 
+        def read_uniqueness_dump(*args)
+          self.class.read_uniqueness_dump(*args)
+        end
+
         def write_uniqueness_dump(*args)
           self.class.write_uniqueness_dump(*args)
         end
