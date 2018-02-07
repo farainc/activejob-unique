@@ -89,18 +89,24 @@ module ActiveJob
               expires = expires.to_i
               expires = Time.at(expires).utc if expires.positive?
 
+              dump_timeout = dump_timeout.to_i
+              dump_timeout = Time.at(dump_timeout).utc if dump_timeout.positive?
+
+              dump_expires = dump_expires.to_i
+              dump_expires = Time.at(dump_expires).utc if dump_expires.positive?
+
               @job_stats << {
                 uniqueness_id: uniqueness_id,
                 uniqueness_mode: uniqueness_mode,
                 progress: progress,
                 klass: klass,
-                dump_timeout: dump_timeout,
-                dump_expires: dump_expires,
                 args: args,
                 job_id: job_id,
                 timeout: timeout,
                 expires: expires,
-                updated_at: updated_at
+                updated_at: updated_at,
+                dump_timeout: dump_timeout,
+                dump_expires: dump_expires                
               }
             end
 
