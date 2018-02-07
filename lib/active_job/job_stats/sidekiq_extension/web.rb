@@ -16,13 +16,11 @@ module ActiveJob
                 @job_stats << {
                   queue_name: queue.name,
                   uniqueness: conn.hlen("uniqueness:#{queue.name}"),
-
                   today_enqueue_attempted: conn.hlen("jobstats:#{today}:enqueue_attempted:#{queue.name}"),
                   today_enqueue_skiped: conn.hlen("jobstats:#{today}:enqueue_skiped:#{queue.name}"),
                   today_enqueue_processing: conn.hlen("jobstats:#{today}:enqueue_processing:#{queue.name}"),
                   today_enqueue_processed: conn.hlen("jobstats:#{today}:enqueue_processed:#{queue.name}"),
                   today_enqueue_failed: conn.hlen("jobstats:#{today}:enqueue_failed:#{queue.name}"),
-
                   today_perform_attempted: conn.hlen("jobstats:#{today}:perform_attempted:#{queue.name}"),
                   today_perform_skiped: conn.hlen("jobstats:#{today}:perform_skiped:#{queue.name}"),
                   today_perform_processing: conn.hlen("jobstats:#{today}:perform_processing:#{queue.name}"),
@@ -79,24 +77,26 @@ module ActiveJob
               progress_array = uniqueness_hash[uniqueness_id][:progress_raw].to_s.encode('utf-8', invalid: :replace, undef: :replace, replace: '').split(DATA_SEPARATOR)
               dump_array = uniqueness_dumps[i].to_s.encode('utf-8', invalid: :replace, undef: :replace, replace: '').split(DATA_SEPARATOR)
 
-              progress, expires, defaults = progress_array
-              klass, job_id, uniqueness_mode, *args = dump_array
+              progress, timeout, expires = progress_array
+              klass, job_id, uniqueness_mode, dump_timeout, dump_expires, *args = dump_array
+
+              timeout = timeout.to_i
+              timeout = Time.at(timeout).utc if timeout.positive?
 
               expires = expires.to_i
               expires = Time.at(expires).utc if expires.positive?
-
-              defaults = defaults.to_i
-              defaults = Time.at(defaults).utc if defaults.positive?
 
               @job_stats << {
                 uniqueness_id: uniqueness_id,
                 uniqueness_mode: uniqueness_mode,
                 progress: progress,
                 klass: klass,
+                dump_timeout: dump_timeout,
+                dump_expires: dump_expires,
                 args: args,
                 job_id: job_id,
-                expires: expires,
-                defaults: defaults
+                timeout: timeout,
+                expires: expires
               }
             end
 
@@ -186,7 +186,7 @@ module ActiveJob
             stage = route_params[:stage]
             queue_name = route_params[:queue_name]
 
-            [:skiped, :processing, :processed, :failed, :attempted].each do |status|
+            %i[skiped processing processed failed attempted].each do |status|
               ActiveJob::JobStats::SidekiqExtension.cleanup_hash_set("jobstats:#{stage}_#{status}:#{queue_name}")
             end
 
