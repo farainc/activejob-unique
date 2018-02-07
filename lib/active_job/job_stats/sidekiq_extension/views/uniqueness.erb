@@ -46,41 +46,52 @@
 <% if @job_stats.size > 0 %>
   <table class="table table-hover table-bordered table-striped table-white">
     <thead>
-      <th>Mode</th>
-      <th>Progress</th>
+      <th>State</th>
+      <th>Timeout</th>
+      <th>Expires</th>
       <th>Job</th>
-      <th>Id</th>
+      <th>Ids</th>
       <th></th>
     </thead>
     <tbody>
       <% @job_stats.each do |job| %>
         <tr>
           <td>
-            <%= job[:uniqueness_mode] %>
+            <div class="nowrap">
+              <strong>Mode:&nbsp;</strong><%= job[:uniqueness_mode] %>
+            </div>
+            <div class="nowrap">
+              <strong>Progress:&nbsp;</strong><%= job[:progress] %>
+            </div>
+
           </td>
           <td>
-            <%= job[:progress] %>
-            <div class="nowrap">
-              <strong>Timeout:&nbsp;</strong><%= job[:timeout] == 0 ? '' : relative_time(job[:timeout]) %>
+            <div class="nowrap" title="saved in simple state data">
+              <strong>S:&nbsp;</strong><%= (relative_time(job[:timeout]) rescue '') %>
             </div>
-            <div class="nowrap">
-              <strong>Expires:&nbsp;</strong><%= job[:expires] == 0 ? '' : relative_time(job[:expires]) %>
+            <div class="nowrap" title="saved in full job data">
+              <strong>F:&nbsp;</strong><%= (relative_time(job[:dump_timeout]) rescue '') %>
             </div>
           </td>
           <td>
-            <b><%= job[:klass] %></b>
-            <div class="nowrap">
-              <strong>Timeout:&nbsp;</strong><%= job[:dump_timeout] == 0 ? '' : relative_time(job[:dump_timeout]) %>
+            <div class="nowrap" title="saved in simple state data">
+              <strong>S:&nbsp;</strong><%= (relative_time(job[:expires]) rescue '') %>
             </div>
-            <div class="nowrap">
-              <strong>Expires:&nbsp;</strong><%= job[:dump_expires] == 0 ? '' : relative_time(job[:dump_expires]) %>
+            <div class="nowrap" title="saved in full job data">
+              <strong>F:&nbsp;</strong><%= (relative_time(job[:dump_expires]) rescue '') %>
             </div>
+          </td>
+          <td>
+            <strong><%= job[:klass] %></strong>
             <p class="break-all"><%= job[:args] %></p>
           </td>
           <td>
-            <%= job[:uniqueness_id] %>
-            <br>
-            <small><%= job[:job_id] %></small>
+            <div class="nowrap">
+              <strong>Uniquenes:&nbsp;</strong><code><%= job[:uniqueness_id] %></code>
+            </div>
+            <div class="nowrap">
+              <strong>Job:&nbsp;</strong><code><%= job[:job_id] %></code>
+            </div>
           </td>
           <td>
             <form action="<%= root_path %>uniqueness/<%= @queue_name %>/<%= job[:uniqueness_id] %>/delete" method="post">
