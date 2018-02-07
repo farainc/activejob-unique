@@ -36,7 +36,7 @@ module ActiveJob
           app.get '/job_stats/uniqueness/:queue_name' do
             queue_name = route_params[:queue_name]
 
-            view_path = File.join(File.expand_path('.', __FILE__), 'views')
+            view_path = File.join(File.expand_path('..', __FILE__), 'views')
 
             @queue_name = queue_name
             @job_stats = []
