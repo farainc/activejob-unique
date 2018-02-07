@@ -90,7 +90,7 @@ module ActiveJob
             timeout = 1.hour.from_now.to_i if timeout < Time.now.utc.to_i
 
             Sidekiq.redis_pool.with do |conn|
-              conn.hset("uniqueness:dump:#{queue_name}", uniqueness_id, ensure_data_utf8([klass, job_id, uniqueness_mode, timeout, timeout + 30.minutes, args].join(DATA_SEPARATOR)))
+              conn.hset("uniqueness:dump:#{queue_name}", uniqueness_id, ensure_data_utf8([klass, job_id, uniqueness_mode, timeout, (timeout + 30.minutes).to_i, args].join(DATA_SEPARATOR)))
             end
           end
 
@@ -98,7 +98,7 @@ module ActiveJob
             timeout = 1.hour.from_now.to_i if timeout < Time.now.utc.to_i
 
             Sidekiq.redis_pool.with do |conn|
-              conn.hset("uniqueness:#{queue_name}", uniqueness_id, ensure_data_utf8([progress, timeout, timeout + 30.minutes].join(DATA_SEPARATOR)))
+              conn.hset("uniqueness:#{queue_name}", uniqueness_id, ensure_data_utf8([progress, timeout, (timeout + 30.minutes).to_i, Time.now.utc.to_i].join(DATA_SEPARATOR)))
             end
           end
 
