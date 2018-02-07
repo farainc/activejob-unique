@@ -46,7 +46,33 @@ module ActiveJob
                 perform_skiped].include?(progress.to_s.to_sym)
           end
 
-          def dirty_uniqueness?(queue_name); end
+          def dirty_uniqueness?(uniqueness)
+            now = Time.now.utc.to_i
+            data = self.ensure_data_utf8(uniqueness).split(DATA_SEPARATOR)
+
+            # progress, timeout, expires
+            progress, timeout, expires = data
+            expires = expires.to_i
+            timeout = timeout.to_i
+
+            # allow when default expiration passed
+            return true if expires.positive? && expires < now
+
+            # allow when perform stage and expiration passed
+            return true if self.perform_stage?(progress) && timeout.positive? && timeout < now
+
+            # allow invalid progress job
+            return true if self.invalid_progress?(progress)
+
+            false
+          end
+
+          def invalid_uniqueness?(uniqueness_id, queue_name)
+            uniqueness = self.read_uniqueness(uniqueness_id, queue_name)
+            return true if uniqueness.blank?
+
+            self.dirty_uniqueness?(uniqueness)
+          end
 
           def read_uniqueness(uniqueness_id, queue_name)
             uniqueness = nil
@@ -58,21 +84,21 @@ module ActiveJob
             uniqueness
           end
 
-          def write_uniqueness_dump(uniqueness_id, queue_name, klass, args, job_id, uniqueness_mode, expires)
+          def write_uniqueness_dump(uniqueness_id, queue_name, klass, args, job_id, uniqueness_mode, timeout)
             return if klass.blank?
 
-            expires = 1.hour.from_now.to_i if expires < Time.now.utc.to_i
+            timeout = 1.hour.from_now.to_i if timeout < Time.now.utc.to_i
 
             Sidekiq.redis_pool.with do |conn|
-              conn.hset("uniqueness:dump:#{queue_name}", uniqueness_id, ensure_data_utf8([klass, job_id, uniqueness_mode, expires, expires + 2.hours, args].join(DATA_SEPARATOR)))
+              conn.hset("uniqueness:dump:#{queue_name}", uniqueness_id, ensure_data_utf8([klass, job_id, uniqueness_mode, timeout, timeout + 30.minutes, args].join(DATA_SEPARATOR)))
             end
           end
 
-          def write_uniqueness_progress(uniqueness_id, queue_name, progress, expires)
-            expires = 1.hour.from_now.to_i if expires < Time.now.utc.to_i
+          def write_uniqueness_progress(uniqueness_id, queue_name, progress, timeout)
+            timeout = 1.hour.from_now.to_i if timeout < Time.now.utc.to_i
 
             Sidekiq.redis_pool.with do |conn|
-              conn.hset("uniqueness:#{queue_name}", uniqueness_id, ensure_data_utf8([progress, expires, expires + 2.hours].join(DATA_SEPARATOR)))
+              conn.hset("uniqueness:#{queue_name}", uniqueness_id, ensure_data_utf8([progress, timeout, timeout + 30.minutes].join(DATA_SEPARATOR)))
             end
           end
 
@@ -99,21 +125,7 @@ module ActiveJob
                   cursor, fields = conn.hscan("uniqueness:#{name}", cursor, count: 100)
 
                   fields.each do |uniqueness_id, uniqueness|
-                    now = Time.now.utc.to_i
-                    data = ensure_data_utf8(uniqueness).split(DATA_SEPARATOR)
-
-                    # progress, expires, defaults
-                    progress, expires, defaults = data
-                    defaults = defaults.to_i
-                    expires = expires.to_i
-
-                    # expires when default expiration passed
-                    should_clean_it = defaults.positive? && defaults < now
-                    should_clean_it ||= perform_stage?(progress) && expires.positive? && expires < now
-
-                    # delete invalid progress unique jobs
-                    should_clean_it ||= invalid_progress?(progress)
-
+                    should_clean_it = dirty_uniqueness?(uniqueness)
                     next unless should_clean_it
 
                     clean_uniqueness(uniqueness_id, name)
