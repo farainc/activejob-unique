@@ -166,6 +166,7 @@ module ActiveJob
            uniqueness_duration.to_i.positive?
 
           write_uniqueness_progress(job, :perform_processed, uniqueness_duration.from_now.to_i)
+          write_uniqueness_dump(job, uniqueness_duration.from_now.to_i)
         else
           clean_uniqueness(job)
         end
