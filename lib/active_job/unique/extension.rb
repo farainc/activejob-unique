@@ -191,12 +191,13 @@ module ActiveJob
       def write_uniqueness_before_enqueue(job)
         return unless valid_uniqueness_mode?
 
+        write_uniqueness_dump(job)
+
         # do not update uniqueness for perform_only_uniqueness_mode
         # when job is in perform_stage
         return if perform_only_uniqueness_mode? && perform_stage_job?(job)
 
         write_uniqueness_progress(job)
-        write_uniqueness_dump(job)
       end
 
       def write_uniqueness_after_enqueue(job)
@@ -213,13 +214,11 @@ module ActiveJob
         return unless valid_uniqueness_mode?
 
         write_uniqueness_progress(job)
-        write_uniqueness_dump(job)
       end
 
       def write_uniqueness_after_perform(job)
         if until_timeout_uniqueness_mode?
           write_uniqueness_progress(job)
-          write_uniqueness_dump(job)
         else
           clean_uniqueness(job)
         end
