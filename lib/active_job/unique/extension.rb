@@ -51,7 +51,7 @@ module ActiveJob
             begin
               r = block.call
 
-              @job_progress = JOB_PROGRESS_PERFORM_PROCESSED
+              @job_progress = JOB_PROGRESS_ENQUEUE_PROCESSED
               incr_job_stats(job)
 
               write_uniqueness_after_enqueue(job)
@@ -306,6 +306,7 @@ module ActiveJob
         def unique_for(option = nil, expiration = 60.minutes)
           # default duration for until_timeout_uniqueness_mode
           self.uniqueness_duration = 5.minutes
+          self.uniqueness_expiration = expiration
 
           if option == true
             self.uniqueness_mode = UNIQUENESS_MODE_UNTIL_AND_WHILE_EXECUTING
@@ -315,8 +316,6 @@ module ActiveJob
           else
             self.uniqueness_mode = option.to_sym
           end
-
-          self.uniqueness_expiration = expiration
         end
 
         def perform_later_forced(*args)
