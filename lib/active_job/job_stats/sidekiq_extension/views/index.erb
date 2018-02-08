@@ -29,7 +29,7 @@
     <thead>
       <th>Queue</th>
       <th><%= stats_label('Uniqueness', 'warning') %></th>
-      <th><%= stats_label('Skiped', 'default') %></th>
+      <th><%= stats_label('Skipped', 'default') %></th>
       <th><%= stats_label('Processing', 'info') %></th>
       <th><%= stats_label('Processed', 'success') %></th>
       <th><%= stats_label('Failed', 'danger') %></th>
@@ -48,7 +48,7 @@
               </p>
             </a>
           </td>
-          <td><%= stats_label(job[:today_enqueue_skiped], 'default') %></td>
+          <td><%= stats_label(job[:today_enqueue_skipped], 'default') %></td>
           <td><%= job[:today_enqueue_processing] %></td>
           <td><%= job[:today_enqueue_processed] %></td>
           <td><%= stats_label(job[:today_enqueue_failed], 'danger') %></td>
@@ -63,7 +63,7 @@
           </td>
         </tr>
         <tr>
-          <td><%= stats_label(job[:today_perform_skiped], 'default') %></td>
+          <td><%= stats_label(job[:today_perform_skipped], 'default') %></td>
           <td><%= job[:today_perform_processing] %></td>
           <td><%= job[:today_perform_processed] %></td>
           <td><%= stats_label(job[:today_perform_failed], 'danger') %></td>

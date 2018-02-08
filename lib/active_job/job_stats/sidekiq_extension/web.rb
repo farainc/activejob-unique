@@ -17,12 +17,12 @@ module ActiveJob
                   queue_name: queue.name,
                   uniqueness: conn.hlen("uniqueness:#{queue.name}"),
                   today_enqueue_attempted: conn.hlen("jobstats:#{today}:enqueue_attempted:#{queue.name}"),
-                  today_enqueue_skiped: conn.hlen("jobstats:#{today}:enqueue_skiped:#{queue.name}"),
+                  today_enqueue_skipped: conn.hlen("jobstats:#{today}:enqueue_skipped:#{queue.name}"),
                   today_enqueue_processing: conn.hlen("jobstats:#{today}:enqueue_processing:#{queue.name}"),
                   today_enqueue_processed: conn.hlen("jobstats:#{today}:enqueue_processed:#{queue.name}"),
                   today_enqueue_failed: conn.hlen("jobstats:#{today}:enqueue_failed:#{queue.name}"),
                   today_perform_attempted: conn.hlen("jobstats:#{today}:perform_attempted:#{queue.name}"),
-                  today_perform_skiped: conn.hlen("jobstats:#{today}:perform_skiped:#{queue.name}"),
+                  today_perform_skipped: conn.hlen("jobstats:#{today}:perform_skipped:#{queue.name}"),
                   today_perform_processing: conn.hlen("jobstats:#{today}:perform_processing:#{queue.name}"),
                   today_perform_processed: conn.hlen("jobstats:#{today}:perform_processed:#{queue.name}"),
                   today_perform_failed: conn.hlen("jobstats:#{today}:perform_failed:#{queue.name}")
@@ -106,7 +106,7 @@ module ActiveJob
                 expires: expires,
                 updated_at: updated_at,
                 dump_timeout: dump_timeout,
-                dump_expires: dump_expires                
+                dump_expires: dump_expires
               }
             end
 
@@ -147,8 +147,8 @@ module ActiveJob
 
             job_stats_hash = {}
             job_klasses = []
-            stats_hash = { skiped: [], processing: [], processed: [], failed: [] }
-            today_stats_hash = { attempted: [], skiped: [], processing: [], processed: [], failed: [] }
+            stats_hash = { skipped: [], processing: [], processed: [], failed: [] }
+            today_stats_hash = { attempted: [], skipped: [], processing: [], processed: [], failed: [] }
 
             Sidekiq.redis_pool.with do |conn|
               cursor, attempted_data = conn.hscan("jobstats:#{stage}_attempted:#{queue_name}", begin_index.to_s, count: @count)
@@ -157,7 +157,7 @@ module ActiveJob
                 job_stats_hash[k] = {
                   klass: k,
                   attempted: { all: v.to_i },
-                  skiped: {},
+                  skipped: {},
                   processing: {},
                   processed: {},
                   failed: {}
@@ -196,7 +196,7 @@ module ActiveJob
             stage = route_params[:stage]
             queue_name = route_params[:queue_name]
 
-            %i[skiped processing processed failed attempted].each do |status|
+            %i[skipped processing processed failed attempted].each do |status|
               ActiveJob::JobStats::SidekiqExtension.cleanup_hash_set("jobstats:#{stage}_#{status}:#{queue_name}")
             end
 
