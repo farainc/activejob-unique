@@ -8,7 +8,20 @@ module ActiveJob
         extend ActiveSupport::Concern
 
         module ClassMethods
-          DATA_SEPARATOR = 0x1E.chr
+          DATA_SEPARATOR = 0x1E.chr.freeze
+
+          JOB_PROGRESS_ENQUEUE_ATTEMPTED = :enqueue_attempted
+          JOB_PROGRESS_ENQUEUE_PROCESSING = :enqueue_processing
+          JOB_PROGRESS_ENQUEUE_FAILED = :enqueue_failed
+          JOB_PROGRESS_ENQUEUE_PROCESSED = :enqueue_processed
+          JOB_PROGRESS_ENQUEUE_SKIPPED = :enqueue_skipped
+
+          JOB_PROGRESS_PERFORM_ATTEMPTED = :perform_attempted
+          JOB_PROGRESS_PERFORM_PROCESSING = :perform_processing
+          JOB_PROGRESS_PERFORM_FAILED = :perform_failed
+          JOB_PROGRESS_PERFORM_PROCESSED = :perform_processed
+          JOB_PROGRESS_PERFORM_SKIPPED = :perform_skipped
+
           def ensure_data_utf8(data)
             data.to_s.encode('utf-8', invalid: :replace, undef: :replace, replace: '')
           end
@@ -18,23 +31,23 @@ module ActiveJob
           end
 
           def enqueue_stage?(progress)
-            %i[enqueue_attempted
-               enqueue_processing
-               enqueue_failed
-               enqueue_processed
-               enqueue_skiped].include?(progress.to_s.to_sym)
+            [JOB_PROGRESS_ENQUEUE_ATTEMPTED,
+             JOB_PROGRESS_ENQUEUE_PROCESSING,
+             JOB_PROGRESS_ENQUEUE_PROCESSED,
+             JOB_PROGRESS_ENQUEUE_FAILED,
+             JOB_PROGRESS_ENQUEUE_SKIPPED].include?(progress.to_s.to_sym)
           end
 
           def perform_stage?(progress)
-            %i[perform_attempted
-               perform_processing
-               perform_failed
-               perform_processed
-               perform_skiped].include?(progress.to_s.to_sym)
+            [JOB_PROGRESS_PERFORM_ATTEMPTED,
+             JOB_PROGRESS_PERFORM_PROCESSING,
+             JOB_PROGRESS_PERFORM_PROCESSED,
+             JOB_PROGRESS_PERFORM_FAILED,
+             JOB_PROGRESS_PERFORM_SKIPPED].include?(progress.to_s.to_sym)
           end
 
           def unknown_stage?(progress)
-             !enqueue_stage?(progress) && !perform_stage?(progress)
+            !enqueue_stage?(progress) && !perform_stage?(progress)
           end
 
           def enqueue_stage_job?(uniqueness_id, queue_name)
@@ -98,21 +111,17 @@ module ActiveJob
             uniqueness
           end
 
-          def write_uniqueness_dump(uniqueness_id, queue_name, klass, args, job_id, uniqueness_mode, timeout)
-            return if klass.blank?
-
-            timeout = 1.hour.from_now.to_i if timeout < Time.now.utc.to_i
-
+          def write_uniqueness_progress(uniqueness_id, queue_name, progress, timeout, expires)
             Sidekiq.redis_pool.with do |conn|
-              conn.hset("uniqueness:dump:#{queue_name}", uniqueness_id, ensure_data_utf8([klass, job_id, uniqueness_mode, timeout, (timeout + 30.minutes).to_i, args].join(DATA_SEPARATOR)))
+              conn.hset("uniqueness:#{queue_name}", uniqueness_id, ensure_data_utf8([progress, timeout, expires, Time.now.utc.to_i].join(DATA_SEPARATOR)))
             end
           end
 
-          def write_uniqueness_progress(uniqueness_id, queue_name, progress, timeout)
-            timeout = 1.hour.from_now.to_i if timeout < Time.now.utc.to_i
+          def write_uniqueness_dump(uniqueness_id, queue_name, klass, args, job_id, uniqueness_mode, timeout, expires)
+            return if klass.blank?
 
             Sidekiq.redis_pool.with do |conn|
-              conn.hset("uniqueness:#{queue_name}", uniqueness_id, ensure_data_utf8([progress, timeout, (timeout + 30.minutes).to_i, Time.now.utc.to_i].join(DATA_SEPARATOR)))
+              conn.hset("uniqueness:dump:#{queue_name}", uniqueness_id, ensure_data_utf8([klass, job_id, uniqueness_mode, timeout, expires, args].join(DATA_SEPARATOR)))
             end
           end
 
@@ -209,7 +218,7 @@ module ActiveJob
                     klasses = conn.hkeys("jobstats:#{day}:#{stage}_attempted:#{name}")
 
                     klasses.each do |klass|
-                      %i[attempted skiped processing failed processed].each do |progress|
+                      %i[attempted skipped processing failed processed].each do |progress|
                         val = conn.hget("jobstats:#{day}:#{stage}_#{progress}:#{name}", klass).to_i
                         if val.positive?
                           conn.hsetnx("jobstats:#{stage}_#{progress}:#{name}", klass, 0)

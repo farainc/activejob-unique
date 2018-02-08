@@ -52,7 +52,7 @@
   <table class="table table-hover table-bordered table-striped table-white">
     <thead>
       <th>Job</th>
-      <th><%= stats_label('Skiped', 'warning') %></th>
+      <th><%= stats_label('Skipped', 'warning') %></th>
       <th><%= stats_label('Processing', 'info') %></th>
       <th><%= stats_label('Processed', 'success') %></th>
       <th><%= stats_label('Failed', 'danger') %></th>
@@ -63,12 +63,12 @@
         <tr>
           <td><%= job[:klass] %></td>
           <td>
-            <%= stats_label(job[:skiped][:today], 'warning') %> /
-            <%= stats_label(job[:skiped][:all], 'default') %>
+            <%= stats_label(job[:skipped][:today], 'warning') %> /
+            <%= stats_label(job[:skipped][:all], 'default') %>
           </td>
           <td>
-            <%= stats_label((job[:attempted][:today]-job[:processed][:today]-job[:skiped][:today]-job[:failed][:today]), 'info') %> /
-            <%= stats_label((job[:attempted][:all]-job[:processed][:all]-job[:skiped][:all]-job[:failed][:all]), 'default') %>
+            <%= stats_label((job[:attempted][:today]-job[:processed][:today]-job[:skipped][:today]-job[:failed][:today]), 'info') %> /
+            <%= stats_label((job[:attempted][:all]-job[:processed][:all]-job[:skipped][:all]-job[:failed][:all]), 'default') %>
           </td>
           <td>
             <%= stats_label(job[:processed][:today], 'success') %> /
