@@ -164,8 +164,8 @@ module ActiveJob
         return true if perform_only_uniqueness_mode?
         return true if dirty_uniqueness?(job)
 
-        # allow enqueue_only_uniqueness_mode job to enqueue in perform_stage
-        enqueue_only_uniqueness_mode? && perform_stage_job?(job)
+        # only allow enqueue_only_uniqueness_mode job not in enqueue_stage to enqueue
+        enqueue_only_uniqueness_mode? && !enqueue_stage_job?(job)
       end
 
       def allow_perform_uniqueness?(job)
@@ -174,8 +174,8 @@ module ActiveJob
         return true if enqueue_only_uniqueness_mode?
         return true if dirty_uniqueness?(job)
 
-        # allow enqueue_stage job to perform (it's current job)
-        enqueue_stage_job?(job)
+        # only allow job not in perform_stage to perform (it's current job)
+        !perform_stage_job?(job)
       end
 
       def dirty_uniqueness?(job)
