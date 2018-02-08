@@ -288,6 +288,7 @@ module ActiveJob
 
         stats_adapter.write_uniqueness_progress(prepare_uniqueness_id(job),
                                                 job.queue_name,
+                                                job.class.name,
                                                 job_progress,
                                                 timeout,
                                                 expires)

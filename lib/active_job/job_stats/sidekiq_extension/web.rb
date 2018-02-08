@@ -77,8 +77,8 @@ module ActiveJob
               progress_array = data[:progress].to_s.encode('utf-8', invalid: :replace, undef: :replace, replace: '').split(DATA_SEPARATOR)
               dump_array = data[:dump].to_s.encode('utf-8', invalid: :replace, undef: :replace, replace: '').split(DATA_SEPARATOR)
 
-              progress, timeout, expires, updated_at = progress_array
-              klass, job_id, uniqueness_mode, *args = dump_array
+              progress, timeout, expires, updated_at, klass = progress_array
+              klass, job_id, uniqueness_mode, *args = dump_array if dump_array.present?
 
               updated_at = updated_at.to_i
               updated_at = Time.at(updated_at).utc if updated_at.positive?
