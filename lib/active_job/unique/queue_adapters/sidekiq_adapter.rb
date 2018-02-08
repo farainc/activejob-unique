@@ -71,6 +71,8 @@ module ActiveJob
           end
 
           def dirty_uniqueness?(uniqueness)
+            return true if uniqueness.blank?
+            
             now = Time.now.utc.to_i
             data = ensure_data_utf8(uniqueness).split(DATA_SEPARATOR)
 

@@ -175,9 +175,8 @@ module ActiveJob
 
       def dirty_uniqueness?(job)
         return true unless stats_adapter.respond_to?(:dirty_uniqueness?)
-        return true if read_uniqueness(job).blank?
 
-        stats_adapter.dirty_uniqueness?(uniqueness)
+        stats_adapter.dirty_uniqueness?(read_uniqueness(job))
       end
 
       def read_uniqueness(job)
