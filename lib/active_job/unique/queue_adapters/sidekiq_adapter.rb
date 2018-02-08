@@ -72,7 +72,7 @@ module ActiveJob
 
           def dirty_uniqueness?(uniqueness)
             return true if uniqueness.blank?
-            
+
             now = Time.now.utc.to_i
             data = ensure_data_utf8(uniqueness).split(DATA_SEPARATOR)
 
@@ -119,11 +119,11 @@ module ActiveJob
             end
           end
 
-          def write_uniqueness_dump(uniqueness_id, queue_name, klass, args, job_id, uniqueness_mode, timeout, expires)
+          def write_uniqueness_dump(uniqueness_id, queue_name, klass, args, job_id, uniqueness_mode)
             return if klass.blank?
 
             Sidekiq.redis_pool.with do |conn|
-              conn.hset("uniqueness:dump:#{queue_name}", uniqueness_id, ensure_data_utf8([klass, job_id, uniqueness_mode, timeout, expires, args].join(DATA_SEPARATOR)))
+              conn.hset("uniqueness:dump:#{queue_name}", uniqueness_id, ensure_data_utf8([klass, job_id, uniqueness_mode, args].join(DATA_SEPARATOR)))
             end
           end
 

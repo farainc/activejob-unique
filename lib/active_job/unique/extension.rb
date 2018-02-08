@@ -277,17 +277,12 @@ module ActiveJob
       def write_uniqueness_dump(job)
         return unless stats_adapter.respond_to?(:write_uniqueness_dump)
 
-        timeout = calculate_timeout(job)
-        expires = calculate_expires(job)
-
         stats_adapter.write_uniqueness_dump(prepare_uniqueness_id(job),
                                             job.queue_name,
                                             job.class.name,
                                             job.arguments,
                                             job.job_id,
-                                            uniqueness_mode,
-                                            timeout,
-                                            expires)
+                                            uniqueness_mode)
       end
 
       def clean_uniqueness(job)

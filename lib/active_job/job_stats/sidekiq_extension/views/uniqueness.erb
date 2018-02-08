@@ -47,8 +47,7 @@
   <table class="table table-hover table-bordered table-striped table-white">
     <thead>
       <th>Uniquenes</th>
-      <th>Timeout</th>
-      <th>Expires</th>
+      <th>Time</th>
       <th>Job</th>
       <th></th>
     </thead>
@@ -63,24 +62,16 @@
             <div class="nowrap">
               <strong>State:&nbsp;</strong><%= job[:progress] %>
             </div>
+          </td>
+          <td>
+            <div class="nowrap">
+              <strong>Timeout:&nbsp;</strong><%= (relative_time(job[:timeout]) rescue '') %>
+            </div>
+            <div class="nowrap">
+              <strong>Expires:&nbsp;</strong><%= (relative_time(job[:expires]) rescue '') %>
+            </div>
             <div class="nowrap">
               <strong>Updated At:&nbsp;</strong><%= (relative_time(job[:updated_at]) rescue '') %>
-            </div>
-          </td>
-          <td>
-            <div class="nowrap" title="saved in simple state data">
-              <strong>S:&nbsp;</strong><%= (relative_time(job[:timeout]) rescue '') %>
-            </div>
-            <div class="nowrap" title="saved in full job data">
-              <strong>F:&nbsp;</strong><%= (relative_time(job[:dump_timeout]) rescue '') %>
-            </div>
-          </td>
-          <td>
-            <div class="nowrap" title="saved in simple state data">
-              <strong>S:&nbsp;</strong><%= (relative_time(job[:expires]) rescue '') %>
-            </div>
-            <div class="nowrap" title="saved in full job data">
-              <strong>F:&nbsp;</strong><%= (relative_time(job[:dump_expires]) rescue '') %>
             </div>
           </td>
           <td>
