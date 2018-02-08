@@ -38,12 +38,12 @@ module ActiveJob
         around_enqueue do |job, block|
           r = nil
 
-          job_progress = JOB_PROGRESS_ENQUEUE_ATTEMPTED
+          @job_progress = JOB_PROGRESS_ENQUEUE_ATTEMPTED
           incr_job_stats(job)
 
           # must be keep this block
           if allow_enqueue_uniqueness?(job)
-            job_progress = JOB_PROGRESS_ENQUEUE_PROCESSING
+            @job_progress = JOB_PROGRESS_ENQUEUE_PROCESSING
             incr_job_stats(job)
 
             write_uniqueness_before_enqueue(job)
@@ -51,19 +51,19 @@ module ActiveJob
             begin
               r = block.call
 
-              job_progress = JOB_PROGRESS_PERFORM_PROCESSED
+              @job_progress = JOB_PROGRESS_PERFORM_PROCESSED
               incr_job_stats(job)
 
               write_uniqueness_after_enqueue(job)
             rescue StandardError => e
-              job_progress = JOB_PROGRESS_ENQUEUE_FAILED
+              @job_progress = JOB_PROGRESS_ENQUEUE_FAILED
               incr_job_stats(job)
 
               clean_uniqueness(job)
               raise e
             end
           else
-            job_progress = JOB_PROGRESS_ENQUEUE_SKIPPED
+            @job_progress = JOB_PROGRESS_ENQUEUE_SKIPPED
             incr_job_stats(job)
           end
 
@@ -73,12 +73,12 @@ module ActiveJob
         around_perform do |job, block|
           r = nil
 
-          job_progress = JOB_PROGRESS_PERFORM_ATTEMPTED
+          @job_progress = JOB_PROGRESS_PERFORM_ATTEMPTED
           incr_job_stats(job)
 
           # must be keep this block
           if allow_perform_uniqueness?(job)
-            job_progress = JOB_PROGRESS_PERFORM_PROCESSING
+            @job_progress = JOB_PROGRESS_PERFORM_PROCESSING
             incr_job_stats(job)
 
             write_uniqueness_before_perform(job)
@@ -86,19 +86,19 @@ module ActiveJob
             begin
               r = block.call
 
-              job_progress = JOB_PROGRESS_PERFORM_PROCESSED
+              @job_progress = JOB_PROGRESS_PERFORM_PROCESSED
               incr_job_stats(job)
 
               write_uniqueness_after_perform(job)
             rescue StandardError => e
-              job_progress = JOB_PROGRESS_PERFORM_FAILED
+              @job_progress = JOB_PROGRESS_PERFORM_FAILED
               incr_job_stats(job)
 
               clean_uniqueness(job)
               raise e
             end
           else
-            job_progress = JOB_PROGRESS_PERFORM_SKIPPED
+            @job_progress = JOB_PROGRESS_PERFORM_SKIPPED
             incr_job_stats(job)
           end
 
@@ -107,27 +107,27 @@ module ActiveJob
       end
 
       def enqueue_processing?
-        job_progress == JOB_PROGRESS_ENQUEUE_PROCESSING
+        @job_progress == JOB_PROGRESS_ENQUEUE_PROCESSING
       end
 
       def enqueue_processed?
-        job_progress == JOB_PROGRESS_ENQUEUE_PROCESSED
+        @job_progress == JOB_PROGRESS_ENQUEUE_PROCESSED
       end
 
       def enqueue_skipped?
-        job_progress == JOB_PROGRESS_ENQUEUE_SKIPPED
+        @job_progress == JOB_PROGRESS_ENQUEUE_SKIPPED
       end
 
       def perform_processing?
-        job_progress == JOB_PROGRESS_PERFORM_PROCESSING
+        @job_progress == JOB_PROGRESS_PERFORM_PROCESSING
       end
 
       def perform_processed?
-        job_progress == JOB_PROGRESS_PERFORM_PROCESSED
+        @job_progress == JOB_PROGRESS_PERFORM_PROCESSED
       end
 
       def perform_skipped?
-        job_progress == JOB_PROGRESS_PERFORM_SKIPPED
+        @job_progress == JOB_PROGRESS_PERFORM_SKIPPED
       end
 
       def stats_adapter
