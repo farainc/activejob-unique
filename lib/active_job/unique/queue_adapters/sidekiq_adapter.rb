@@ -78,14 +78,14 @@ module ActiveJob
 
             # progress, timeout, expires
             progress, timeout, expires = data
-            expires = expires.to_i
             timeout = timeout.to_i
+            expires = expires.to_i
 
             # allow when default expiration passed
-            return true if expires.positive? && expires < now
+            return true if expires.zero? || expires < now
 
             # allow when perform stage and expiration passed
-            return true if perform_stage?(progress) && timeout.positive? && timeout < now
+            return true if perform_stage?(progress) && (timeout.zero? || timeout < now)
 
             # allow unknown stage
             return true if unknown_stage?(progress)
@@ -114,6 +114,9 @@ module ActiveJob
           end
 
           def write_uniqueness_progress(uniqueness_id, queue_name, progress, timeout, expires)
+            # expires must be later than timeout
+            expires += 5.minutes if expires < timeout
+
             Sidekiq.redis_pool.with do |conn|
               conn.hset("uniqueness:#{queue_name}", uniqueness_id, ensure_data_utf8([progress, timeout, expires, Time.now.utc.to_i].join(DATA_SEPARATOR)))
             end

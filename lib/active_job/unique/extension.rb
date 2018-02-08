@@ -150,6 +150,10 @@ module ActiveJob
         UNIQUENESS_MODE_UNTIL_EXECUTING == uniqueness_mode
       end
 
+      def perform_only_uniqueness_mode?
+        UNIQUENESS_MODE_WHILE_EXECUTING == uniqueness_mode
+      end
+
       def until_timeout_uniqueness_mode?
         UNIQUENESS_MODE_UNTIL_TIMEOUT == uniqueness_mode
       end
@@ -157,9 +161,11 @@ module ActiveJob
       def allow_enqueue_uniqueness?(job)
         return true if job.unique_as_skipped
         return true unless valid_uniqueness_mode?
+        return true if perform_only_uniqueness_mode?
+        return true if dirty_uniqueness?(job)
 
-        # only allow dirty_uniqueness to enqueue
-        dirty_uniqueness?(job)
+        # allow enqueue_only_uniqueness_mode job to enqueue in perform_stage
+        enqueue_only_uniqueness_mode? && perform_stage_job?(job)
       end
 
       def allow_perform_uniqueness?(job)
@@ -168,9 +174,8 @@ module ActiveJob
         return true if enqueue_only_uniqueness_mode?
         return true if dirty_uniqueness?(job)
 
-        # allow enqueue_stage job to perform as well
-        return true unless stats_adapter.respond_to?(:enqueue_stage_job?)
-        stats_adapter.enqueue_stage_job?(prepare_uniqueness_id(job), job.queue_name)
+        # allow enqueue_stage job to perform (it's current job)
+        enqueue_stage_job?(job)
       end
 
       def dirty_uniqueness?(job)
@@ -186,12 +191,20 @@ module ActiveJob
       def write_uniqueness_before_enqueue(job)
         return unless valid_uniqueness_mode?
 
+        # do not update uniqueness for perform_only_uniqueness_mode
+        # when job is in perform_stage
+        return if perform_only_uniqueness_mode? && perform_stage_job?(job)
+
         write_uniqueness_progress(job)
         write_uniqueness_dump(job)
       end
 
       def write_uniqueness_after_enqueue(job)
         return unless valid_uniqueness_mode?
+
+        # do not update uniqueness for perform_only_uniqueness_mode
+        # when job is in perform_stage
+        return if perform_only_uniqueness_mode? && perform_stage_job?(job)
 
         write_uniqueness_progress(job)
       end
@@ -245,17 +258,24 @@ module ActiveJob
       def calculate_expires(job)
         expires = 0
 
-        # always use saved expiration first
-        uniqueness = read_uniqueness(job)
-        if uniqueness.present?
-          data = ensure_data_utf8(uniqueness).split(DATA_SEPARATOR)
-          progress, timeout, expires = data
-          expires = expires.to_i
-        end
-
-        unless expires.positive?
+        # reset expires when enqueue processing
+        case job_progress
+        when JOB_PROGRESS_ENQUEUE_PROCESSING
           expires = uniqueness_expiration.from_now.to_i
           expires = (job.scheduled_at + uniqueness_expiration).to_i if job.scheduled_at.present?
+        else
+          # always use saved expiration first
+          uniqueness = read_uniqueness(job)
+          if uniqueness.present?
+            data = ensure_data_utf8(uniqueness).split(DATA_SEPARATOR)
+            progress, timeout, expires = data
+            expires = expires.to_i
+          end
+
+          unless expires.positive?
+            expires = uniqueness_expiration.from_now.to_i
+            expires = (job.scheduled_at + uniqueness_expiration).to_i if job.scheduled_at.present?
+          end
         end
 
         expires
@@ -285,6 +305,17 @@ module ActiveJob
                                             uniqueness_mode)
       end
 
+      def enqueue_stage_job?(job)
+        return false unless stats_adapter.respond_to?(:enqueue_stage_job?)
+        stats_adapter.enqueue_stage_job?(prepare_uniqueness_id(job), job.queue_name)
+      end
+
+      def perform_stage_job?(job)
+        return false unless stats_adapter.respond_to?(:perform_stage_job?)
+
+        stats_adapter.perform_stage_job?(prepare_uniqueness_id(job), job.queue_name)
+      end
+
       def clean_uniqueness(job)
         return unless stats_adapter.respond_to?(:clean_uniqueness)
 
@@ -299,8 +330,9 @@ module ActiveJob
       # add your static(class) methods here
       module ClassMethods
         def unique_for(option = nil, expiration = 60.minutes)
-          # default duration for until_timeout_uniqueness_mode
-          self.uniqueness_duration = 5.minutes
+          # default duration for a job is 10.minutes after perform processing
+          # set longer duration for long running jobs
+          self.uniqueness_duration = 10.minutes
           self.uniqueness_expiration = expiration
 
           if option == true
