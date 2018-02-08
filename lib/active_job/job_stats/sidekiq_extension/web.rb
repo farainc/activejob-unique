@@ -78,7 +78,7 @@ module ActiveJob
               dump_array = data[:dump].to_s.encode('utf-8', invalid: :replace, undef: :replace, replace: '').split(DATA_SEPARATOR)
 
               progress, timeout, expires, updated_at = progress_array
-              klass, job_id, uniqueness_mode, dump_timeout, dump_expires, *args = dump_array
+              klass, job_id, uniqueness_mode, *args = dump_array
 
               updated_at = updated_at.to_i
               updated_at = Time.at(updated_at).utc if updated_at.positive?
@@ -89,12 +89,6 @@ module ActiveJob
               expires = expires.to_i
               expires = Time.at(expires).utc if expires.positive?
 
-              dump_timeout = dump_timeout.to_i
-              dump_timeout = Time.at(dump_timeout).utc if dump_timeout.positive?
-
-              dump_expires = dump_expires.to_i
-              dump_expires = Time.at(dump_expires).utc if dump_expires.positive?
-
               @job_stats << {
                 uniqueness_id: uniqueness_id,
                 uniqueness_mode: uniqueness_mode,
@@ -104,9 +98,7 @@ module ActiveJob
                 job_id: job_id,
                 timeout: timeout,
                 expires: expires,
-                updated_at: updated_at,
-                dump_timeout: dump_timeout,
-                dump_expires: dump_expires
+                updated_at: updated_at
               }
             end
 
