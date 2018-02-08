@@ -123,8 +123,6 @@ module ActiveJob
           end
 
           def write_uniqueness_dump(uniqueness_id, queue_name, klass, args, job_id, uniqueness_mode)
-            return if klass.blank?
-
             Sidekiq.redis_pool.with do |conn|
               conn.hset("uniqueness:dump:#{queue_name}", uniqueness_id, ensure_data_utf8([klass, job_id, uniqueness_mode, args].join(DATA_SEPARATOR)))
             end

@@ -56,8 +56,6 @@ module ActiveJob
             end
             end_index = begin_index + @count - 1
 
-            uniqueness_hash = {}
-
             Sidekiq.redis_pool.with do |conn|
               cursor, raw_data = conn.hscan("uniqueness:#{queue_name}", begin_index.to_s, count: @count)
               raw_data = raw_data[begin_index..end_index] if cursor == '0'
@@ -65,41 +63,35 @@ module ActiveJob
               if raw_data.present?
                 raw_data.each do |k, v|
                   dump = conn.hget("uniqueness:dump:#{queue_name}", k)
-                  uniqueness_hash[k] = {
-                    progress: v,
-                    dump: dump
+
+                  progress_array = v.to_s.split(DATA_SEPARATOR)
+                  dump_array = dump.to_s.split(DATA_SEPARATOR)
+
+                  progress, timeout, expires, updated_at, klass = progress_array
+                  klass, job_id, uniqueness_mode, *args = dump_array
+
+                  timeout = timeout.to_i
+                  timeout = Time.at(timeout).utc if timeout.positive?
+
+                  expires = expires.to_i
+                  expires = Time.at(expires).utc if expires.positive?
+
+                  updated_at = updated_at.to_i
+                  updated_at = Time.at(updated_at).utc if updated_at.positive?
+
+                  @job_stats << {
+                    uniqueness_id: k,
+                    uniqueness_mode: uniqueness_mode,
+                    progress: progress,
+                    klass: klass,
+                    args: args,
+                    job_id: job_id,
+                    timeout: timeout,
+                    expires: expires,
+                    updated_at: updated_at
                   }
                 end
               end
-            end
-
-            uniqueness_hash.each do |uniqueness_id, data|
-              progress_array = data[:progress].to_s.encode('utf-8', invalid: :replace, undef: :replace, replace: '').split(DATA_SEPARATOR)
-              dump_array = data[:dump].to_s.encode('utf-8', invalid: :replace, undef: :replace, replace: '').split(DATA_SEPARATOR)
-
-              progress, timeout, expires, updated_at, klass = progress_array
-              klass, job_id, uniqueness_mode, *args = dump_array if dump_array.present?
-
-              updated_at = updated_at.to_i
-              updated_at = Time.at(updated_at).utc if updated_at.positive?
-
-              timeout = timeout.to_i
-              timeout = Time.at(timeout).utc if timeout.positive?
-
-              expires = expires.to_i
-              expires = Time.at(expires).utc if expires.positive?
-
-              @job_stats << {
-                uniqueness_id: uniqueness_id,
-                uniqueness_mode: uniqueness_mode,
-                progress: progress,
-                klass: klass,
-                args: args,
-                job_id: job_id,
-                timeout: timeout,
-                expires: expires,
-                updated_at: updated_at
-              }
             end
 
             render(:erb, File.read(File.join(view_path, 'uniqueness.erb')))
