@@ -214,7 +214,7 @@ module ActiveJob
         write_uniqueness_progress(job)
       end
 
-      def write_uniqueness_after_perform(job)
+      def write_uniqueness_after_perform(job)        
         if until_timeout_uniqueness_mode? && !stats_adapter.dirty_uniqueness?(read_uniqueness(job))
           write_uniqueness_progress(job)
         else
@@ -237,8 +237,6 @@ module ActiveJob
         when JOB_PROGRESS_PERFORM_PROCESSING
           timeout = uniqueness_duration.from_now.to_i
         when JOB_PROGRESS_PERFORM_PROCESSED
-          uniqueness = read_uniqueness(job)
-
           uniqueness = read_uniqueness(job)
           j = JSON.load(uniqueness) rescue nil
           timeout = j["t"].to_i if j.present?

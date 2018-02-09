@@ -8,8 +8,6 @@ module ActiveJob
         extend ActiveSupport::Concern
 
         module ClassMethods
-          DATA_SEPARATOR = 0x1E.chr.freeze
-
           JOB_PROGRESS_ENQUEUE_ATTEMPTED = :enqueue_attempted
           JOB_PROGRESS_ENQUEUE_PROCESSING = :enqueue_processing
           JOB_PROGRESS_ENQUEUE_FAILED = :enqueue_failed
@@ -51,35 +49,29 @@ module ActiveJob
           end
 
           def enqueue_stage_job?(uniqueness_id, queue_name)
-            uniqueness = read_uniqueness(uniqueness_id, queue_name)
-            return false if uniqueness.blank?
+            j = JSON.load(read_uniqueness(uniqueness_id, queue_name)) rescue nil
+            return false if j.blank?
 
-            data = ensure_data_utf8(uniqueness).split(DATA_SEPARATOR)
-            progress, timeout, expires = data
-
-            enqueue_stage?(progress)
+            enqueue_stage?(j["p"])
           end
 
           def perform_stage_job?(uniqueness_id, queue_name)
-            uniqueness = read_uniqueness(uniqueness_id, queue_name)
-            return false if uniqueness.blank?
+            j = JSON.load(read_uniqueness(uniqueness_id, queue_name)) rescue nil
+            return false if j.blank?
 
-            data = ensure_data_utf8(uniqueness).split(DATA_SEPARATOR)
-            progress, timeout, expires = data
-
-            perform_stage?(progress)
+            perform_stage?(j["p"])
           end
 
           def dirty_uniqueness?(uniqueness)
-            return true if uniqueness.blank?
+            j = JSON.load(uniqueness) rescue nil
+            return true if j.blank?
 
             now = Time.now.utc.to_i
-            data = ensure_data_utf8(uniqueness).split(DATA_SEPARATOR)
 
             # progress, timeout, expires
-            progress, timeout, expires = data
-            timeout = timeout.to_i
-            expires = expires.to_i
+            progress = j["p"]
+            timeout = j["t"].to_i
+            expires = j["e"].to_i
 
             # allow when default expiration passed
             return true if expires.zero? || expires < now
@@ -151,11 +143,10 @@ module ActiveJob
                   cursor, fields = conn.hscan("uniqueness:#{name}", cursor, count: 100)
 
                   fields.each do |uniqueness_id, uniqueness|
-                    should_clean_it = dirty_uniqueness?(uniqueness)
-                    next unless should_clean_it
-
-                    clean_uniqueness(uniqueness_id, name)
-                    output[name] += 1
+                    if dirty_uniqueness?(uniqueness)
+                      clean_uniqueness(uniqueness_id, name)
+                      output[name] += 1
+                    end
                   end
 
                   break if cursor == '0'
