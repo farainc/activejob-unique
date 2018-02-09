@@ -215,7 +215,7 @@ module ActiveJob
       end
 
       def write_uniqueness_after_perform(job)
-        if until_timeout_uniqueness_mode?
+        if until_timeout_uniqueness_mode? && !stats_adapter.dirty_uniqueness?(read_uniqueness(job))
           write_uniqueness_progress(job)
         else
           clean_uniqueness(job)
