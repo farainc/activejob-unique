@@ -298,7 +298,10 @@ module ActiveJob
         return unless stats_adapter.respond_to?(:write_uniqueness_progress_and_dump)
 
         timeout = calculate_timeout(job)
+        return if timeout < Time.now.to_i
+
         expires = calculate_expires(job)
+        return if expires < Time.now.to_i
 
         stats_adapter.write_uniqueness_progress_and_dump(prepare_uniqueness_id(job),
                                                          job.queue_name,
