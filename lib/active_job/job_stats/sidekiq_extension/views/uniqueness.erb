@@ -68,10 +68,10 @@
               <strong>Timeout:&nbsp;</strong><%= job[:timeout].positive? ? (relative_time(Time.at(job[:timeout]).utc) rescue 'err') : '--' %>
             </div>
             <div class="nowrap">
-              <strong>Expires:&nbsp;</strong><%= job[:timeout].positive? ? (relative_time(Time.at(job[:expires]).utc) rescue 'err') : '--' %>
+              <strong>Expires:&nbsp;</strong><%= job[:expires].positive? ? (relative_time(Time.at(job[:expires]).utc) rescue 'err') : '--' %>
             </div>
             <div class="nowrap">
-              <strong>Updated At:&nbsp;</strong><%= job[:timeout].positive? ? (relative_time(Time.at(job[:updated_at]).utc) rescue 'err') : '--' %>
+              <strong>Updated At:&nbsp;</strong><%= job[:updated_at].positive? ? (relative_time(Time.at(job[:updated_at]).utc) rescue 'err') : '--' %>
             </div>
           </td>
           <td>
