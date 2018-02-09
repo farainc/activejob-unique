@@ -77,15 +77,16 @@ module ActiveJob
                     updated_at: (Time.at(jp["u"]).utc rescue nil)
                   }
 
-                  next if stats[:klass].present?
+                  if stats[:klass].blank?
+                    jd = JSON.load(conn.hget("uniqueness:dump:#{queue_name}", k)) rescue nil
 
-                  jd = JSON.load(conn.hget("uniqueness:dump:#{queue_name}", k)) rescue nil
-                  next if jd.blank?
-
-                  stats[:klass] = jd["k"]
-                  stats[:args] = jd["a"]
-                  stats[:job_id] = jd["j"]
-                  stats[:uniqueness_mode] = jd["m"]
+                    if jd.present?
+                      stats[:klass] = jd["k"]
+                      stats[:args] = jd["a"]
+                      stats[:job_id] = jd["j"]
+                      stats[:uniqueness_mode] = jd["m"]
+                    end
+                  end
 
                   @job_stats << stats
                 end
