@@ -216,8 +216,7 @@ module ActiveJob
 
       def write_uniqueness_after_perform(job)
         if until_timeout_uniqueness_mode?
-          write_uniqueness_dump(job)
-          write_uniqueness_progress(job)
+          write_uniqueness_progress_and_dump(job)
         else
           clean_uniqueness(job)
         end
@@ -294,6 +293,23 @@ module ActiveJob
                                             job.arguments,
                                             job.job_id,
                                             uniqueness_mode)
+      end
+
+      def write_uniqueness_progress_and_dump(job)
+        return unless stats_adapter.respond_to?(:write_uniqueness_progress_and_dump)
+
+        timeout = calculate_timeout(job)
+        expires = calculate_expires(job)
+
+        stats_adapter.write_uniqueness_progress_and_dump(prepare_uniqueness_id(job),
+                                                         job.queue_name,
+                                                         job.class.name,
+                                                         job_progress,
+                                                         job.arguments,
+                                                         job.job_id,
+                                                         uniqueness_mode,
+                                                         timeout,
+                                                         expires)
       end
 
       def enqueue_stage_job?(job)

@@ -63,23 +63,29 @@ module ActiveJob
               if raw_data.present?
                 raw_data.each do |k, v|
                   jp = JSON.load(v) rescue nil
+                  next if jp.blank?
+
+                  stats = {
+                    uniqueness_id: k,
+                    klass: jp["k"],
+                    args: jp["a"],
+                    job_id: jp["j"],
+                    uniqueness_mode: jp["m"],
+                    progress: jp["p"],
+                    timeout: (Time.at(jp["t"]).utc rescue nil),
+                    expires: (Time.at(jp["e"]).utc rescue nil),
+                    updated_at: (Time.at(jp["u"]).utc rescue nil)
+                  }
+
+                  next if stats[:klass].present?
+
                   jd = JSON.load(conn.hget("uniqueness:dump:#{queue_name}", k)) rescue nil
+                  next if jd.blank?
 
-                  stats = { uniqueness_id: k }
-
-                  if jp.present?
-                    stats[:klass] = jp["k"]
-                    stats[:progress] = jp["p"]
-                    stats[:timeout] = (Time.at(jp["t"]).utc rescue nil)
-                    stats[:expires] = (Time.at(jp["e"]).utc rescue nil)
-                    stats[:updated_at] = (Time.at(jp["u"]).utc rescue nil)
-                  end
-
-                  if jd.present?
-                    stats[:uniqueness_mode] = jd["m"]
-                    stats[:job_id] = jd["j"]
-                    stats[:args] = jd["a"]
-                  end
+                  stats[:klass] = jd["k"]
+                  stats[:args] = jd["a"]
+                  stats[:job_id] = jd["j"]
+                  stats[:uniqueness_mode] = jd["m"]
 
                   @job_stats << stats
                 end
