@@ -77,8 +77,8 @@ module ActiveJob
 
                   if jd.present?
                     stats[:uniqueness_mode] = jd["m"]
-                    stats[:job_id] = jp["j"]
-                    stats[:args] = jp["a"]
+                    stats[:job_id] = jd["j"]
+                    stats[:args] = jd["a"]
                   end
 
                   @job_stats << stats
