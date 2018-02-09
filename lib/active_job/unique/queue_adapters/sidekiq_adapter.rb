@@ -118,13 +118,13 @@ module ActiveJob
             expires += 5.minutes if expires < timeout
 
             Sidekiq.redis_pool.with do |conn|
-              conn.hset("uniqueness:#{queue_name}", uniqueness_id, ensure_data_utf8([progress, timeout, expires, Time.now.utc.to_i, klass].join(DATA_SEPARATOR)))
+              conn.hset("uniqueness:#{queue_name}", uniqueness_id, JSON.dump({ "p": progress, "t": timeout, "e": expires, "u": Time.now.utc.to_i, "k": klass }))
             end
           end
 
           def write_uniqueness_dump(uniqueness_id, queue_name, klass, args, job_id, uniqueness_mode)
             Sidekiq.redis_pool.with do |conn|
-              conn.hset("uniqueness:dump:#{queue_name}", uniqueness_id, ensure_data_utf8([klass, job_id, uniqueness_mode, args].join(DATA_SEPARATOR)))
+              conn.hset("uniqueness:dump:#{queue_name}", uniqueness_id, JSON.dump({ "j": job_id, "m": uniqueness_mode, "a": args, "k": klass }))
             end
           end
 
