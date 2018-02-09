@@ -65,13 +65,13 @@
           </td>
           <td>
             <div class="nowrap">
-              <strong>Timeout:&nbsp;</strong><%= (relative_time(job[:timeout]) rescue '') %>
+              <strong>Timeout:&nbsp;</strong><%= (relative_time(Time.at(job[:timeout]).utc) rescue '') %>
             </div>
             <div class="nowrap">
-              <strong>Expires:&nbsp;</strong><%= (relative_time(job[:expires]) rescue '') %>
+              <strong>Expires:&nbsp;</strong><%= (relative_time(Time.at(job[:expires]).utc) rescue '') %>
             </div>
             <div class="nowrap">
-              <strong>Updated At:&nbsp;</strong><%= (relative_time(job[:updated_at]) rescue '') %>
+              <strong>Updated At:&nbsp;</strong><%= (relative_time(Time.at(job[:updated_at]).utc) rescue '') %>
             </div>
           </td>
           <td>

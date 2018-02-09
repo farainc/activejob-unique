@@ -72,9 +72,9 @@ module ActiveJob
                     job_id: jp["j"],
                     uniqueness_mode: jp["m"],
                     progress: jp["p"],
-                    timeout: (Time.at(jp["t"]).utc rescue nil),
-                    expires: (Time.at(jp["e"]).utc rescue nil),
-                    updated_at: (Time.at(jp["u"]).utc rescue nil)
+                    timeout: jp["t"],
+                    expires: jp["e"],
+                    updated_at: jp["u"]
                   }
 
                   if stats[:klass].blank?
