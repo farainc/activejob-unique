@@ -74,10 +74,10 @@ module ActiveJob
             expires = j["e"].to_i
 
             # allow when default expiration passed
-            return true if expires.zero? || expires < now
+            return true if expires < now
 
             # allow when perform stage and expiration passed
-            return true if perform_stage?(progress) && (timeout.zero? || timeout < now)
+            return true if perform_stage?(progress) && timeout < now
 
             # allow unknown stage
             return true if unknown_stage?(progress)
