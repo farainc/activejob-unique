@@ -62,34 +62,26 @@ module ActiveJob
 
               if raw_data.present?
                 raw_data.each do |k, v|
-                  dump = conn.hget("uniqueness:dump:#{queue_name}", k)
+                  jp = JSON.load(v) rescue nil
+                  jd = JSON.load(conn.hget("uniqueness:dump:#{queue_name}", k)) rescue nil
 
-                  progress_array = v.to_s.split(DATA_SEPARATOR)
-                  dump_array = dump.to_s.split(DATA_SEPARATOR)
+                  stats = { uniqueness_id: k }
 
-                  progress, timeout, expires, updated_at, klass = progress_array
-                  klass, job_id, uniqueness_mode, *args = dump_array
+                  if jp.present?
+                    stats[:klass] = jp["k"]
+                    stats[:progress] = jp["p"]
+                    stats[:timeout] = (Time.at(jp["t"]).utc rescue nil)
+                    stats[:expires] = (Time.at(jp["e"]).utc rescue nil)
+                    stats[:updated_at] = (Time.at(jp["u"]).utc rescue nil)
+                  end
 
-                  timeout = timeout.to_i
-                  timeout = Time.at(timeout).utc if timeout.positive?
+                  if jd.present?
+                    stats[:uniqueness_mode] = jd["m"]
+                    stats[:job_id] = jp["j"]
+                    stats[:args] = jp["a"]
+                  end
 
-                  expires = expires.to_i
-                  expires = Time.at(expires).utc if expires.positive?
-
-                  updated_at = updated_at.to_i
-                  updated_at = Time.at(updated_at).utc if updated_at.positive?
-
-                  @job_stats << {
-                    uniqueness_id: k,
-                    uniqueness_mode: uniqueness_mode,
-                    progress: progress,
-                    klass: klass,
-                    args: args,
-                    job_id: job_id,
-                    timeout: timeout,
-                    expires: expires,
-                    updated_at: updated_at
-                  }
+                  @job_stats << stats
                 end
               end
             end

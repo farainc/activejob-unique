@@ -5,8 +5,6 @@ module ActiveJob
   module Unique
     module Extension
       extend ActiveSupport::Concern
-      DATA_SEPARATOR = 0x1E.chr.freeze
-
       JOB_PROGRESS_ENQUEUE_ATTEMPTED = :enqueue_attempted
       JOB_PROGRESS_ENQUEUE_PROCESSING = :enqueue_processing
       JOB_PROGRESS_ENQUEUE_FAILED = :enqueue_failed
@@ -241,12 +239,9 @@ module ActiveJob
         when JOB_PROGRESS_PERFORM_PROCESSED
           uniqueness = read_uniqueness(job)
 
-          if uniqueness.present?
-            data = ensure_data_utf8(uniqueness).split(DATA_SEPARATOR)
-            progress, timeout, expires = data
-
-            timeout = timeout.to_i
-          end
+          uniqueness = read_uniqueness(job)
+          j = JSON.load(uniqueness) rescue nil
+          timeout = j["t"].to_i if j.present?
 
           timeout = uniqueness_duration.from_now.to_i unless timeout.positive?
         end
@@ -265,11 +260,8 @@ module ActiveJob
         else
           # always use saved expiration first
           uniqueness = read_uniqueness(job)
-          if uniqueness.present?
-            data = ensure_data_utf8(uniqueness).split(DATA_SEPARATOR)
-            progress, timeout, expires = data
-            expires = expires.to_i
-          end
+          j = JSON.load(uniqueness) rescue nil
+          expires = j["e"].to_i if j.present?
 
           unless expires.positive?
             expires = uniqueness_expiration.from_now.to_i
