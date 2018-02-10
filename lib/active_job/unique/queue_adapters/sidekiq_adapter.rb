@@ -65,7 +65,7 @@ module ActiveJob
           def zero_queue_and_worker?(uniqueness_id, queue_name)
             queue = Sidekiq::Queue.new(queue_name)
 
-            return false if queue.positive?
+            return false if queue.size.positive?
             return false if (queue.count { |job| job.item['args'][0]['uniqueness_id'] == uniqueness_id } rescue 0).positive?
 
             (Sidekiq::Workers.new.count { |_p, _t, w| w['payload']['uniqueness_id'] == uniqueness_id } rescue 0).zero?
