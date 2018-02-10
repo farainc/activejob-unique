@@ -80,7 +80,12 @@ module ActiveJob
             if timeout < now
               # when perform stage
               return true if perform_stage?(progress)
-              return true if enqueue_stage?(progress) && ((Sidekiq::Queue.new(queue_name).size == 0) rescue true)
+
+              # queue size zero and worker size eror
+              queue_size = Sidekiq::Queue.new(queue_name).size rescue 0
+              worker_size = Sidekiq::Workers.new.count{ |p,t,w| w['queue'] == queue_name } rescue 0
+
+              return true if enqueue_stage?(progress) && queue_size.zero? && worker_size.zero?
             end
 
             # unknown stage
