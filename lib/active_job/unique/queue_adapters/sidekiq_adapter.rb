@@ -299,6 +299,10 @@ module ActiveJob
           self.class.write_uniqueness_progress(*args)
         end
 
+        def write_uniqueness_progress_and_dump(*args)
+          self.class.write_uniqueness_progress_and_dump(*args)
+        end
+
         def clean_uniqueness(*args)
           self.class.clean_uniqueness(*args)
         end
