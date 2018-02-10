@@ -84,7 +84,6 @@ module ActiveJob
                       stats[:klass] = jd["k"]
                       stats[:args] = jd["a"]
                       stats[:job_id] = jd["j"]
-                      stats[:uniqueness_mode] = jd["m"]
                     end
                   end
 
