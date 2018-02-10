@@ -152,6 +152,22 @@ module ActiveJob
         UNIQUENESS_MODE_UNTIL_TIMEOUT == uniqueness_mode
       end
 
+      def enqueue_stage?(progress)
+        [JOB_PROGRESS_ENQUEUE_ATTEMPTED,
+         JOB_PROGRESS_ENQUEUE_PROCESSING,
+         JOB_PROGRESS_ENQUEUE_PROCESSED,
+         JOB_PROGRESS_ENQUEUE_FAILED,
+         JOB_PROGRESS_ENQUEUE_SKIPPED].include?(progress.to_s.to_sym)
+      end
+
+      def perform_stage?(progress)
+        [JOB_PROGRESS_PERFORM_ATTEMPTED,
+         JOB_PROGRESS_PERFORM_PROCESSING,
+         JOB_PROGRESS_PERFORM_PROCESSED,
+         JOB_PROGRESS_PERFORM_FAILED,
+         JOB_PROGRESS_PERFORM_SKIPPED].include?(progress.to_s.to_sym)
+      end
+
       def duplicated_job_in_worker?(job)
         Sidekiq::Workers.new.any? { |_p, _t, w| w['queue'] == job.queue_name && w['payload']['uniqueness_id'] == uniqueness_id && w['payload']['jid'] != job.job_id }
       end
@@ -179,7 +195,17 @@ module ActiveJob
         return true if job.unique_as_skipped
         return true if invalid_uniqueness_mode?
         return true if perform_only_uniqueness_mode?
-        return true if (enqueue_only_uniqueness_mode? || dirty_uniqueness?(job)) && !duplicated_job_in_queue?(job)
+
+        uniqueness = load_uniqueness(job)
+        return true if dirty_uniqueness?(uniqueness)
+
+        progress = uniqueness['p']
+
+        # if uniqueness in enqueue_stage then check duplicated_job_in_queue
+        return true if enqueue_stage?(progress) && !duplicated_job_in_queue?(job)
+
+        # if uniqueness in perform_stage then check duplicated_job_in_worker or enqueue_only_uniqueness_mode
+        return true if perform_stage?(progress) && (enqueue_only_uniqueness_mode? || !duplicated_job_in_worker?(job))
 
         false
       end
@@ -188,18 +214,23 @@ module ActiveJob
         return true if job.unique_as_skipped
         return true if invalid_uniqueness_mode?
         return true if enqueue_only_uniqueness_mode?
+        return true if dirty_uniqueness?(load_uniqueness(job))
 
         !duplicated_job_in_worker?(job)
       end
 
-      def dirty_uniqueness?(job)
+      def dirty_uniqueness?(uniqueness)
         return true unless stats_adapter.respond_to?(:dirty_uniqueness?)
 
-        stats_adapter.dirty_uniqueness?(uniqueness_id, read_uniqueness(job), job.queue_name)
+        stats_adapter.dirty_uniqueness?(uniqueness)
       end
 
       def read_uniqueness(job)
         stats_adapter.read_uniqueness(uniqueness_id, job.queue_name) if stats_adapter.respond_to?(:read_uniqueness)
+      end
+
+      def load_uniqueness(job)
+        JSON.load(read_uniqueness(job)) rescue nil
       end
 
       def write_uniqueness_before_enqueue(job)

@@ -33,50 +33,28 @@ module ActiveJob
             Time.now.utc.to_date.strftime('%Y%m%d').to_i
           end
 
-          def enqueue_stage?(progress)
-            [JOB_PROGRESS_ENQUEUE_ATTEMPTED,
-             JOB_PROGRESS_ENQUEUE_PROCESSING,
-             JOB_PROGRESS_ENQUEUE_PROCESSED,
-             JOB_PROGRESS_ENQUEUE_FAILED,
-             JOB_PROGRESS_ENQUEUE_SKIPPED].include?(progress.to_s.to_sym)
-          end
-
-          def perform_stage?(progress)
-            [JOB_PROGRESS_PERFORM_ATTEMPTED,
-             JOB_PROGRESS_PERFORM_PROCESSING,
-             JOB_PROGRESS_PERFORM_PROCESSED,
-             JOB_PROGRESS_PERFORM_FAILED,
-             JOB_PROGRESS_PERFORM_SKIPPED].include?(progress.to_s.to_sym)
-          end
-
           def unknown_stage?(progress)
-            !enqueue_stage?(progress) && !perform_stage?(progress)
+            ![JOB_PROGRESS_ENQUEUE_ATTEMPTED,
+              JOB_PROGRESS_ENQUEUE_PROCESSING,
+              JOB_PROGRESS_ENQUEUE_PROCESSED,
+              JOB_PROGRESS_ENQUEUE_FAILED,
+              JOB_PROGRESS_ENQUEUE_SKIPPED,
+              JOB_PROGRESS_PERFORM_ATTEMPTED,
+              JOB_PROGRESS_PERFORM_PROCESSING,
+              JOB_PROGRESS_PERFORM_PROCESSED,
+              JOB_PROGRESS_PERFORM_FAILED,
+              JOB_PROGRESS_PERFORM_SKIPPED].include?(progress.to_s.to_sym)
           end
 
-          def enqueue_stage_job?(uniqueness_id, queue_name)
-            j = JSON.load(read_uniqueness(uniqueness_id, queue_name)) rescue nil
-            return false if j.blank?
-
-            enqueue_stage?(j['p'])
-          end
-
-          def perform_stage_job?(uniqueness_id, queue_name)
-            j = JSON.load(read_uniqueness(uniqueness_id, queue_name)) rescue nil
-            return false if j.blank?
-
-            perform_stage?(j['p'])
-          end
-
-          def dirty_uniqueness?(uniqueness_id, uniqueness, queue_name)
-            j = JSON.load(uniqueness) rescue nil
-            return true if j.blank?
+          def dirty_uniqueness?(uniqueness)
+            return true if uniqueness.blank?
 
             now = Time.now.utc.to_i
 
             # progress, timeout, expires
-            progress = j['p']
-            timeout = j['t'].to_i
-            expires = j['e'].to_i
+            progress = uniqueness['p']
+            timeout = uniqueness['t']
+            expires = uniqueness['e']
 
             # when default expiration passed
             return true if expires < now
@@ -98,7 +76,7 @@ module ActiveJob
 
             # progress, timeout, expires
             progress = j['p']
-            expires = j['e'].to_i
+            expires = j['e']
 
             # when default expiration passed
             return true if expires < now
@@ -261,22 +239,6 @@ module ActiveJob
 
         def sequence_today
           self.class.sequence_today
-        end
-
-        def enqueue_stage?(*args)
-          self.class.enqueue_stage?(*args)
-        end
-
-        def perform_stage?(*args)
-          self.class.perform_stage?(*args)
-        end
-
-        def enqueue_stage_job?(*args)
-          self.class.enqueue_stage_job?(*args)
-        end
-
-        def perform_stage_job?(*args)
-          self.class.perform_stage_job?(*args)
         end
 
         def dirty_uniqueness?(*args)
