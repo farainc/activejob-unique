@@ -28,10 +28,6 @@ module ActiveJob
             Time.now.utc.to_date.strftime('%Y%m%d').to_i
           end
 
-          def enqueue_processed?(progress)
-            progress.to_s.to_sym == JOB_PROGRESS_ENQUEUE_PROCESSED
-          end
-
           def enqueue_stage?(progress)
             [JOB_PROGRESS_ENQUEUE_ATTEMPTED,
              JOB_PROGRESS_ENQUEUE_PROCESSING,
@@ -56,37 +52,41 @@ module ActiveJob
             j = JSON.load(read_uniqueness(uniqueness_id, queue_name)) rescue nil
             return false if j.blank?
 
-            enqueue_stage?(j["p"])
+            enqueue_stage?(j['p'])
           end
 
           def perform_stage_job?(uniqueness_id, queue_name)
             j = JSON.load(read_uniqueness(uniqueness_id, queue_name)) rescue nil
             return false if j.blank?
 
-            perform_stage?(j["p"])
+            perform_stage?(j['p'])
           end
 
-          def dirty_uniqueness?(uniqueness, queue_name)
+          def zero_queue_and_worker?(uniqueness_id, queue_name)
+            queue = Sidekiq::Queue.new(queue_name)
+
+            return false if queue.positive?
+            return false if (queue.count { |job| job.item['args'][0]['uniqueness_id'] == uniqueness_id } rescue 0).positive?
+
+            (Sidekiq::Workers.new.count { |_p, _t, w| w['payload']['uniqueness_id'] == uniqueness_id } rescue 0).zero?
+          end
+
+          def dirty_uniqueness?(uniqueness_id, uniqueness, queue_name)
             j = JSON.load(uniqueness) rescue nil
             return true if j.blank?
 
             now = Time.now.utc.to_i
 
             # progress, timeout, expires
-            progress = j["p"]
-            timeout = j["t"].to_i
-            expires = j["e"].to_i
+            progress = j['p']
+            timeout = j['t'].to_i
+            expires = j['e'].to_i
 
             # when default expiration passed
             return true if expires < now
 
-            # expiration passed
-            if timeout < now
-              # when perform stage
-              return true if perform_stage?(progress)
-
-              return true if enqueue_stage?(progress) && (Sidekiq::Queue.new(queue_name).size rescue 0).zero? && (Sidekiq::Workers.new.count{ |p,t,w| w['queue'] == queue_name } rescue 0).zero?
-            end
+            # expiration passed with zero queue and worker
+            return true if timeout < now && zero_queue_and_worker?(queue_name, uniqueness_id)
 
             # unknown stage
             return true if unknown_stage?(progress)
@@ -119,19 +119,19 @@ module ActiveJob
             expires += 5.minutes if expires < timeout
 
             Sidekiq.redis_pool.with do |conn|
-              conn.hset("uniqueness:#{queue_name}", uniqueness_id, JSON.dump({ "p": progress, "t": timeout, "e": expires, "u": Time.now.utc.to_i }))
+              conn.hset("uniqueness:#{queue_name}", uniqueness_id, JSON.dump("p": progress, "t": timeout, "e": expires, "u": Time.now.utc.to_i))
             end
           end
 
           def write_uniqueness_dump(uniqueness_id, queue_name, klass, args, job_id, uniqueness_mode)
             Sidekiq.redis_pool.with do |conn|
-              conn.hset("uniqueness:dump:#{queue_name}", uniqueness_id, JSON.dump({ "k": klass, "a": args, "j": job_id, "m": uniqueness_mode }))
+              conn.hset("uniqueness:dump:#{queue_name}", uniqueness_id, JSON.dump("k": klass, "a": args, "j": job_id, "m": uniqueness_mode))
             end
           end
 
           def write_uniqueness_progress_and_dump(uniqueness_id, queue_name, klass, args, job_id, uniqueness_mode, progress, timeout, expires)
             Sidekiq.redis_pool.with do |conn|
-              conn.hset("uniqueness:#{queue_name}", uniqueness_id, JSON.dump({ "k": klass, "a": args, "j": job_id, "m": uniqueness_mode, "p": progress, "t": timeout, "e": expires, "u": Time.now.utc.to_i}))
+              conn.hset("uniqueness:#{queue_name}", uniqueness_id, JSON.dump("k": klass, "a": args, "j": job_id, "m": uniqueness_mode, "p": progress, "t": timeout, "e": expires, "u": Time.now.utc.to_i))
             end
           end
 
@@ -158,7 +158,7 @@ module ActiveJob
                   cursor, fields = conn.hscan("uniqueness:#{name}", cursor, count: 100)
 
                   fields.each do |uniqueness_id, uniqueness|
-                    if dirty_uniqueness?(uniqueness, name)
+                    if dirty_uniqueness?(uniqueness_id, uniqueness, name)
                       clean_uniqueness(uniqueness_id, name)
                       output[name] += 1
                     end
