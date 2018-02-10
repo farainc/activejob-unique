@@ -231,13 +231,9 @@ module ActiveJob
       end
 
       def write_uniqueness_after_perform(job)
-        should_clean_it = true
-
-        if until_timeout_uniqueness_mode?
-          write_uniqueness_progress_and_dump(job)
-        else
-          clean_uniqueness(job) if should_clean_it
-        end
+        return if invalid_uniqueness_mode?
+        
+        write_uniqueness_progress_and_dump(job)
       end
 
       def incr_job_stats(job)
