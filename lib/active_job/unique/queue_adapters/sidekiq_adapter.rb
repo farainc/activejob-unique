@@ -33,6 +33,10 @@ module ActiveJob
             Time.now.utc.to_date.strftime('%Y%m%d').to_i
           end
 
+          def perform_processed?(progress)
+            progress.to_s.to_sym == JOB_PROGRESS_PERFORM_PROCESSED
+          end
+
           def unknown_stage?(progress)
             ![JOB_PROGRESS_ENQUEUE_ATTEMPTED,
               JOB_PROGRESS_ENQUEUE_PROCESSING,
@@ -53,8 +57,8 @@ module ActiveJob
 
             # progress, timeout, expires
             progress = uniqueness['p']
-            timeout = uniqueness['t']
             expires = uniqueness['e']
+            timeout = uniqueness['t']
 
             # when default expiration passed
             return true if expires < now
@@ -77,9 +81,13 @@ module ActiveJob
             # progress, timeout, expires
             progress = j['p']
             expires = j['e']
+            timeout = j['t']
 
             # when default expiration passed
             return true if expires < now
+
+            # expiration passed
+            return true if timeout < now && perform_processed?(progress)
 
             # unknown stage
             return true if unknown_stage?(progress)
