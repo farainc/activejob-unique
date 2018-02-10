@@ -28,6 +28,10 @@ module ActiveJob
             Time.now.utc.to_date.strftime('%Y%m%d').to_i
           end
 
+          def enqueue_processed?(progress)
+            progress.to_s.to_sym == JOB_PROGRESS_ENQUEUE_PROCESSED
+          end
+
           def enqueue_stage?(progress)
             [JOB_PROGRESS_ENQUEUE_ATTEMPTED,
              JOB_PROGRESS_ENQUEUE_PROCESSING,
@@ -81,11 +85,7 @@ module ActiveJob
               # when perform stage
               return true if perform_stage?(progress)
 
-              # queue size zero and worker size eror
-              queue_size = Sidekiq::Queue.new(queue_name).size rescue 0
-              worker_size = Sidekiq::Workers.new.count{ |p,t,w| w['queue'] == queue_name } rescue 0
-
-              return true if enqueue_stage?(progress) && queue_size.zero? && worker_size.zero?
+              return true if enqueue_stage?(progress) && (Sidekiq::Queue.new(queue_name).size rescue 0).zero? && (Sidekiq::Workers.new.count{ |p,t,w| w['queue'] == queue_name } rescue 0).zero?
             end
 
             # unknown stage
