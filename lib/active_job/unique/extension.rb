@@ -22,10 +22,6 @@ module ActiveJob
       UNIQUENESS_MODE_UNTIL_EXECUTING = :until_executing
       UNIQUENESS_MODE_UNTIL_AND_WHILE_EXECUTING = :until_and_while_executing
 
-      def ensure_data_utf8(data)
-        data.to_s.encode('utf-8', invalid: :replace, undef: :replace, replace: '')
-      end
-
       included do
         class_attribute :uniqueness_mode
         class_attribute :uniqueness_duration
@@ -137,11 +133,11 @@ module ActiveJob
       end
 
       # uniqueness job
-      def valid_uniqueness_mode?
-        [UNIQUENESS_MODE_WHILE_EXECUTING,
-         UNIQUENESS_MODE_UNTIL_EXECUTING,
-         UNIQUENESS_MODE_UNTIL_AND_WHILE_EXECUTING,
-         UNIQUENESS_MODE_UNTIL_TIMEOUT].include?(uniqueness_mode)
+      def invalid_uniqueness_mode?
+        ![UNIQUENESS_MODE_WHILE_EXECUTING,
+          UNIQUENESS_MODE_UNTIL_EXECUTING,
+          UNIQUENESS_MODE_UNTIL_AND_WHILE_EXECUTING,
+          UNIQUENESS_MODE_UNTIL_TIMEOUT].include?(uniqueness_mode)
       end
 
       def enqueue_only_uniqueness_mode?
@@ -156,24 +152,44 @@ module ActiveJob
         UNIQUENESS_MODE_UNTIL_TIMEOUT == uniqueness_mode
       end
 
+      def duplicated_job_in_worker?(job)
+        Sidekiq::Workers.new.any? { |_p, _t, w| w['queue'] == job.queue_name && w['payload']['uniqueness_id'] == uniqueness_id && w['payload']['jid'] != job.job_id }
+      end
+
+      def duplicated_job_in_queue?(job)
+        queue = Sidekiq::Queue.new(job.queue_name)
+
+        return false if queue.size.zero?
+        queue.any? { |job| job.item['args'][0]['uniqueness_id'] == uniqueness_id }
+      end
+
+      def enqueue_stage_job?(job)
+        return false unless stats_adapter.respond_to?(:enqueue_stage_job?)
+
+        stats_adapter.enqueue_stage_job?(uniqueness_id, job.queue_name)
+      end
+
+      def perform_stage_job?(job)
+        return false unless stats_adapter.respond_to?(:perform_stage_job?)
+
+        stats_adapter.perform_stage_job?(uniqueness_id, job.queue_name)
+      end
+
       def allow_enqueue_uniqueness?(job)
         return true if job.unique_as_skipped
-        return true unless valid_uniqueness_mode?
+        return true if invalid_uniqueness_mode?
         return true if perform_only_uniqueness_mode?
-        return true if dirty_uniqueness?(job)
+        return true if (enqueue_only_uniqueness_mode? || dirty_uniqueness?(job)) && !duplicated_job_in_queue?(job)
 
-        # only allow enqueue_only_uniqueness_mode job not in enqueue_stage to enqueue
-        enqueue_only_uniqueness_mode? && !enqueue_stage_job?(job)
+        false
       end
 
       def allow_perform_uniqueness?(job)
         return true if job.unique_as_skipped
-        return true unless valid_uniqueness_mode?
+        return true if invalid_uniqueness_mode?
         return true if enqueue_only_uniqueness_mode?
-        return true if dirty_uniqueness?(job)
 
-        # only allow job not in perform_stage to perform (it's current job)
-        !perform_stage_job?(job)
+        !duplicated_job_in_worker?(job)
       end
 
       def dirty_uniqueness?(job)
@@ -187,7 +203,7 @@ module ActiveJob
       end
 
       def write_uniqueness_before_enqueue(job)
-        return unless valid_uniqueness_mode?
+        return if invalid_uniqueness_mode?
 
         write_uniqueness_dump(job)
 
@@ -199,7 +215,7 @@ module ActiveJob
       end
 
       def write_uniqueness_after_enqueue(job)
-        return unless valid_uniqueness_mode?
+        return if invalid_uniqueness_mode?
 
         # do not update uniqueness for perform_only_uniqueness_mode
         # when job is in perform_stage
@@ -209,7 +225,7 @@ module ActiveJob
       end
 
       def write_uniqueness_before_perform(job)
-        return unless valid_uniqueness_mode?
+        return if invalid_uniqueness_mode?
 
         write_uniqueness_progress(job)
       end
@@ -233,7 +249,9 @@ module ActiveJob
         timeout = 0
 
         case job_progress
-        when JOB_PROGRESS_ENQUEUE_PROCESSING, JOB_PROGRESS_ENQUEUE_PROCESSED, JOB_PROGRESS_PERFORM_PROCESSING
+        when JOB_PROGRESS_ENQUEUE_PROCESSING, JOB_PROGRESS_ENQUEUE_PROCESSED
+          timeout = uniqueness_expiration.from_now.to_i
+        when JOB_PROGRESS_PERFORM_PROCESSING
           timeout = uniqueness_duration.from_now.to_i
         when JOB_PROGRESS_PERFORM_PROCESSED
           uniqueness = read_uniqueness(job)
@@ -251,9 +269,11 @@ module ActiveJob
 
         # reset expires when enqueue processing
         case job_progress
-        when JOB_PROGRESS_ENQUEUE_PROCESSING
+        when JOB_PROGRESS_ENQUEUE_PROCESSING, JOB_PROGRESS_ENQUEUE_PROCESSED
           expires = uniqueness_expiration.from_now.to_i
           expires = (job.scheduled_at + uniqueness_expiration).to_i if job.scheduled_at.present?
+        when JOB_PROGRESS_PERFORM_PROCESSING
+          expires = uniqueness_expiration.from_now.to_i
         else
           # always use saved expiration first
           uniqueness = read_uniqueness(job)
@@ -277,6 +297,7 @@ module ActiveJob
 
         stats_adapter.write_uniqueness_progress(uniqueness_id,
                                                 job.queue_name,
+                                                uniqueness_mode,
                                                 job_progress,
                                                 timeout,
                                                 expires)
@@ -289,8 +310,7 @@ module ActiveJob
                                             job.queue_name,
                                             job.class.name,
                                             job.arguments,
-                                            job.job_id,
-                                            uniqueness_mode)
+                                            job.job_id)
       end
 
       def write_uniqueness_progress_and_dump(job)
@@ -305,24 +325,13 @@ module ActiveJob
         stats_adapter.write_uniqueness_progress_and_dump(uniqueness_id,
                                                          job.queue_name,
                                                          job.class.name,
-                                                         job_progress,
                                                          job.arguments,
                                                          job.job_id,
                                                          uniqueness_mode,
+                                                         job_progress,
                                                          timeout,
                                                          expires)
         true
-      end
-
-      def enqueue_stage_job?(job)
-        return false unless stats_adapter.respond_to?(:enqueue_stage_job?)
-        stats_adapter.enqueue_stage_job?(uniqueness_id, job.queue_name)
-      end
-
-      def perform_stage_job?(job)
-        return false unless stats_adapter.respond_to?(:perform_stage_job?)
-
-        stats_adapter.perform_stage_job?(uniqueness_id, job.queue_name)
       end
 
       def clean_uniqueness(job)
@@ -346,7 +355,8 @@ module ActiveJob
           'arguments'       => serialize_arguments(arguments),
           'executions'      => executions,
           'locale'          => I18n.locale.to_s,
-          'uniqueness_id'   => uniqueness_id
+          'uniqueness_id'   => uniqueness_id,
+          'unique_as_skipped' => unique_as_skipped
         }
       end
 
@@ -359,6 +369,7 @@ module ActiveJob
         self.executions           = job_data['executions']
         self.locale               = job_data['locale'] || I18n.locale.to_s
         self.uniqueness_id        = job_data['uniqueness_id']
+        self.unique_as_skipped    = job_data['unique_as_skipped']
       end
 
       # add your static(class) methods here
