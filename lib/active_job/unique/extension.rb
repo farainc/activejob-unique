@@ -33,6 +33,10 @@ module ActiveJob
 
         attr_accessor :unique_as_skipped, :uniqueness_id, :job_progress
 
+        before_enqueue do |job|
+          @uniqueness_id = Digest::MD5.hexdigest([job.queue_name, job.class.name, job.arguments].inspect.to_s)
+        end
+
         around_enqueue do |job, block|
           r = nil
 
@@ -133,10 +137,6 @@ module ActiveJob
       end
 
       # uniqueness job
-      def prepare_uniqueness_id(job)
-        @uniqueness_id ||= Digest::MD5.hexdigest([job.queue_name, job.class.name, job.arguments].inspect.to_s)
-      end
-
       def valid_uniqueness_mode?
         [UNIQUENESS_MODE_WHILE_EXECUTING,
          UNIQUENESS_MODE_UNTIL_EXECUTING,
@@ -179,11 +179,11 @@ module ActiveJob
       def dirty_uniqueness?(job)
         return true unless stats_adapter.respond_to?(:dirty_uniqueness?)
 
-        stats_adapter.dirty_uniqueness?(read_uniqueness(job), job.queue_name)
+        stats_adapter.dirty_uniqueness?(uniqueness_id, read_uniqueness(job), job.queue_name)
       end
 
       def read_uniqueness(job)
-        stats_adapter.read_uniqueness(prepare_uniqueness_id(job), job.queue_name) if stats_adapter.respond_to?(:read_uniqueness)
+        stats_adapter.read_uniqueness(uniqueness_id, job.queue_name) if stats_adapter.respond_to?(:read_uniqueness)
       end
 
       def write_uniqueness_before_enqueue(job)
@@ -238,7 +238,7 @@ module ActiveJob
         when JOB_PROGRESS_PERFORM_PROCESSED
           uniqueness = read_uniqueness(job)
           j = JSON.load(uniqueness) rescue nil
-          timeout = j["t"].to_i if j.present?
+          timeout = j['t'].to_i if j.present?
 
           timeout = uniqueness_duration.from_now.to_i unless timeout.positive?
         end
@@ -258,7 +258,7 @@ module ActiveJob
           # always use saved expiration first
           uniqueness = read_uniqueness(job)
           j = JSON.load(uniqueness) rescue nil
-          expires = j["e"].to_i if j.present?
+          expires = j['e'].to_i if j.present?
 
           unless expires.positive?
             expires = uniqueness_expiration.from_now.to_i
@@ -275,7 +275,7 @@ module ActiveJob
         timeout = calculate_timeout(job)
         expires = calculate_expires(job)
 
-        stats_adapter.write_uniqueness_progress(prepare_uniqueness_id(job),
+        stats_adapter.write_uniqueness_progress(uniqueness_id,
                                                 job.queue_name,
                                                 job_progress,
                                                 timeout,
@@ -285,7 +285,7 @@ module ActiveJob
       def write_uniqueness_dump(job)
         return unless stats_adapter.respond_to?(:write_uniqueness_dump)
 
-        stats_adapter.write_uniqueness_dump(prepare_uniqueness_id(job),
+        stats_adapter.write_uniqueness_dump(uniqueness_id,
                                             job.queue_name,
                                             job.class.name,
                                             job.arguments,
@@ -302,7 +302,7 @@ module ActiveJob
         expires = calculate_expires(job)
         return false if expires < Time.now.utc.to_i
 
-        stats_adapter.write_uniqueness_progress_and_dump(prepare_uniqueness_id(job),
+        stats_adapter.write_uniqueness_progress_and_dump(uniqueness_id,
                                                          job.queue_name,
                                                          job.class.name,
                                                          job_progress,
@@ -316,24 +316,49 @@ module ActiveJob
 
       def enqueue_stage_job?(job)
         return false unless stats_adapter.respond_to?(:enqueue_stage_job?)
-        stats_adapter.enqueue_stage_job?(prepare_uniqueness_id(job), job.queue_name)
+        stats_adapter.enqueue_stage_job?(uniqueness_id, job.queue_name)
       end
 
       def perform_stage_job?(job)
         return false unless stats_adapter.respond_to?(:perform_stage_job?)
 
-        stats_adapter.perform_stage_job?(prepare_uniqueness_id(job), job.queue_name)
+        stats_adapter.perform_stage_job?(uniqueness_id, job.queue_name)
       end
 
       def clean_uniqueness(job)
         return unless stats_adapter.respond_to?(:clean_uniqueness)
 
-        stats_adapter.clean_uniqueness(prepare_uniqueness_id(job), job.queue_name)
+        stats_adapter.clean_uniqueness(uniqueness_id, job.queue_name)
       end
 
       # add your instance methods here
       def reenqueue
         self.class.perform_later(*arguments)
+      end
+
+      def serialize
+        {
+          'job_class'       => self.class.name,
+          'job_id'          => job_id,
+          'provider_job_id' => provider_job_id,
+          'queue_name'      => queue_name,
+          'priority'        => priority,
+          'arguments'       => serialize_arguments(arguments),
+          'executions'      => executions,
+          'locale'          => I18n.locale.to_s,
+          'uniqueness_id'   => uniqueness_id
+        }
+      end
+
+      def deserialize(job_data)
+        self.job_id               = job_data['job_id']
+        self.provider_job_id      = job_data['provider_job_id']
+        self.queue_name           = job_data['queue_name']
+        self.priority             = job_data['priority']
+        self.serialized_arguments = job_data['arguments']
+        self.executions           = job_data['executions']
+        self.locale               = job_data['locale'] || I18n.locale.to_s
+        self.uniqueness_id        = job_data['uniqueness_id']
       end
 
       # add your static(class) methods here
