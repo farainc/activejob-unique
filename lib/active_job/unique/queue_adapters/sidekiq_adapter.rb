@@ -62,7 +62,7 @@ module ActiveJob
             perform_stage?(j["p"])
           end
 
-          def dirty_uniqueness?(uniqueness)
+          def dirty_uniqueness?(uniqueness, queue_name)
             j = JSON.load(uniqueness) rescue nil
             return true if j.blank?
 
@@ -73,13 +73,17 @@ module ActiveJob
             timeout = j["t"].to_i
             expires = j["e"].to_i
 
-            # allow when default expiration passed
+            # when default expiration passed
             return true if expires < now
 
-            # allow when perform stage and expiration passed
-            return true if perform_stage?(progress) && timeout < now
+            # expiration passed
+            if timeout < now
+              # when perform stage
+              return true if perform_stage?(progress)
+              return true if enqueue_stage?(progress) && ((Sidekiq::Queue.new(queue_name).size == 0) rescue true)
+            end
 
-            # allow unknown stage
+            # unknown stage
             return true if unknown_stage?(progress)
 
             false
@@ -149,7 +153,7 @@ module ActiveJob
                   cursor, fields = conn.hscan("uniqueness:#{name}", cursor, count: 100)
 
                   fields.each do |uniqueness_id, uniqueness|
-                    if dirty_uniqueness?(uniqueness)
+                    if dirty_uniqueness?(uniqueness, name)
                       clean_uniqueness(uniqueness_id, name)
                       output[name] += 1
                     end
