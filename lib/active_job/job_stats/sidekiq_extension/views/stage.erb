@@ -67,8 +67,8 @@
             <%= stats_label(job[:skipped][:all], 'default') %>
           </td>
           <td>
-            <%= stats_label((job[:attempted][:today]-job[:processed][:today]-job[:skipped][:today]-job[:failed][:today]), 'info') %> /
-            <%= stats_label((job[:attempted][:all]-job[:processed][:all]-job[:skipped][:all]-job[:failed][:all]), 'default') %>
+            <%= stats_label((job[:processing][:today]-job[:processed][:today]-job[:failed][:today]), 'info') %> /
+            <%= stats_label(job[:processing][:all], 'default') %>
           </td>
           <td>
             <%= stats_label(job[:processed][:today], 'success') %> /
