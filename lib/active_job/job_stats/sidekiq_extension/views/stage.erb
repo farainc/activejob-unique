@@ -63,7 +63,7 @@
         <tr>
           <td><%= job[:klass] %></td>
           <td>
-            <%= stats_label(number_to_percentage((job[:skipped][:today]/job[:attempted][:today].to_f)*100, precision: 2), 'default') %> /
+            <%= stats_label("%#{'%.2f' % ((job[:skipped][:today]/job[:attempted][:today].to_f)*100)}", 'default') %> /
             <%= stats_label(job[:skipped][:today], 'warning') %> /
             <%= stats_label(job[:skipped][:all], 'default') %>
           </td>
@@ -72,12 +72,12 @@
             <%= stats_label(job[:processing][:all], 'default') %>
           </td>
           <td>
-            <%= stats_label(number_to_percentage((job[:processed][:today]/job[:attempted][:today].to_f)*100, precision: 2), 'default') %> /
+            <%= stats_label("%#{'%.2f' % ((job[:processed][:today]/job[:attempted][:today].to_f)*100)}", 'default') %> /
             <%= stats_label(job[:processed][:today], 'success') %> /
             <%= stats_label(job[:processed][:all], 'default') %>
           </td>
           <td>
-            <%= stats_label(number_to_percentage((job[:failed][:today]/job[:attempted][:today].to_f)*100, precision: 2), 'default') %> /
+            <%= stats_label("%#{'%.2f' % ((job[:failed][:today]/job[:attempted][:today].to_f)*100)}", 'default') %> /
             <%= stats_label(job[:failed][:today], 'danger') %> /
             <%= stats_label(job[:failed][:all], 'default') %>
           </td>
