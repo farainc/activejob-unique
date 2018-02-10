@@ -233,7 +233,7 @@ module ActiveJob
         timeout = 0
 
         case job_progress
-        when JOB_PROGRESS_PERFORM_PROCESSING
+        when JOB_PROGRESS_ENQUEUE_PROCESSING, JOB_PROGRESS_ENQUEUE_PROCESSED, JOB_PROGRESS_PERFORM_PROCESSING
           timeout = uniqueness_duration.from_now.to_i
         when JOB_PROGRESS_PERFORM_PROCESSED
           uniqueness = read_uniqueness(job)
