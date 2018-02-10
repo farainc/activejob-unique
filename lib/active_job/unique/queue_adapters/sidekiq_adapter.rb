@@ -129,12 +129,12 @@ module ActiveJob
             uniqueness
           end
 
-          def write_uniqueness_progress(uniqueness_id, queue_name, uniqueness_mode, progress, timeout, expires)
+          def write_uniqueness_progress(uniqueness_id, queue_name, klass, uniqueness_mode, progress, timeout, expires)
             # expires must be later than timeout
             expires += 5.minutes if expires < timeout
 
             Sidekiq.redis_pool.with do |conn|
-              conn.hset("uniqueness:#{queue_name}", uniqueness_id, JSON.dump("m": uniqueness_mode, "p": progress, "t": timeout, "e": expires, "u": Time.now.utc.to_i))
+              conn.hset("uniqueness:#{queue_name}", uniqueness_id, JSON.dump("k": klass, "m": uniqueness_mode, "p": progress, "t": timeout, "e": expires, "u": Time.now.utc.to_i))
             end
           end
 

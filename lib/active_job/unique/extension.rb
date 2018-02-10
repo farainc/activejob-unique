@@ -232,9 +232,12 @@ module ActiveJob
 
       def write_uniqueness_after_perform(job)
         should_clean_it = true
-        should_clean_it = !write_uniqueness_progress_and_dump(job) if until_timeout_uniqueness_mode?
-
-        clean_uniqueness(job) if should_clean_it
+        
+        if until_timeout_uniqueness_mode?
+          should_clean_it = !write_uniqueness_progress_and_dump(job)
+        else
+          clean_uniqueness(job) if should_clean_it
+        end
       end
 
       def incr_job_stats(job)
@@ -250,15 +253,15 @@ module ActiveJob
 
         case job_progress
         when JOB_PROGRESS_ENQUEUE_PROCESSING, JOB_PROGRESS_ENQUEUE_PROCESSED
-          timeout = uniqueness_expiration.from_now.to_i
+          timeout = uniqueness_expiration.from_now.utc.to_i
         when JOB_PROGRESS_PERFORM_PROCESSING
-          timeout = uniqueness_duration.from_now.to_i
+          timeout = uniqueness_duration.from_now.utc.to_i
         when JOB_PROGRESS_PERFORM_PROCESSED
           uniqueness = read_uniqueness(job)
           j = JSON.load(uniqueness) rescue nil
           timeout = j['t'].to_i if j.present?
 
-          timeout = uniqueness_duration.from_now.to_i unless timeout.positive?
+          timeout = uniqueness_duration.from_now.utc.to_i unless timeout.positive?
         end
 
         timeout
@@ -270,20 +273,17 @@ module ActiveJob
         # reset expires when enqueue processing
         case job_progress
         when JOB_PROGRESS_ENQUEUE_PROCESSING, JOB_PROGRESS_ENQUEUE_PROCESSED
-          expires = uniqueness_expiration.from_now.to_i
+          expires = uniqueness_expiration.from_now.utc.to_i
           expires = (job.scheduled_at + uniqueness_expiration).to_i if job.scheduled_at.present?
         when JOB_PROGRESS_PERFORM_PROCESSING
-          expires = uniqueness_expiration.from_now.to_i
+          expires = uniqueness_expiration.from_now.utc.to_i
         else
           # always use saved expiration first
           uniqueness = read_uniqueness(job)
           j = JSON.load(uniqueness) rescue nil
           expires = j['e'].to_i if j.present?
 
-          unless expires.positive?
-            expires = uniqueness_expiration.from_now.to_i
-            expires = (job.scheduled_at + uniqueness_expiration).to_i if job.scheduled_at.present?
-          end
+          expires = uniqueness_expiration.from_now.utc.to_i unless expires.positive?
         end
 
         expires
@@ -297,6 +297,7 @@ module ActiveJob
 
         stats_adapter.write_uniqueness_progress(uniqueness_id,
                                                 job.queue_name,
+                                                job.class.name,
                                                 uniqueness_mode,
                                                 job_progress,
                                                 timeout,
@@ -356,6 +357,7 @@ module ActiveJob
           'executions'      => executions,
           'locale'          => I18n.locale.to_s,
           'uniqueness_id'   => uniqueness_id,
+          'uniqueness_mode' => uniqueness_mode,
           'unique_as_skipped' => unique_as_skipped
         }
       end
@@ -369,6 +371,7 @@ module ActiveJob
         self.executions           = job_data['executions']
         self.locale               = job_data['locale'] || I18n.locale.to_s
         self.uniqueness_id        = job_data['uniqueness_id']
+        self.uniqueness_mode      = job_data['uniqueness_mode'].to_s.to_sym
         self.unique_as_skipped    = job_data['unique_as_skipped']
       end
 
