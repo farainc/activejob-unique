@@ -210,8 +210,13 @@ module ActiveJob
         uniqueness = load_uniqueness(job)
         return true if dirty_uniqueness?(uniqueness)
 
-        # disallow perform_stage with until_timeout_uniqueness_mode
-        return false if until_timeout_uniqueness_mode? && perform_stage?(uniqueness['p'])
+        progress = uniqueness['p']
+
+        # disallow perform_processing progress
+        return false if progress.to_sym == JOB_PROGRESS_PERFORM_PROCESSING
+
+        # disallow until_timeout_uniqueness_mode with perform_processed progress
+        return false if until_timeout_uniqueness_mode? && progress.to_sym == JOB_PROGRESS_PERFORM_PROCESSED
 
         true
       end
