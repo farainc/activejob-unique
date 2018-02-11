@@ -25,10 +25,6 @@ module ActiveJob
           UNIQUENESS_MODE_UNTIL_EXECUTING = :until_executing
           UNIQUENESS_MODE_UNTIL_AND_WHILE_EXECUTING = :until_and_while_executing
 
-          def ensure_data_utf8(data)
-            data.to_s.encode('utf-8', invalid: :replace, undef: :replace, replace: '')
-          end
-
           def sequence_today
             Time.now.utc.to_date.strftime('%Y%m%d').to_i
           end
