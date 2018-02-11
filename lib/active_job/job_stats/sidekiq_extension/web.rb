@@ -77,15 +77,6 @@ module ActiveJob
                     updated_at: jp["u"]
                   }
 
-                  if stats[:job_id].blank?
-                    jd = JSON.load(conn.hget("uniqueness:dump:#{queue_name}", k)) rescue nil
-
-                    if jd.present?
-                      stats[:args] = jd["a"]
-                      stats[:job_id] = jd["j"]
-                    end
-                  end
-
                   @job_stats << stats
                 end
               end
