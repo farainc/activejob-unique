@@ -118,7 +118,7 @@ module ActiveJob
             end
           end
 
-          def write_uniqueness_progress_and_addition(job)(uniqueness_id, queue_name, progress)
+          def write_uniqueness_progress_and_addition(uniqueness_id, queue_name, progress)
             uniqueness = read_uniqueness(uniqueness_id, queue_name)
             return if uniqueness.blank?
 
