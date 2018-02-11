@@ -197,18 +197,23 @@ module ActiveJob
         return true if invalid_uniqueness_mode?
         return true if perform_only_uniqueness_mode?
 
+        # disallow duplicated_job_in_queue
+        return false if duplicated_job_in_queue?(job)
+
+        # allow enqueue_only_uniqueness_mode if no duplicated_job_in_queue
+        return true if enqueue_only_uniqueness_mode?
+
+        # disallow duplicated_job_in_worker
+        return false if duplicated_job_in_worker?(job)
+
+        # allow dirty_uniqueness
         uniqueness = load_uniqueness(job)
         return true if dirty_uniqueness?(uniqueness)
 
-        progress = uniqueness['p']
+        # disallow perform_stage with until_timeout_uniqueness_mode
+        return false if until_timeout_uniqueness_mode? && perform_stage?(uniqueness['p'])
 
-        # if uniqueness in enqueue_stage then check duplicated_job_in_queue
-        return true if enqueue_stage?(progress) && !duplicated_job_in_queue?(job)
-
-        # if uniqueness in perform_stage then check duplicated_job_in_worker or enqueue_only_uniqueness_mode
-        return true if perform_stage?(progress) && (enqueue_only_uniqueness_mode? || !duplicated_job_in_worker?(job))
-
-        false
+        true
       end
 
       def allow_perform_uniqueness?(job)
@@ -219,7 +224,6 @@ module ActiveJob
         uniqueness = load_uniqueness(job)
         return true if dirty_uniqueness?(uniqueness)
 
-        progress = uniqueness['p']
         job_id = uniqueness['j']
 
         return true if job_id == job.provider_job_id
