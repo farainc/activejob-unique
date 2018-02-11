@@ -23,25 +23,22 @@ module ActiveJob
       UNIQUENESS_MODE_UNTIL_AND_WHILE_EXECUTING = :until_and_while_executing
 
       included do
-        class_attribute :uniqueness_mode
-        class_attribute :uniqueness_duration
-        class_attribute :uniqueness_expiration
-
-        attr_accessor :unique_as_skipped, :uniqueness_id, :job_progress
+        attr_accessor :unique_as_skipped, :uniqueness_id, :job_progress,
+                      :uniqueness_mode, :uniqueness_duration, :uniqueness_expiration
 
         before_enqueue do |job|
-          @uniqueness_id = Digest::MD5.hexdigest([job.queue_name, job.class.name, job.arguments].inspect.to_s)
+          uniqueness_id = Digest::MD5.hexdigest([job.queue_name, job.class.name, job.arguments].inspect.to_s)
         end
 
         around_enqueue do |job, block|
           r = nil
 
-          @job_progress = JOB_PROGRESS_ENQUEUE_ATTEMPTED
+          job_progress = JOB_PROGRESS_ENQUEUE_ATTEMPTED
           incr_job_stats(job)
 
           # must be keep this block
           if allow_enqueue_uniqueness?(job)
-            @job_progress = JOB_PROGRESS_ENQUEUE_PROCESSING
+            job_progress = JOB_PROGRESS_ENQUEUE_PROCESSING
             incr_job_stats(job)
 
             write_uniqueness_before_enqueue(job)
@@ -49,19 +46,19 @@ module ActiveJob
             begin
               r = block.call
 
-              @job_progress = JOB_PROGRESS_ENQUEUE_PROCESSED
+              job_progress = JOB_PROGRESS_ENQUEUE_PROCESSED
               incr_job_stats(job)
 
               write_uniqueness_after_enqueue(job)
             rescue StandardError => e
-              @job_progress = JOB_PROGRESS_ENQUEUE_FAILED
+              job_progress = JOB_PROGRESS_ENQUEUE_FAILED
               incr_job_stats(job)
 
               clean_uniqueness(job)
               raise e
             end
           else
-            @job_progress = JOB_PROGRESS_ENQUEUE_SKIPPED
+            job_progress = JOB_PROGRESS_ENQUEUE_SKIPPED
             incr_job_stats(job)
           end
 
@@ -71,12 +68,12 @@ module ActiveJob
         around_perform do |job, block|
           r = nil
 
-          @job_progress = JOB_PROGRESS_PERFORM_ATTEMPTED
+          job_progress = JOB_PROGRESS_PERFORM_ATTEMPTED
           incr_job_stats(job)
 
           # must be keep this block
           if allow_perform_uniqueness?(job)
-            @job_progress = JOB_PROGRESS_PERFORM_PROCESSING
+            job_progress = JOB_PROGRESS_PERFORM_PROCESSING
             incr_job_stats(job)
 
             write_uniqueness_before_perform(job)
@@ -84,19 +81,19 @@ module ActiveJob
             begin
               r = block.call
 
-              @job_progress = JOB_PROGRESS_PERFORM_PROCESSED
+              job_progress = JOB_PROGRESS_PERFORM_PROCESSED
               incr_job_stats(job)
 
               write_uniqueness_after_perform(job)
             rescue StandardError => e
-              @job_progress = JOB_PROGRESS_PERFORM_FAILED
+              job_progress = JOB_PROGRESS_PERFORM_FAILED
               incr_job_stats(job)
 
               clean_uniqueness(job)
               raise e
             end
           else
-            @job_progress = JOB_PROGRESS_PERFORM_SKIPPED
+            job_progress = JOB_PROGRESS_PERFORM_SKIPPED
             incr_job_stats(job)
           end
 
@@ -105,27 +102,27 @@ module ActiveJob
       end
 
       def enqueue_processing?
-        @job_progress == JOB_PROGRESS_ENQUEUE_PROCESSING
+        job_progress == JOB_PROGRESS_ENQUEUE_PROCESSING
       end
 
       def enqueue_processed?
-        @job_progress == JOB_PROGRESS_ENQUEUE_PROCESSED
+        job_progress == JOB_PROGRESS_ENQUEUE_PROCESSED
       end
 
       def enqueue_skipped?
-        @job_progress == JOB_PROGRESS_ENQUEUE_SKIPPED
+        job_progress == JOB_PROGRESS_ENQUEUE_SKIPPED
       end
 
       def perform_processing?
-        @job_progress == JOB_PROGRESS_PERFORM_PROCESSING
+        job_progress == JOB_PROGRESS_PERFORM_PROCESSING
       end
 
       def perform_processed?
-        @job_progress == JOB_PROGRESS_PERFORM_PROCESSED
+        job_progress == JOB_PROGRESS_PERFORM_PROCESSED
       end
 
       def perform_skipped?
-        @job_progress == JOB_PROGRESS_PERFORM_SKIPPED
+        job_progress == JOB_PROGRESS_PERFORM_SKIPPED
       end
 
       def stats_adapter
@@ -384,21 +381,25 @@ module ActiveJob
           'locale'          => I18n.locale.to_s,
           'uniqueness_id'   => uniqueness_id,
           'uniqueness_mode' => uniqueness_mode,
-          'unique_as_skipped' => unique_as_skipped
+          'unique_as_skipped' => unique_as_skipped,
+          'uniqueness_duration' => uniqueness_duration,
+          'uniqueness_expiration' => uniqueness_expiration
         }
       end
 
       def deserialize(job_data)
-        self.job_id               = job_data['job_id']
-        self.provider_job_id      = job_data['provider_job_id']
-        self.queue_name           = job_data['queue_name']
-        self.priority             = job_data['priority']
-        self.serialized_arguments = job_data['arguments']
-        self.executions           = job_data['executions']
-        self.locale               = job_data['locale'] || I18n.locale.to_s
-        self.uniqueness_id        = job_data['uniqueness_id']
-        self.uniqueness_mode      = job_data['uniqueness_mode'].to_s.to_sym
-        self.unique_as_skipped    = job_data['unique_as_skipped']
+        self.job_id                 = job_data['job_id']
+        self.provider_job_id        = job_data['provider_job_id']
+        self.queue_name             = job_data['queue_name']
+        self.priority               = job_data['priority']
+        self.serialized_arguments   = job_data['arguments']
+        self.executions             = job_data['executions']
+        self.locale                 = job_data['locale'] || I18n.locale.to_s
+        self.uniqueness_id          = job_data['uniqueness_id']
+        self.uniqueness_mode        = job_data['uniqueness_mode'].to_s.to_sym
+        self.unique_as_skipped      = job_data['unique_as_skipped']
+        self.uniqueness_duration    = job_data['uniqueness_duration']
+        self.uniqueness_expiration  = job_data['uniqueness_expiration']
       end
 
       # add your static(class) methods here
