@@ -27,22 +27,21 @@ module ActiveJob
         class_attribute :uniqueness_duration
         class_attribute :uniqueness_expiration
 
-        attr_accessor :unique_as_skipped, :uniqueness_id, :job_progress,
-                      :uniqueness_mode, :uniqueness_duration, :uniqueness_expiration
+        attr_accessor :unique_as_skipped, :uniqueness_id, :job_progress
 
         before_enqueue do |job|
-          uniqueness_id = Digest::MD5.hexdigest([job.queue_name, job.class.name, job.arguments].inspect.to_s)
+          @uniqueness_id = Digest::MD5.hexdigest([job.queue_name, job.class.name, job.arguments].inspect.to_s)
         end
 
         around_enqueue do |job, block|
           r = nil
 
-          job_progress = JOB_PROGRESS_ENQUEUE_ATTEMPTED
+          @job_progress = JOB_PROGRESS_ENQUEUE_ATTEMPTED
           incr_job_stats(job)
 
           # must be keep this block
           if allow_enqueue_uniqueness?(job)
-            job_progress = JOB_PROGRESS_ENQUEUE_PROCESSING
+            @job_progress = JOB_PROGRESS_ENQUEUE_PROCESSING
             incr_job_stats(job)
 
             write_uniqueness_before_enqueue(job)
@@ -50,19 +49,19 @@ module ActiveJob
             begin
               r = block.call
 
-              job_progress = JOB_PROGRESS_ENQUEUE_PROCESSED
+              @job_progress = JOB_PROGRESS_ENQUEUE_PROCESSED
               incr_job_stats(job)
 
               write_uniqueness_after_enqueue(job)
             rescue StandardError => e
-              job_progress = JOB_PROGRESS_ENQUEUE_FAILED
+              @job_progress = JOB_PROGRESS_ENQUEUE_FAILED
               incr_job_stats(job)
 
               clean_uniqueness(job)
               raise e
             end
           else
-            job_progress = JOB_PROGRESS_ENQUEUE_SKIPPED
+            @job_progress = JOB_PROGRESS_ENQUEUE_SKIPPED
             incr_job_stats(job)
           end
 
@@ -72,12 +71,12 @@ module ActiveJob
         around_perform do |job, block|
           r = nil
 
-          job_progress = JOB_PROGRESS_PERFORM_ATTEMPTED
+          @job_progress = JOB_PROGRESS_PERFORM_ATTEMPTED
           incr_job_stats(job)
 
           # must be keep this block
           if allow_perform_uniqueness?(job)
-            job_progress = JOB_PROGRESS_PERFORM_PROCESSING
+            @job_progress = JOB_PROGRESS_PERFORM_PROCESSING
             incr_job_stats(job)
 
             write_uniqueness_before_perform(job)
@@ -85,19 +84,19 @@ module ActiveJob
             begin
               r = block.call
 
-              job_progress = JOB_PROGRESS_PERFORM_PROCESSED
+              @job_progress = JOB_PROGRESS_PERFORM_PROCESSED
               incr_job_stats(job)
 
               write_uniqueness_after_perform(job)
             rescue StandardError => e
-              job_progress = JOB_PROGRESS_PERFORM_FAILED
+              @job_progress = JOB_PROGRESS_PERFORM_FAILED
               incr_job_stats(job)
 
               clean_uniqueness(job)
               raise e
             end
           else
-            job_progress = JOB_PROGRESS_PERFORM_SKIPPED
+            @job_progress = JOB_PROGRESS_PERFORM_SKIPPED
             incr_job_stats(job)
           end
 
@@ -138,19 +137,19 @@ module ActiveJob
         ![UNIQUENESS_MODE_WHILE_EXECUTING,
           UNIQUENESS_MODE_UNTIL_EXECUTING,
           UNIQUENESS_MODE_UNTIL_AND_WHILE_EXECUTING,
-          UNIQUENESS_MODE_UNTIL_TIMEOUT].include?(uniqueness_mode)
+          UNIQUENESS_MODE_UNTIL_TIMEOUT].include?(self.class.uniqueness_mode)
       end
 
       def enqueue_only_uniqueness_mode?
-        UNIQUENESS_MODE_UNTIL_EXECUTING == uniqueness_mode
+        UNIQUENESS_MODE_UNTIL_EXECUTING == self.class.uniqueness_mode
       end
 
       def perform_only_uniqueness_mode?
-        UNIQUENESS_MODE_WHILE_EXECUTING == uniqueness_mode
+        UNIQUENESS_MODE_WHILE_EXECUTING == self.class.uniqueness_mode
       end
 
       def until_timeout_uniqueness_mode?
-        UNIQUENESS_MODE_UNTIL_TIMEOUT == uniqueness_mode
+        UNIQUENESS_MODE_UNTIL_TIMEOUT == self.class.uniqueness_mode
       end
 
       def enqueue_stage?(progress)
@@ -288,15 +287,15 @@ module ActiveJob
 
         case job_progress
         when JOB_PROGRESS_ENQUEUE_PROCESSING, JOB_PROGRESS_ENQUEUE_PROCESSED
-          timeout = uniqueness_expiration.from_now.utc.to_i
+          timeout = self.class.uniqueness_expiration.from_now.utc.to_i
         when JOB_PROGRESS_PERFORM_PROCESSING
-          timeout = uniqueness_duration.from_now.utc.to_i
+          timeout = self.class.uniqueness_duration.from_now.utc.to_i
         when JOB_PROGRESS_PERFORM_PROCESSED
           uniqueness = read_uniqueness(job)
           j = JSON.load(uniqueness) rescue nil
           timeout = j['t'].to_i if j.present?
 
-          timeout = uniqueness_duration.from_now.utc.to_i unless timeout.positive?
+          timeout = self.class.uniqueness_duration.from_now.utc.to_i unless timeout.positive?
         end
 
         timeout
@@ -308,17 +307,17 @@ module ActiveJob
         # reset expires when enqueue processing
         case job_progress
         when JOB_PROGRESS_ENQUEUE_PROCESSING, JOB_PROGRESS_ENQUEUE_PROCESSED
-          expires = uniqueness_expiration.from_now.utc.to_i
-          expires = (job.scheduled_at + uniqueness_expiration).to_i if job.scheduled_at.present?
+          expires = self.class.uniqueness_expiration.from_now.utc.to_i
+          expires = (job.scheduled_at + self.class.uniqueness_expiration).to_i if job.scheduled_at.present?
         when JOB_PROGRESS_PERFORM_PROCESSING
-          expires = uniqueness_expiration.from_now.utc.to_i
+          expires = self.class.uniqueness_expiration.from_now.utc.to_i
         else
           # always use saved expiration first
           uniqueness = read_uniqueness(job)
           j = JSON.load(uniqueness) rescue nil
           expires = j['e'].to_i if j.present?
 
-          expires = uniqueness_expiration.from_now.utc.to_i unless expires.positive?
+          expires = self.class.uniqueness_expiration.from_now.utc.to_i unless expires.positive?
         end
 
         expires
@@ -335,7 +334,7 @@ module ActiveJob
                                                          job.class.name,
                                                          job.arguments,
                                                          job.provider_job_id,
-                                                         uniqueness_mode,
+                                                         self.class.uniqueness_mode,
                                                          job_progress,
                                                          timeout,
                                                          expires)
@@ -355,7 +354,7 @@ module ActiveJob
                                                          job.class.name,
                                                          job.arguments,
                                                          job.provider_job_id,
-                                                         uniqueness_mode,
+                                                         self.class.uniqueness_mode,
                                                          job_progress,
                                                          timeout,
                                                          expires)
@@ -384,10 +383,7 @@ module ActiveJob
           'executions'      => executions,
           'locale'          => I18n.locale.to_s,
           'uniqueness_id'   => uniqueness_id,
-          'uniqueness_mode' => uniqueness_mode,
-          'unique_as_skipped' => unique_as_skipped,
-          'uniqueness_duration' => uniqueness_duration,
-          'uniqueness_expiration' => uniqueness_expiration
+          'unique_as_skipped' => unique_as_skipped
         }
       end
 
@@ -400,10 +396,7 @@ module ActiveJob
         self.executions             = job_data['executions']
         self.locale                 = job_data['locale'] || I18n.locale.to_s
         self.uniqueness_id          = job_data['uniqueness_id']
-        self.uniqueness_mode        = job_data['uniqueness_mode'].to_s.to_sym
         self.unique_as_skipped      = job_data['unique_as_skipped']
-        self.uniqueness_duration    = job_data['uniqueness_duration']
-        self.uniqueness_expiration  = job_data['uniqueness_expiration']
       end
 
       # add your static(class) methods here
