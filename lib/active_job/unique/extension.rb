@@ -23,6 +23,10 @@ module ActiveJob
       UNIQUENESS_MODE_UNTIL_AND_WHILE_EXECUTING = :until_and_while_executing
 
       included do
+        class_attribute :uniqueness_mode
+        class_attribute :uniqueness_duration
+        class_attribute :uniqueness_expiration
+
         attr_accessor :unique_as_skipped, :uniqueness_id, :job_progress,
                       :uniqueness_mode, :uniqueness_duration, :uniqueness_expiration
 
