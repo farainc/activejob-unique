@@ -151,7 +151,7 @@ module ActiveJob
             Sidekiq.redis_pool.with do |conn|
               conn.multi do
                 conn.hdel("uniqueness:#{queue_name}", uniqueness_id)
-                conn.hdel("uniqueness:dump:#{queue_name}", uniqueness_id)
+                # conn.hdel("uniqueness:dump:#{queue_name}", uniqueness_id)
               end
             end
           end

@@ -326,7 +326,7 @@ module ActiveJob
       end
 
       def write_uniqueness_progress(job)
-        return unless stats_adapter.respond_to?(:write_uniqueness_progress)
+        return unless stats_adapter.respond_to?(:write_uniqueness_progress_and_dump)
 
         timeout = calculate_timeout(job)
         expires = calculate_expires(job)
