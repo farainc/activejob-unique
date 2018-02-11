@@ -244,8 +244,6 @@ module ActiveJob
       def write_uniqueness_before_enqueue(job)
         return if invalid_uniqueness_mode?
 
-        # write_uniqueness_dump(job)
-
         # do not update uniqueness for perform_only_uniqueness_mode
         # when job is in perform_stage
         return if perform_only_uniqueness_mode? && perform_stage_job?(job)
@@ -341,16 +339,6 @@ module ActiveJob
                                                          timeout,
                                                          expires)
       end
-
-      # def write_uniqueness_dump(job)
-      #   return unless stats_adapter.respond_to?(:write_uniqueness_dump)
-      #
-      #   stats_adapter.write_uniqueness_dump(uniqueness_id,
-      #                                       job.queue_name,
-      #                                       job.class.name,
-      #                                       job.arguments,
-      #                                       job.provider_job_id)
-      # end
 
       def write_uniqueness_progress_and_dump(job)
         return false unless stats_adapter.respond_to?(:write_uniqueness_progress_and_dump)
