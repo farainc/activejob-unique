@@ -215,7 +215,14 @@ module ActiveJob
         return true if job.unique_as_skipped
         return true if invalid_uniqueness_mode?
         return true if enqueue_only_uniqueness_mode?
-        return true if dirty_uniqueness?(load_uniqueness(job))
+
+        uniqueness = load_uniqueness(job)
+        return true if dirty_uniqueness?(uniqueness)
+
+        progress = uniqueness['p']
+        job_id = uniqueness['j']
+
+        return true if job_id == job.provider_job_id
 
         !duplicated_job_in_worker?(job)
       end
@@ -237,7 +244,7 @@ module ActiveJob
       def write_uniqueness_before_enqueue(job)
         return if invalid_uniqueness_mode?
 
-        write_uniqueness_dump(job)
+        # write_uniqueness_dump(job)
 
         # do not update uniqueness for perform_only_uniqueness_mode
         # when job is in perform_stage
@@ -324,24 +331,26 @@ module ActiveJob
         timeout = calculate_timeout(job)
         expires = calculate_expires(job)
 
-        stats_adapter.write_uniqueness_progress(uniqueness_id,
-                                                job.queue_name,
-                                                job.class.name,
-                                                uniqueness_mode,
-                                                job_progress,
-                                                timeout,
-                                                expires)
+        stats_adapter.write_uniqueness_progress_and_dump(uniqueness_id,
+                                                         job.queue_name,
+                                                         job.class.name,
+                                                         job.arguments,
+                                                         job.provider_job_id,
+                                                         uniqueness_mode,
+                                                         job_progress,
+                                                         timeout,
+                                                         expires)
       end
 
-      def write_uniqueness_dump(job)
-        return unless stats_adapter.respond_to?(:write_uniqueness_dump)
-
-        stats_adapter.write_uniqueness_dump(uniqueness_id,
-                                            job.queue_name,
-                                            job.class.name,
-                                            job.arguments,
-                                            job.job_id)
-      end
+      # def write_uniqueness_dump(job)
+      #   return unless stats_adapter.respond_to?(:write_uniqueness_dump)
+      #
+      #   stats_adapter.write_uniqueness_dump(uniqueness_id,
+      #                                       job.queue_name,
+      #                                       job.class.name,
+      #                                       job.arguments,
+      #                                       job.provider_job_id)
+      # end
 
       def write_uniqueness_progress_and_dump(job)
         return false unless stats_adapter.respond_to?(:write_uniqueness_progress_and_dump)
@@ -356,7 +365,7 @@ module ActiveJob
                                                          job.queue_name,
                                                          job.class.name,
                                                          job.arguments,
-                                                         job.job_id,
+                                                         job.provider_job_id,
                                                          uniqueness_mode,
                                                          job_progress,
                                                          timeout,
