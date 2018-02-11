@@ -168,15 +168,16 @@ module ActiveJob
          JOB_PROGRESS_PERFORM_SKIPPED].include?(progress.to_s.to_sym)
       end
 
-      def duplicated_job_in_worker?(job)
-        Sidekiq::Workers.new.any? { |_p, _t, w| w['queue'] == job.queue_name && w['payload']['uniqueness_id'] == uniqueness_id && w['payload']['jid'] != job.job_id }
+      def duplicated_job_in_queue?(job)
+        return false unless stats_adapter.respond_to?(:duplicated_job_in_queue?)
+
+        stats_adapter.duplicated_job_in_queue?(uniqueness_id, job.queue_name)
       end
 
-      def duplicated_job_in_queue?(job)
-        queue = Sidekiq::Queue.new(job.queue_name)
+      def duplicated_job_in_worker?(job)
+        return false unless stats_adapter.respond_to?(:duplicated_job_in_worker?)
 
-        return false if queue.size.zero?
-        queue.any? { |job| job.item['args'][0]['uniqueness_id'] == uniqueness_id }
+        stats_adapter.duplicated_job_in_worker?(uniqueness_id, job)
       end
 
       def enqueue_stage_job?(job)

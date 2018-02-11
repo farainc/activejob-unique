@@ -33,6 +33,17 @@ module ActiveJob
             Time.now.utc.to_date.strftime('%Y%m%d').to_i
           end
 
+          def duplicated_job_in_queue?(uniqueness_id, queue_name)
+            queue = Sidekiq::Queue.new(queue_name)
+
+            return false if queue.size.zero?
+            queue.any? { |job| job.item['args'][0]['uniqueness_id'] == uniqueness_id }
+          end
+
+          def duplicated_job_in_worker?(uniqueness_id, job)
+            Sidekiq::Workers.new.any? { |_p, _t, w| w['queue'] == job.queue_name && w['payload']['uniqueness_id'] == uniqueness_id && w['payload']['jid'] != job.provider_job_id }
+          end
+
           def perform_processed?(progress)
             progress.to_s.to_sym == JOB_PROGRESS_PERFORM_PROCESSED
           end
@@ -247,6 +258,14 @@ module ActiveJob
 
         def sequence_today
           self.class.sequence_today
+        end
+
+        def duplicated_job_in_queue?(*args)
+          self.class.duplicated_job_in_queue?(*args)
+        end
+
+        def duplicated_job_in_worker?(*args)
+          self.class.duplicated_job_in_worker?(*args)
         end
 
         def dirty_uniqueness?(*args)
