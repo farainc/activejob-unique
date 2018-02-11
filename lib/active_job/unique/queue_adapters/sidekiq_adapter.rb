@@ -118,6 +118,18 @@ module ActiveJob
             end
           end
 
+          def write_uniqueness_progress_and_addition(job)(uniqueness_id, queue_name, progress)
+            uniqueness = read_uniqueness(uniqueness_id, queue_name)
+            return if uniqueness.blank?
+
+            uniqueness['s'] = progress
+            uniqueness['u'] = Time.now.utc.to_i
+
+            Sidekiq.redis_pool.with do |conn|
+              conn.hset("uniqueness:#{queue_name}", uniqueness_id, JSON.dump(uniqueness))
+            end
+          end
+
           def clean_uniqueness(uniqueness_id, queue_name)
             Sidekiq.redis_pool.with do |conn|
               conn.multi do
@@ -248,6 +260,10 @@ module ActiveJob
 
         def write_uniqueness_progress_and_dump(*args)
           self.class.write_uniqueness_progress_and_dump(*args)
+        end
+
+        def write_uniqueness_progress_and_addition(*args)
+          self.class.write_uniqueness_progress_and_addition(*args)
         end
 
         def clean_uniqueness(*args)
