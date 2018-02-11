@@ -63,6 +63,7 @@ module ActiveJob
           else
             @job_progress = JOB_PROGRESS_ENQUEUE_SKIPPED
             incr_job_stats(job)
+            write_uniqueness_progress_and_addition(job)
           end
 
           r
@@ -98,6 +99,7 @@ module ActiveJob
           else
             @job_progress = JOB_PROGRESS_PERFORM_SKIPPED
             incr_job_stats(job)
+            write_uniqueness_progress_and_addition(job)
           end
 
           r
@@ -368,6 +370,14 @@ module ActiveJob
                                                          timeout,
                                                          expires)
         true
+      end
+
+      def write_uniqueness_progress_and_addition(job)
+        return unless stats_adapter.respond_to?(:write_uniqueness_progress_and_addition)
+
+        stats_adapter.write_uniqueness_progress_and_addition(uniqueness_id,
+                                                 job.queue_name,
+                                                 job_progress)
       end
 
       def clean_uniqueness(job)

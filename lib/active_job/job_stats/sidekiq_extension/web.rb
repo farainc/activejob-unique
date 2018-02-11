@@ -74,7 +74,8 @@ module ActiveJob
                     progress: jp["p"],
                     timeout: jp["t"],
                     expires: jp["e"],
-                    updated_at: jp["u"]
+                    updated_at: jp["u"],
+                    addition: jp['s']
                   }
 
                   @job_stats << stats

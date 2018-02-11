@@ -62,6 +62,11 @@
             <div class="nowrap">
               <strong>State:&nbsp;</strong><%= job[:progress] %>
             </div>
+            <% if job[:addition].present? %>
+              <div class="nowrap">
+                <strong>Addition:&nbsp;</strong><%= job[:addition] %>
+              </div>
+            <% end %>
           </td>
           <td>
             <div class="nowrap">
