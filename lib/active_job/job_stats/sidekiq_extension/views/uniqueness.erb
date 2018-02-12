@@ -91,7 +91,7 @@
               <div class="nowrap">
                 <strong>DEBUG:</strong>
               </div>
-              <%= job[:debug].join('<br>') %>
+              <%= (job[:debug].join('<br>') rescue '') %>
             <% end %>
           </td>
           <td>
