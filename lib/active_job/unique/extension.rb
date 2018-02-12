@@ -38,6 +38,7 @@ module ActiveJob
 
           @job_progress = JOB_PROGRESS_ENQUEUE_ATTEMPTED
           incr_job_stats(job)
+          write_uniqueness_progress_and_addition(job)
 
           # must be keep this block
           if allow_enqueue_uniqueness?(job)
@@ -74,6 +75,7 @@ module ActiveJob
 
           @job_progress = JOB_PROGRESS_PERFORM_ATTEMPTED
           incr_job_stats(job)
+          write_uniqueness_progress_and_addition(job)
 
           # must be keep this block
           if allow_perform_uniqueness?(job)
