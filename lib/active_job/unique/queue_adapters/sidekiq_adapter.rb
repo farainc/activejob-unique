@@ -147,7 +147,7 @@ module ActiveJob
             return if j.blank?
 
             s = 'UPDATED'
-            d = 'DEBUG'
+            d = ''
 
             if j['j'] != job_id
               s += '_job_id'
@@ -161,6 +161,8 @@ module ActiveJob
             else
               s += "_progress"
             end
+
+            d = "DEBUG#{d}" if d.present?
 
             j['s'] = s
             j['d'] = d
