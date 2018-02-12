@@ -83,6 +83,12 @@
               <strong><%= job[:klass] %></strong>
             </div
             <p class="break-all"><%= job[:args] %></p>
+            <% if job[:debug].present? %>
+              <hr>
+              <div class="nowrap">
+                <strong>DEBUG:&nbsp;</strong><%= job[:debug] %>
+              </div>
+            <% end %>
           </td>
           <td>
             <form action="<%= root_path %>uniqueness/<%= @queue_name %>/<%= job[:uniqueness_id] %>/delete" method="post">
