@@ -146,20 +146,22 @@ module ActiveJob
             j = JSON.load(uniqueness) rescue nil
             return if j.blank?
 
-            s = 'updated'
-            d = 'debug'
+            s = 'UPDATED'
+            d = 'DEBUG'
 
             if j['j'] != job_id
               s += '_job_id'
               d += "_[#{job_id}]"
             end
 
-            unless allow_update_progress?(j['p'], progress)
+            d += "_[#{j['p']}]"
+
+            if allow_update_progress?(j['p'], progress)
+              j['p'] = progress
+            else
               s += "_progress"
-              d += "_[#{j['p']}]"
             end
 
-            j['p'] = progress
             j['s'] = s
             j['d'] = d
             j['u'] = Time.now.utc.to_i
