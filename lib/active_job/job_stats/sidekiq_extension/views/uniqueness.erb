@@ -60,13 +60,11 @@
               <strong>Mode:&nbsp;</strong><%= job[:uniqueness_mode] %>
             </div>
             <div class="nowrap">
-              <strong>State:&nbsp;</strong><%= job[:progress] %>
+              <strong>Progress:&nbsp;</strong><%= job[:progress] %>
             </div>
-            <% if job[:addition].present? %>
-              <div class="nowrap">
-                <strong>Addition:&nbsp;</strong><%= job[:addition] %>
-              </div>
-            <% end %>
+            <div class="nowrap">
+              <strong>Addition:&nbsp;</strong><%= job[:addition] %>
+            </div>
           </td>
           <td>
             <div class="nowrap">

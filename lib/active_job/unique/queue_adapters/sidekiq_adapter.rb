@@ -114,7 +114,7 @@ module ActiveJob
 
           def write_uniqueness_progress_and_dump(uniqueness_id, queue_name, klass, args, job_id, uniqueness_mode, progress, timeout, expires)
             Sidekiq.redis_pool.with do |conn|
-              conn.hset("uniqueness:#{queue_name}", uniqueness_id, JSON.dump("k": klass, "a": args, "j": job_id, "m": uniqueness_mode, "p": progress, "t": timeout, "e": expires, "u": Time.now.utc.to_i))
+              conn.hset("uniqueness:#{queue_name}", uniqueness_id, JSON.dump("k": klass, "a": args, "j": job_id, "m": uniqueness_mode, "p": progress, "s": progress, "t": timeout, "e": expires, "u": Time.now.utc.to_i))
             end
           end
 
