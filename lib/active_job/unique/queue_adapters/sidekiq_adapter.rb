@@ -182,7 +182,7 @@ module ActiveJob
           def expire_uniqueness(uniqueness_id, queue_name, progress)
             uniqueness = read_uniqueness(uniqueness_id, queue_name)
             j = JSON.load(uniqueness) rescue nil
-            return true if j.blank?
+            return if j.blank?
 
             j['p'] = progress
             j['e'] = -1.minutes.from_now.utc.to_i
