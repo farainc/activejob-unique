@@ -112,24 +112,49 @@ module ActiveJob
             uniqueness
           end
 
-          def write_uniqueness_progress_and_dump(uniqueness_id, queue_name, klass, args, job_id, uniqueness_mode, progress, timeout, expires)
+          def write_uniqueness_progress(uniqueness_id, queue_name, klass, args, job_id, uniqueness_mode, progress, timeout, expires)
             Sidekiq.redis_pool.with do |conn|
               conn.hset("uniqueness:#{queue_name}", uniqueness_id, JSON.dump("k": klass, "a": args, "j": job_id, "m": uniqueness_mode, "p": progress, "s": progress, "t": timeout, "e": expires, "u": Time.now.utc.to_i))
             end
           end
 
-          def write_uniqueness_progress_and_addition(uniqueness_id, queue_name, progress)
+          def update_uniqueness_progress(uniqueness_id, queue_name, job_id, progress)
             uniqueness = read_uniqueness(uniqueness_id, queue_name)
             j = JSON.load(uniqueness) rescue nil
             return if j.blank?
 
-            j['s'] = progress
+            if j['j'] == job_id
+              j['p'] = progress
+              j['s'] = progress
+            else
+              j['s'] = 'update_skipped'
+            end
+
             j['u'] = Time.now.utc.to_i
 
             Sidekiq.redis_pool.with do |conn|
               conn.hset("uniqueness:#{queue_name}", uniqueness_id, JSON.dump(j))
             end
           end
+
+          # def write_uniqueness_progress_and_dump(uniqueness_id, queue_name, klass, args, job_id, uniqueness_mode, progress, timeout, expires)
+          #   Sidekiq.redis_pool.with do |conn|
+          #     conn.hset("uniqueness:#{queue_name}", uniqueness_id, JSON.dump("k": klass, "a": args, "j": job_id, "m": uniqueness_mode, "p": progress, "s": progress, "t": timeout, "e": expires, "u": Time.now.utc.to_i))
+          #   end
+          # end
+          #
+          # def write_uniqueness_progress_and_addition(uniqueness_id, queue_name, progress)
+          #   uniqueness = read_uniqueness(uniqueness_id, queue_name)
+          #   j = JSON.load(uniqueness) rescue nil
+          #   return if j.blank?
+          #
+          #   j['s'] = progress
+          #   j['u'] = Time.now.utc.to_i
+          #
+          #   Sidekiq.redis_pool.with do |conn|
+          #     conn.hset("uniqueness:#{queue_name}", uniqueness_id, JSON.dump(j))
+          #   end
+          # end
 
           def clean_uniqueness(uniqueness_id, queue_name)
             Sidekiq.redis_pool.with do |conn|
@@ -259,12 +284,12 @@ module ActiveJob
           self.class.read_uniqueness(*args)
         end
 
-        def write_uniqueness_progress_and_dump(*args)
-          self.class.write_uniqueness_progress_and_dump(*args)
+        def write_uniqueness_progress(*args)
+          self.class.write_uniqueness_progress(*args)
         end
 
-        def write_uniqueness_progress_and_addition(*args)
-          self.class.write_uniqueness_progress_and_addition(*args)
+        def update_uniqueness_progress(*args)
+          self.class.update_uniqueness_progress(*args)
         end
 
         def clean_uniqueness(*args)
