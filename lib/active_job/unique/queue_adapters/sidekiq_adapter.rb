@@ -124,7 +124,17 @@ module ActiveJob
 
           def write_uniqueness_progress(uniqueness_id, queue_name, klass, args, job_id, uniqueness_mode, progress, timeout, expires)
             Sidekiq.redis_pool.with do |conn|
-              conn.hset("uniqueness:#{queue_name}", uniqueness_id, JSON.dump("k": klass, "a": args, "j": job_id, "m": uniqueness_mode, "p": progress, "s": progress, "t": timeout, "e": expires, "u": Time.now.utc.to_i))
+              conn.hset("uniqueness:#{queue_name}",
+                        uniqueness_id,
+                        JSON.dump("k": klass,
+                                  "a": args,
+                                  "j": job_id,
+                                  "m": uniqueness_mode,
+                                  "p": progress,
+                                  "s": "force_override",
+                                  "t": timeout,
+                                  "e": expires,
+                                  "u": Time.now.utc.to_i))
             end
           end
 
@@ -133,13 +143,22 @@ module ActiveJob
             j = JSON.load(uniqueness) rescue nil
             return if j.blank?
 
-            if j['j'] == job_id && allow_update_progress?(j['p'], progress)
-              j['p'] = progress
-              j['s'] = progress
-            else
-              j['s'] = 'update_skipped'
+            s = 'up'
+            d = ''
+
+            if j['j'] != job_id
+              s += '_[jid]'
+              d += "_[#{job_id}]"
             end
 
+            unless allow_update_progress?(j['p'], progress)
+              s += "_[progress]"
+              d += "_[#{progress}]"
+            end
+
+            j['p'] = progress
+            j['s'] = s
+            j['d'] = d
             j['u'] = Time.now.utc.to_i
 
             Sidekiq.redis_pool.with do |conn|
