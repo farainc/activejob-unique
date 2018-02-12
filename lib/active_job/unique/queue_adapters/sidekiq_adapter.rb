@@ -37,7 +37,7 @@ module ActiveJob
           end
 
           def duplicated_job_in_worker?(uniqueness_id, job)
-            Sidekiq::Workers.new.any? { |_p, _t, w| w['queue'] == job.queue_name && w['payload']['uniqueness_id'] == uniqueness_id && w['payload']['jid'] != job.provider_job_id }
+            Sidekiq::Workers.new.any? { |_p, _t, w| w['queue'] == job.queue_name && w['payload']['args'][0]['uniqueness_id'] == uniqueness_id && w['payload']['args'][0]['job_id'] != job.job_id }
           end
 
           def perform_processed?(progress)
@@ -136,25 +136,6 @@ module ActiveJob
               conn.hset("uniqueness:#{queue_name}", uniqueness_id, JSON.dump(j))
             end
           end
-
-          # def write_uniqueness_progress_and_dump(uniqueness_id, queue_name, klass, args, job_id, uniqueness_mode, progress, timeout, expires)
-          #   Sidekiq.redis_pool.with do |conn|
-          #     conn.hset("uniqueness:#{queue_name}", uniqueness_id, JSON.dump("k": klass, "a": args, "j": job_id, "m": uniqueness_mode, "p": progress, "s": progress, "t": timeout, "e": expires, "u": Time.now.utc.to_i))
-          #   end
-          # end
-          #
-          # def write_uniqueness_progress_and_addition(uniqueness_id, queue_name, progress)
-          #   uniqueness = read_uniqueness(uniqueness_id, queue_name)
-          #   j = JSON.load(uniqueness) rescue nil
-          #   return if j.blank?
-          #
-          #   j['s'] = progress
-          #   j['u'] = Time.now.utc.to_i
-          #
-          #   Sidekiq.redis_pool.with do |conn|
-          #     conn.hset("uniqueness:#{queue_name}", uniqueness_id, JSON.dump(j))
-          #   end
-          # end
 
           def clean_uniqueness(uniqueness_id, queue_name)
             Sidekiq.redis_pool.with do |conn|

@@ -233,7 +233,7 @@ module ActiveJob
         return true if dirty_uniqueness?(uniqueness)
 
         job_id = uniqueness['j']
-        return true if job_id == job.provider_job_id
+        return true if job_id == job.job_id
         return false if duplicated_job_in_worker?(job)
 
         uniqueness['p'].to_s.to_sym == JOB_PROGRESS_ENQUEUE_PROCESSED
@@ -328,7 +328,7 @@ module ActiveJob
                                                 job.queue_name,
                                                 job.class.name,
                                                 job.arguments,
-                                                job.provider_job_id,
+                                                job.job_id,
                                                 self.class.uniqueness_mode,
                                                 job_progress,
                                                 timeout,
@@ -341,7 +341,7 @@ module ActiveJob
 
         stats_adapter.update_uniqueness_progress(uniqueness_id,
                                                  job.queue_name,
-                                                 job.provider_job_id,
+                                                 job.job_id,
                                                  job_progress)
       end
 
