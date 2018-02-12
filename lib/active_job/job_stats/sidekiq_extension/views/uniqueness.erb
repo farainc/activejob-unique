@@ -8,6 +8,9 @@
   form .btn {
     margin-right: 0;
   }
+  hr {
+    margin: 5px 0;
+  }
   .nowrap {
     white-space: nowrap;
   }
@@ -63,7 +66,7 @@
               <strong>Progress:&nbsp;</strong><%= job[:progress] %>
             </div>
             <div class="nowrap">
-              <strong>Addition:&nbsp;</strong><%= job[:addition] %>
+              <%= job[:state] %>
             </div>
           </td>
           <td>

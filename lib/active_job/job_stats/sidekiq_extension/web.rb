@@ -75,7 +75,7 @@ module ActiveJob
                     timeout: jp["t"],
                     expires: jp["e"],
                     updated_at: jp["u"],
-                    addition: jp['s'],
+                    state: jp['s'],
                     debug: jp['d']
                   }
 
