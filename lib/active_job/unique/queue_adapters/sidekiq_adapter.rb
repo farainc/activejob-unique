@@ -155,24 +155,23 @@ module ActiveJob
             j = JSON.load(uniqueness) rescue nil
             return if j.blank?
 
-            s = ''
-            d = "[#{j['p']}:#{progress}]"
+            d = []
+            s = 'progress_updated'
 
             if j['j'] != job_id
-              s += ':[job_id]'
-              d += ":[#{job_id}]"
+              d << job_id
             end
 
+            d << "OLD: [#{j['p']}]"
             if !skipped_progress?(progress) && progress_in_correct_order?(j['p'], progress)
               j['p'] = progress
             else
-              s += ":[progress]"
+              d << "NEW: [#{progress}]"
+              s = 'progress_skipped'
             end
 
-            s = "DEBUG#{s}" if s.present?
-
-            j['s'] = s
             j['d'] = d
+            j['s'] = s
             j['u'] = Time.now.utc.to_i
 
             Sidekiq.redis_pool.with do |conn|

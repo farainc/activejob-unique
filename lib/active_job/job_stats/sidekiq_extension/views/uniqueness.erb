@@ -66,7 +66,7 @@
               <strong>Progress:&nbsp;</strong><%= job[:progress] %>
             </div>
             <div class="nowrap">
-              <%= job[:state] %>
+              <strong>State:&nbsp;</strong><%= job[:state] %>
             </div>
           </td>
           <td>
@@ -91,7 +91,7 @@
               <div class="nowrap">
                 <strong>DEBUG:</strong>
               </div>
-              <%= job[:debug] %>
+              <%= job[:debug].join('<br>') %>
             <% end %>
           </td>
           <td>
