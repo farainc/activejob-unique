@@ -214,13 +214,13 @@ module ActiveJob
         uniqueness = load_uniqueness(job)
         return true if dirty_uniqueness?(uniqueness)
 
-        progress = uniqueness['p']
+        progress = uniqueness['p'].to_s.to_sym
 
         # disallow perform_processing progress
-        return false if progress.to_sym == JOB_PROGRESS_PERFORM_PROCESSING
+        return false if progress == JOB_PROGRESS_PERFORM_PROCESSING
 
         # disallow until_timeout_uniqueness_mode with perform_processed progress
-        return false if until_timeout_uniqueness_mode? && progress.to_sym == JOB_PROGRESS_PERFORM_PROCESSED
+        return false if until_timeout_uniqueness_mode? && progress == JOB_PROGRESS_PERFORM_PROCESSED
 
         true
       end
@@ -234,10 +234,13 @@ module ActiveJob
         return true if dirty_uniqueness?(uniqueness)
 
         job_id = uniqueness['j']
-
         return true if job_id == job.provider_job_id
+        return false if duplicated_job_in_worker?(job)
 
-        !duplicated_job_in_worker?(job)
+        progress = uniqueness['p'].to_s.to_sym
+        addition = uniqueness['s'].to_s.to_sym
+
+        progress == JOB_PROGRESS_ENQUEUE_PROCESSED && addition == JOB_PROGRESS_PERFORM_ATTEMPTED
       end
 
       def dirty_uniqueness?(uniqueness)
