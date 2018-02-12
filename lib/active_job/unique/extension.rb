@@ -38,7 +38,6 @@ module ActiveJob
 
           @job_progress = JOB_PROGRESS_ENQUEUE_ATTEMPTED
           incr_job_stats(job)
-          write_uniqueness_progress_and_addition(job)
 
           # must be keep this block
           if allow_enqueue_uniqueness?(job)
@@ -64,7 +63,7 @@ module ActiveJob
           else
             @job_progress = JOB_PROGRESS_ENQUEUE_SKIPPED
             incr_job_stats(job)
-            write_uniqueness_progress_and_addition(job)
+            update_uniqueness_progress(job)
           end
 
           r
@@ -75,7 +74,7 @@ module ActiveJob
 
           @job_progress = JOB_PROGRESS_PERFORM_ATTEMPTED
           incr_job_stats(job)
-          write_uniqueness_progress_and_addition(job)
+          update_uniqueness_progress(job)
 
           # must be keep this block
           if allow_perform_uniqueness?(job)
@@ -101,7 +100,7 @@ module ActiveJob
           else
             @job_progress = JOB_PROGRESS_PERFORM_SKIPPED
             incr_job_stats(job)
-            write_uniqueness_progress_and_addition(job)
+            update_uniqueness_progress(job)
           end
 
           r
@@ -237,10 +236,7 @@ module ActiveJob
         return true if job_id == job.provider_job_id
         return false if duplicated_job_in_worker?(job)
 
-        progress = uniqueness['p'].to_s.to_sym
-        addition = uniqueness['s'].to_s.to_sym
-
-        progress == JOB_PROGRESS_ENQUEUE_PROCESSED && addition == JOB_PROGRESS_PERFORM_ATTEMPTED
+        uniqueness['p'].to_s.to_sym == JOB_PROGRESS_ENQUEUE_PROCESSED
       end
 
       def dirty_uniqueness?(uniqueness)
@@ -258,8 +254,6 @@ module ActiveJob
       end
 
       def write_uniqueness_before_enqueue(job)
-        return if invalid_uniqueness_mode?
-
         # do not update uniqueness for perform_only_uniqueness_mode
         # when job is in perform_stage
         return if perform_only_uniqueness_mode? && perform_stage_job?(job)
@@ -268,26 +262,23 @@ module ActiveJob
       end
 
       def write_uniqueness_after_enqueue(job)
-        return if invalid_uniqueness_mode?
-
         # do not update uniqueness for perform_only_uniqueness_mode
         # when job is in perform_stage
         return if perform_only_uniqueness_mode? && perform_stage_job?(job)
 
-        write_uniqueness_progress(job)
+        update_uniqueness_progress(job)
       end
 
       def write_uniqueness_before_perform(job)
-        return if invalid_uniqueness_mode?
-
         write_uniqueness_progress(job)
       end
 
       def write_uniqueness_after_perform(job)
-        should_clean_it = true
-        should_clean_it = !write_uniqueness_progress_and_dump(job) if until_timeout_uniqueness_mode?
-
-        clean_uniqueness(job) if should_clean_it
+        if until_timeout_uniqueness_mode?
+          update_uniqueness_progress(job)
+        else
+          clean_uniqueness(job)
+        end
       end
 
       def incr_job_stats(job)
@@ -302,16 +293,10 @@ module ActiveJob
         timeout = 0
 
         case job_progress
-        when JOB_PROGRESS_ENQUEUE_PROCESSING, JOB_PROGRESS_ENQUEUE_PROCESSED
+        when JOB_PROGRESS_ENQUEUE_PROCESSING
           timeout = self.class.uniqueness_expiration.from_now.utc.to_i
         when JOB_PROGRESS_PERFORM_PROCESSING
           timeout = self.class.uniqueness_duration.from_now.utc.to_i
-        when JOB_PROGRESS_PERFORM_PROCESSED
-          uniqueness = read_uniqueness(job)
-          j = JSON.load(uniqueness) rescue nil
-          timeout = j['t'].to_i if j.present?
-
-          timeout = self.class.uniqueness_duration.from_now.utc.to_i unless timeout.positive?
         end
 
         timeout
@@ -322,66 +307,41 @@ module ActiveJob
 
         # reset expires when enqueue processing
         case job_progress
-        when JOB_PROGRESS_ENQUEUE_PROCESSING, JOB_PROGRESS_ENQUEUE_PROCESSED
+        when JOB_PROGRESS_ENQUEUE_PROCESSING
           expires = self.class.uniqueness_expiration.from_now.utc.to_i
           expires = (job.scheduled_at + self.class.uniqueness_expiration).to_i if job.scheduled_at.present?
         when JOB_PROGRESS_PERFORM_PROCESSING
           expires = self.class.uniqueness_expiration.from_now.utc.to_i
-        else
-          # always use saved expiration first
-          uniqueness = read_uniqueness(job)
-          j = JSON.load(uniqueness) rescue nil
-          expires = j['e'].to_i if j.present?
-
-          expires = self.class.uniqueness_expiration.from_now.utc.to_i unless expires.positive?
         end
 
         expires
       end
 
       def write_uniqueness_progress(job)
-        return unless stats_adapter.respond_to?(:write_uniqueness_progress_and_dump)
+        return if invalid_uniqueness_mode?
+        return unless stats_adapter.respond_to?(:write_uniqueness_progress)
 
         timeout = calculate_timeout(job)
         expires = calculate_expires(job)
 
-        stats_adapter.write_uniqueness_progress_and_dump(uniqueness_id,
-                                                         job.queue_name,
-                                                         job.class.name,
-                                                         job.arguments,
-                                                         job.provider_job_id,
-                                                         self.class.uniqueness_mode,
-                                                         job_progress,
-                                                         timeout,
-                                                         expires)
+        stats_adapter.write_uniqueness_progress(uniqueness_id,
+                                                job.queue_name,
+                                                job.class.name,
+                                                job.arguments,
+                                                job.provider_job_id,
+                                                self.class.uniqueness_mode,
+                                                job_progress,
+                                                timeout,
+                                                expires)
       end
 
-      def write_uniqueness_progress_and_dump(job)
-        return false unless stats_adapter.respond_to?(:write_uniqueness_progress_and_dump)
+      def update_uniqueness_progress(job)
+        return if invalid_uniqueness_mode?
+        return unless stats_adapter.respond_to?(:update_uniqueness_progress)
 
-        timeout = calculate_timeout(job)
-        return false if timeout < Time.now.utc.to_i
-
-        expires = calculate_expires(job)
-        return false if expires < Time.now.utc.to_i
-
-        stats_adapter.write_uniqueness_progress_and_dump(uniqueness_id,
-                                                         job.queue_name,
-                                                         job.class.name,
-                                                         job.arguments,
-                                                         job.provider_job_id,
-                                                         self.class.uniqueness_mode,
-                                                         job_progress,
-                                                         timeout,
-                                                         expires)
-        true
-      end
-
-      def write_uniqueness_progress_and_addition(job)
-        return unless stats_adapter.respond_to?(:write_uniqueness_progress_and_addition)
-
-        stats_adapter.write_uniqueness_progress_and_addition(uniqueness_id,
+        stats_adapter.update_uniqueness_progress(uniqueness_id,
                                                  job.queue_name,
+                                                 job.provider_job_id,
                                                  job_progress)
       end
 
