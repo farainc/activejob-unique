@@ -147,22 +147,20 @@ module ActiveJob
             return if j.blank?
 
             s = 'UPDATED'
-            d = ''
+            d = 'DEBUG'
 
             if j['j'] != job_id
               s += '_job_id'
               d += "_[#{job_id}]"
             end
 
-            d += "_[#{j['p']}]"
+            d += "_[#{j['p']}]:[#{progress}]"
 
             if allow_update_progress?(j['p'], progress)
               j['p'] = progress
             else
               s += "_progress"
             end
-
-            d = "DEBUG#{d}" if d.present?
 
             j['s'] = s
             j['d'] = d
