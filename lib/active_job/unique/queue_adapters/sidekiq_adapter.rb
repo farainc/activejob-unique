@@ -162,16 +162,30 @@ module ActiveJob
               d << job_id
             end
 
-            d << "OLD: [#{j['p']}]"
+            d << "[#{j['p']}]"
             if !skipped_progress?(progress) && progress_in_correct_order?(j['p'], progress)
               j['p'] = progress
             else
-              d << "NEW: [#{progress}]"
+              d << "[#{progress}]"
               s = 'progress_skipped'
             end
 
             j['d'] = d
             j['s'] = s
+            j['u'] = Time.now.utc.to_i
+
+            Sidekiq.redis_pool.with do |conn|
+              conn.hset("uniqueness:#{queue_name}", uniqueness_id, JSON.dump(j))
+            end
+          end
+
+          def expire_uniqueness(uniqueness_id, queue_name, progress)
+            uniqueness = read_uniqueness(uniqueness_id, queue_name)
+            j = JSON.load(uniqueness) rescue nil
+            return true if j.blank?
+
+            j['p'] = progress
+            j['e'] = -1.minutes.from_now.utc.to_i
             j['u'] = Time.now.utc.to_i
 
             Sidekiq.redis_pool.with do |conn|
@@ -313,6 +327,10 @@ module ActiveJob
 
         def update_uniqueness_progress(*args)
           self.class.update_uniqueness_progress(*args)
+        end
+
+        def expire_uniqueness(*args)
+          self.class.expire_uniqueness(*args)
         end
 
         def clean_uniqueness(*args)

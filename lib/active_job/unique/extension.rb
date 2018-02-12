@@ -277,7 +277,7 @@ module ActiveJob
         if until_timeout_uniqueness_mode?
           update_uniqueness_progress(job)
         else
-          clean_uniqueness(job)
+          expire_uniqueness(job)
         end
       end
 
@@ -345,10 +345,10 @@ module ActiveJob
                                                  job_progress)
       end
 
-      def clean_uniqueness(job)
-        return unless stats_adapter.respond_to?(:clean_uniqueness)
+      def expire_uniqueness(job)
+        return unless stats_adapter.respond_to?(:expire_uniqueness)
 
-        stats_adapter.clean_uniqueness(uniqueness_id, job.queue_name)
+        stats_adapter.expire_uniqueness(uniqueness_id, job.queue_name, job_progress)
       end
 
       # add your instance methods here
