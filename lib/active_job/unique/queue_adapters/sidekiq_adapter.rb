@@ -25,6 +25,12 @@ module ActiveJob
           UNIQUENESS_MODE_UNTIL_EXECUTING = :until_executing
           UNIQUENESS_MODE_UNTIL_AND_WHILE_EXECUTING = :until_and_while_executing
 
+          JOB_PROGRESS_ORDER = [JOB_PROGRESS_ENQUEUE_ATTEMPTED,
+                                JOB_PROGRESS_ENQUEUE_PROCESSING,
+                                JOB_PROGRESS_ENQUEUE_PROCESSED,
+                                JOB_PROGRESS_PERFORM_PROCESSING,
+                                JOB_PROGRESS_PERFORM_PROCESSED]
+
           def sequence_today
             Time.now.utc.to_date.strftime('%Y%m%d').to_i
           end
@@ -55,6 +61,10 @@ module ActiveJob
               JOB_PROGRESS_PERFORM_PROCESSED,
               JOB_PROGRESS_PERFORM_FAILED,
               JOB_PROGRESS_PERFORM_SKIPPED].include?(progress.to_s.to_sym)
+          end
+
+          def allow_update_progress?(old_progress, new_progress)
+            JOB_PROGRESS_ORDER.index(old_progress.to_s.to_sym).to_i < JOB_PROGRESS_ORDER.index(new_progress.to_s.to_sym).to_i
           end
 
           def dirty_uniqueness?(uniqueness)
@@ -123,7 +133,7 @@ module ActiveJob
             j = JSON.load(uniqueness) rescue nil
             return if j.blank?
 
-            if j['j'] == job_id
+            if j['j'] == job_id && allow_update_progress?(j['p'], progress)
               j['p'] = progress
               j['s'] = progress
             else
