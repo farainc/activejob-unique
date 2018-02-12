@@ -28,8 +28,11 @@ module ActiveJob
           JOB_PROGRESS_ORDER = [JOB_PROGRESS_ENQUEUE_ATTEMPTED,
                                 JOB_PROGRESS_ENQUEUE_PROCESSING,
                                 JOB_PROGRESS_ENQUEUE_PROCESSED,
+                                JOB_PROGRESS_ENQUEUE_SKIPPED,
+                                JOB_PROGRESS_PERFORM_ATTEMPTED,
                                 JOB_PROGRESS_PERFORM_PROCESSING,
-                                JOB_PROGRESS_PERFORM_PROCESSED]
+                                JOB_PROGRESS_PERFORM_PROCESSED,
+                                JOB_PROGRESS_PERFORM_SKIPPED]
 
           def sequence_today
             Time.now.utc.to_date.strftime('%Y%m%d').to_i
@@ -143,17 +146,17 @@ module ActiveJob
             j = JSON.load(uniqueness) rescue nil
             return if j.blank?
 
-            s = 'up'
-            d = ''
+            s = 'updated'
+            d = 'debug'
 
             if j['j'] != job_id
-              s += '_[jid]'
+              s += '_job_id'
               d += "_[#{job_id}]"
             end
 
             unless allow_update_progress?(j['p'], progress)
-              s += "_[progress]"
-              d += "_[#{progress}]"
+              s += "_progress"
+              d += "_[#{j['p']}]"
             end
 
             j['p'] = progress

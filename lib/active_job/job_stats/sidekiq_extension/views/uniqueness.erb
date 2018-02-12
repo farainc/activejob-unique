@@ -85,9 +85,7 @@
             <p class="break-all"><%= job[:args] %></p>
             <% if job[:debug].present? %>
               <hr>
-              <div class="nowrap">
-                <strong>DEBUG:&nbsp;</strong><%= job[:debug] %>
-              </div>
+              <%= job[:debug] %>
             <% end %>
           </td>
           <td>
