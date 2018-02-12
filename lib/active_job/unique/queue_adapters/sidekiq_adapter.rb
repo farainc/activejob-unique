@@ -53,7 +53,7 @@ module ActiveJob
             progress.to_s.to_sym == JOB_PROGRESS_PERFORM_PROCESSED
           end
 
-          def unknown_stage?(progress)
+          def unknown_progress?(progress)
             ![JOB_PROGRESS_ENQUEUE_ATTEMPTED,
               JOB_PROGRESS_ENQUEUE_PROCESSING,
               JOB_PROGRESS_ENQUEUE_PROCESSED,
@@ -66,7 +66,16 @@ module ActiveJob
               JOB_PROGRESS_PERFORM_SKIPPED].include?(progress.to_s.to_sym)
           end
 
-          def allow_update_progress?(old_progress, new_progress)
+          def skipped_progress?(progress)
+            [JOB_PROGRESS_ENQUEUE_ATTEMPTED,
+             JOB_PROGRESS_ENQUEUE_FAILED,
+             JOB_PROGRESS_ENQUEUE_SKIPPED,
+             JOB_PROGRESS_PERFORM_ATTEMPTED,
+             JOB_PROGRESS_PERFORM_FAILED,
+             JOB_PROGRESS_PERFORM_SKIPPED].include?(progress.to_s.to_sym)
+          end
+
+          def progress_in_correct_order?(old_progress, new_progress)
             JOB_PROGRESS_ORDER.index(old_progress.to_s.to_sym).to_i < JOB_PROGRESS_ORDER.index(new_progress.to_s.to_sym).to_i
           end
 
@@ -87,7 +96,7 @@ module ActiveJob
             return true if timeout < now
 
             # unknown stage
-            return true if unknown_stage?(progress)
+            return true if unknown_progress?(progress)
 
             false
           end
@@ -110,7 +119,7 @@ module ActiveJob
             return true if timeout < now && perform_processed?(progress)
 
             # unknown stage
-            return true if unknown_stage?(progress)
+            return true if unknown_progress?(progress)
 
             false
           end
@@ -154,9 +163,9 @@ module ActiveJob
               d += "_[#{job_id}]"
             end
 
-            d += "_[#{j['p']}]:[#{progress}]"
+            d += "_[#{j['p']}:#{progress}]"
 
-            if allow_update_progress?(j['p'], progress)
+            if !skipped_progress?(progress) && progress_in_correct_order?(j['p'], progress)
               j['p'] = progress
             else
               s += "_progress"
