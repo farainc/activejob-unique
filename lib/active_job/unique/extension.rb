@@ -236,7 +236,7 @@ module ActiveJob
         return true if job_id == job.job_id
         return false if duplicated_job_in_worker?(job)
 
-        uniqueness['p'].to_s.to_sym == JOB_PROGRESS_ENQUEUE_PROCESSED
+        enqueue_stage?(uniqueness['p'])
       end
 
       def dirty_uniqueness?(uniqueness)
