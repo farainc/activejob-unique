@@ -57,7 +57,7 @@ module ActiveJob
               @job_progress = JOB_PROGRESS_ENQUEUE_FAILED
               incr_job_stats(job)
 
-              clean_uniqueness(job)
+              update_uniqueness_progress(job)
               raise e
             end
           else
@@ -94,7 +94,7 @@ module ActiveJob
               @job_progress = JOB_PROGRESS_PERFORM_FAILED
               incr_job_stats(job)
 
-              clean_uniqueness(job)
+              update_uniqueness_progress(job)
               raise e
             end
           else
