@@ -27,7 +27,8 @@ module ActiveJob
         class_attribute :uniqueness_duration
         class_attribute :uniqueness_expiration
 
-        attr_accessor :unique_as_skipped, :uniqueness_id, :job_progress, :provider_job_id
+        attr_accessor :provider_job_id, :priority, :executions #compatible with rails 4.x
+        attr_accessor :unique_as_skipped, :uniqueness_id, :job_progress
 
         before_enqueue do |job|
           @uniqueness_id = Digest::MD5.hexdigest([job.queue_name, job.class.name, job.arguments].inspect.to_s)
@@ -356,15 +357,11 @@ module ActiveJob
         self.class.perform_later(*arguments)
       end
 
-      def ensure_provider_job_id
-        provider_job_id rescue job_id
-      end
-
       def serialize
         {
           'job_class'       => self.class.name,
           'job_id'          => job_id,
-          'provider_job_id' => ensure_provider_job_id,
+          'provider_job_id' => provider_job_id,
           'queue_name'      => queue_name,
           'priority'        => priority,
           'arguments'       => serialize_arguments(arguments),
