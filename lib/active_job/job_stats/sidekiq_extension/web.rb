@@ -76,7 +76,8 @@ module ActiveJob
                     expires: jp["e"],
                     updated_at: jp["u"],
                     state: jp['s'],
-                    debug: jp['d']
+                    debug: jp['d'],
+                    reason: jp['r']
                   }
 
                   @job_stats << stats
