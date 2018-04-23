@@ -84,15 +84,14 @@
             <code><%= job[:job_id] %></code>
             <div class="nowrap">
               <strong><%= job[:klass] %></strong>
-            </div
+            </div>
             <p class="break-all"><%= job[:args] %></p>
-            <% if job[:debug].present? %>
-              <hr>
-              <div class="nowrap">
-                <strong>DEBUG:</strong>
-              </div>
-              <%= (job[:debug].join('<br>') rescue '') %>
-            <% end %>
+            <hr>
+            <div class="nowrap">
+              <strong>DEBUG:</strong>
+            </div>
+            <div class="nowrap"><%= job[:reason] %></div>
+            <%= (job[:debug].join('<br>') rescue '') %>
           </td>
           <td>
             <form action="<%= root_path %>uniqueness/<%= @queue_name %>/<%= job[:uniqueness_id] %>/delete" method="post">

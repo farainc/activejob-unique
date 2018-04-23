@@ -28,7 +28,7 @@ module ActiveJob
         class_attribute :uniqueness_expiration
 
         attr_accessor :provider_job_id, :priority, :executions #compatible with rails 4.x
-        attr_accessor :unique_as_skipped, :uniqueness_id, :job_progress
+        attr_accessor :unique_as_skipped, :uniqueness_id, :job_progress, :skip_reason
 
         before_enqueue do |job|
           @uniqueness_id = Digest::MD5.hexdigest([job.queue_name, job.class.name, job.arguments].inspect.to_s)
@@ -202,13 +202,19 @@ module ActiveJob
         return true if perform_only_uniqueness_mode?
 
         # disallow duplicated_job_in_queue
-        return false if duplicated_job_in_queue?(job)
+        if duplicated_job_in_queue?(job)
+          @skip_reason = 'enqueue:duplicated_job_in_queue'
+          return false
+        end
 
         # allow enqueue_only_uniqueness_mode if no duplicated_job_in_queue
         return true if enqueue_only_uniqueness_mode?
 
         # disallow duplicated_job_in_worker
-        return false if duplicated_job_in_worker?(job)
+        if duplicated_job_in_worker?(job)
+          @skip_reason = 'enqueue:duplicated_job_in_worker'
+          return false
+        end
 
         # allow dirty_uniqueness
         uniqueness = load_uniqueness(job)
@@ -217,10 +223,16 @@ module ActiveJob
         progress = uniqueness['p'].to_s.to_sym
 
         # disallow perform_processing progress
-        return false if progress == JOB_PROGRESS_PERFORM_PROCESSING
+        if progress == JOB_PROGRESS_PERFORM_PROCESSING
+          @skip_reason = 'enqueue:perform_processing'
+          return false
+        end
 
         # disallow until_timeout_uniqueness_mode with perform_processed progress
-        return false if until_timeout_uniqueness_mode? && progress == JOB_PROGRESS_PERFORM_PROCESSED
+        if until_timeout_uniqueness_mode? && progress == JOB_PROGRESS_PERFORM_PROCESSED
+          @skip_reason = 'enqueue:until_timeout:perform_processed'
+          return false
+        end
 
         true
       end
@@ -235,9 +247,16 @@ module ActiveJob
 
         job_id = uniqueness['j']
         return true if job_id == job.job_id
-        return false if duplicated_job_in_worker?(job)
 
-        enqueue_stage?(uniqueness['p'])
+        if duplicated_job_in_worker?(job)
+          @skip_reason = 'perform:duplicated_job_in_worker'
+          return false
+        end
+
+        return true if enqueue_stage?(uniqueness['p'])
+
+        @skip_reason = 'perform:not_in_enqueue_stage'
+        false
       end
 
       def dirty_uniqueness?(uniqueness)
@@ -343,7 +362,8 @@ module ActiveJob
         stats_adapter.update_uniqueness_progress(uniqueness_id,
                                                  job.queue_name,
                                                  job.job_id,
-                                                 job_progress)
+                                                 job_progress,
+                                                 skip_reason)
       end
 
       def expire_uniqueness(job)
