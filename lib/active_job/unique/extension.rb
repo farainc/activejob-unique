@@ -427,6 +427,12 @@ module ActiveJob
           job.unique_as_skipped = true
           job.enqueue
         end
+
+        def deserialize(job_data)
+          job = job_data["job_class"].constantize.new
+          job.deserialize(job_data)
+          job
+        end        
       end
     end
   end
