@@ -26,6 +26,7 @@ module ActiveJob
         class_attribute :uniqueness_mode
         class_attribute :uniqueness_duration
         class_attribute :uniqueness_expiration
+        class_attribute :debug_mode
 
         attr_accessor :provider_job_id, :priority, :executions #compatible with rails 4.x
         attr_accessor :unique_as_skipped, :uniqueness_id, :job_progress, :skip_reason
@@ -352,7 +353,8 @@ module ActiveJob
                                                 self.class.uniqueness_mode,
                                                 job_progress,
                                                 timeout,
-                                                expires)
+                                                expires,
+                                                self.class.debug_mode)
       end
 
       def update_uniqueness_progress(job)
@@ -363,7 +365,8 @@ module ActiveJob
                                                  job.queue_name,
                                                  job.job_id,
                                                  job_progress,
-                                                 skip_reason)
+                                                 skip_reason,
+                                                 self.class.debug_mode)
       end
 
       def expire_uniqueness(job)
@@ -420,6 +423,12 @@ module ActiveJob
           else
             self.uniqueness_mode = option.to_sym
           end
+
+          true
+        end
+
+        def unique_for_debug_mode
+          self.debug_mode = true
         end
 
         def perform_later_forced(*args)
@@ -431,8 +440,9 @@ module ActiveJob
         def deserialize(job_data)
           job = job_data["job_class"].constantize.new
           job.deserialize(job_data)
+
           job
-        end        
+        end
       end
     end
   end
