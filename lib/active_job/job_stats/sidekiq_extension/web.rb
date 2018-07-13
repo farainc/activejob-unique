@@ -67,17 +67,17 @@ module ActiveJob
 
                   stats = {
                     uniqueness_id: k,
-                    klass: jp["k"],
-                    args: jp["a"],
                     job_id: jp["j"],
-                    uniqueness_mode: jp["m"],
                     progress: jp["p"],
+                    state: jp['s'],
                     timeout: jp["t"],
                     expires: jp["e"],
                     updated_at: jp["u"],
-                    state: jp['s'],
-                    debug: jp['d'],
-                    reason: jp['r']
+                    reason: jp['r'],
+                    klass: jp["k"],
+                    args: jp["a"],
+                    uniqueness_mode: jp["m"],
+                    debug: jp['d']
                   }
 
                   @job_stats << stats
