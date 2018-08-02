@@ -283,27 +283,25 @@ module ActiveJob
         end
 
         # ensure job status changed to perform_processing
-        (0..9).each do |i|
-          progress = uniqueness['p'].to_s.to_sym
+        progress = uniqueness['p'].to_s.to_sym
+        return true if progress == JOB_PROGRESS_PERFORM_PROCESSING
 
-          return true if progress == JOB_PROGRESS_PERFORM_PROCESSING
+        # wait 500ms if JOB_PROGRESS_PERFORM_ATTEMPTED
+        if progress == JOB_PROGRESS_PERFORM_ATTEMPTED
+          sleep(0.5)
 
-          # wait 500ms if JOB_PROGRESS_PERFORM_ATTEMPTED
-          if progress == JOB_PROGRESS_PERFORM_ATTEMPTED
-            sleep(0.05)
+          uniqueness = load_uniqueness(job)
 
-            uniqueness = load_uniqueness(job)
-
-            if uniqueness.blank?
-              @skip_reason = "perform:uniqueness_invalid"
-              return false
-            end
-          else
-            @skip_reason = "perform:job_progress_invalid [#{progress}] / [#{JOB_PROGRESS_PERFORM_PROCESSING}]"
-            break
+          if uniqueness.blank?
+            @skip_reason = "perform:uniqueness_invalid"
+            return false
           end
+
+          progress = uniqueness['p'].to_s.to_sym
+          return true if progress == JOB_PROGRESS_PERFORM_PROCESSING
         end
 
+        @skip_reason = "perform:job_progress_invalid [#{progress}] / [#{JOB_PROGRESS_PERFORM_PROCESSING}]"
         false
       end
 
