@@ -278,16 +278,18 @@ module ActiveJob
 
         # ensure job_id is same as uniqueness
         if uniqueness['j'] != job.job_id
-          @skip_reason = "perform:not_same_job_id (#{uniqueness['j']}/#{job.job_id})"
+          @skip_reason = "perform:job_id_invalid [#{uniqueness['j']}] / [#{job.job_id}]"
           return false
         end
 
         # ensure job status changed to perform_processing
         (0..9).each do |i|
-          return true if uniqueness['p'] == JOB_PROGRESS_PERFORM_PROCESSING
+          progress = uniqueness['p'].to_s.to_sym
+
+          return true if progress == JOB_PROGRESS_PERFORM_PROCESSING
 
           # wait 500ms if JOB_PROGRESS_PERFORM_ATTEMPTED
-          if uniqueness['p'] == JOB_PROGRESS_PERFORM_ATTEMPTED
+          if progress == JOB_PROGRESS_PERFORM_ATTEMPTED
             sleep(0.05)
 
             uniqueness = load_uniqueness(job)
@@ -297,7 +299,7 @@ module ActiveJob
               return false
             end
           else
-            @skip_reason = "perform:not_perform_processing (#{uniqueness['p']}/#{JOB_PROGRESS_PERFORM_PROCESSING})"
+            @skip_reason = "perform:job_progress_invalid [#{progress}] / [#{JOB_PROGRESS_PERFORM_PROCESSING}]"
             break
           end
         end
