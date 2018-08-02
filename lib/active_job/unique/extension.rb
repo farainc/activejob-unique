@@ -85,19 +85,26 @@ module ActiveJob
 
             write_uniqueness_before_perform(job)
 
-            begin
-              r = block.call
+            # double verify perform_processing status and job_id is the same
+            if ensure_job_progress_perform_processing?(job)
+              begin
+                r = block.call
 
-              @job_progress = JOB_PROGRESS_PERFORM_PROCESSED
+                @job_progress = JOB_PROGRESS_PERFORM_PROCESSED
+                incr_job_stats(job)
+
+                write_uniqueness_after_perform(job)
+              rescue StandardError => e
+                @job_progress = JOB_PROGRESS_PERFORM_FAILED
+                incr_job_stats(job)
+
+                update_uniqueness_progress(job)
+                raise e
+              end
+            else
+              @job_progress = JOB_PROGRESS_PERFORM_SKIPPED
               incr_job_stats(job)
-
-              write_uniqueness_after_perform(job)
-            rescue StandardError => e
-              @job_progress = JOB_PROGRESS_PERFORM_FAILED
-              incr_job_stats(job)
-
               update_uniqueness_progress(job)
-              raise e
             end
           else
             @job_progress = JOB_PROGRESS_PERFORM_SKIPPED
@@ -257,6 +264,44 @@ module ActiveJob
         return true if enqueue_stage?(uniqueness['p'])
 
         @skip_reason = 'perform:not_in_enqueue_stage'
+        false
+      end
+
+      def ensure_job_progress_perform_processing?(job)
+        return true if job.unique_as_skipped
+        return true if invalid_uniqueness_mode?
+        return true if enqueue_only_uniqueness_mode?
+        return true unless stats_adapter.respond_to?(:write_uniqueness_progress)
+
+        uniqueness = load_uniqueness(job)
+        return true if uniqueness.blank?
+
+        # ensure job_id is same as uniqueness
+        if uniqueness['j'] != job.job_id
+          @skip_reason = "perform:not_same_job_id (#{uniqueness['j']}/#{job.job_id})"
+          return false
+        end
+
+        # ensure job status changed to perform_processing
+        (0..9).each do |i|
+          return true if uniqueness['p'] == JOB_PROGRESS_PERFORM_PROCESSING
+
+          # wait 500ms if JOB_PROGRESS_PERFORM_ATTEMPTED
+          if uniqueness['p'] == JOB_PROGRESS_PERFORM_ATTEMPTED
+            sleep(0.05)
+
+            uniqueness = load_uniqueness(job)
+
+            if uniqueness.blank?
+              @skip_reason = "perform:uniqueness_invalid"
+              return false
+            end
+          else
+            @skip_reason = "perform:not_perform_processing (#{uniqueness['p']}/#{JOB_PROGRESS_PERFORM_PROCESSING})"
+            break
+          end
+        end
+
         false
       end
 
