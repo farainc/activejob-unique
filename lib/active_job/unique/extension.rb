@@ -71,9 +71,7 @@ module ActiveJob
           r
         end
 
-        around_perform do |job, block|
-          r = nil
-
+        before_perform do |job|
           @job_progress = JOB_PROGRESS_PERFORM_ATTEMPTED
           incr_job_stats(job)
           update_uniqueness_progress(job)
@@ -84,27 +82,31 @@ module ActiveJob
             incr_job_stats(job)
 
             write_uniqueness_before_perform(job)
+          else
+            @job_progress = JOB_PROGRESS_PERFORM_SKIPPED
+            incr_job_stats(job)
+            update_uniqueness_progress(job)
+          end
+        end
 
-            # double verify perform_processing status and job_id is the same
-            if ensure_job_progress_perform_processing?(job)
-              begin
-                r = block.call
+        around_perform do |job, block|
+          r = nil
 
-                @job_progress = JOB_PROGRESS_PERFORM_PROCESSED
-                incr_job_stats(job)
+          # double verify perform_processing status and job_id is the same
+          if ensure_job_progress_perform_processing?(job)
+            begin
+              r = block.call
 
-                write_uniqueness_after_perform(job)
-              rescue StandardError => e
-                @job_progress = JOB_PROGRESS_PERFORM_FAILED
-                incr_job_stats(job)
-
-                update_uniqueness_progress(job)
-                raise e
-              end
-            else
-              @job_progress = JOB_PROGRESS_PERFORM_SKIPPED
+              @job_progress = JOB_PROGRESS_PERFORM_PROCESSED
               incr_job_stats(job)
+
+              write_uniqueness_after_perform(job)
+            rescue StandardError => e
+              @job_progress = JOB_PROGRESS_PERFORM_FAILED
+              incr_job_stats(job)
+
               update_uniqueness_progress(job)
+              raise e
             end
           else
             @job_progress = JOB_PROGRESS_PERFORM_SKIPPED
