@@ -34,7 +34,7 @@ module ActiveJob
             key_pair = key.to_s.split(":")
 
             queue_name = key_pair[0]
-            stage = key_pair[1].split('_')
+            stage = key_pair[1].to_s.split('_')
 
             unless stats_job_group.has_key?(queue_name)
               stats_job_group[queue_name] = {}
