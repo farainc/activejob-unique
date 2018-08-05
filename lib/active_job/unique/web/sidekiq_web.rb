@@ -35,6 +35,7 @@ module ActiveJob
 
             queue_name = key_pair[0]
             stage = key_pair[1].to_s.split('_')
+            next if queue_name.blank? || stage.blank? || stage.size != 2
 
             unless stats_job_group.has_key?(queue_name)
               stats_job_group[queue_name] = {}
