@@ -81,7 +81,7 @@
           </td>
           <td><%= stats_label(enqueue_attempted, 'light') %></td>
           <td><%= stats_label(enqueue_processing, 'light') %></td>
-          <td><%= stats_label(enqueue_processed, 'light') %> / <%= stats_label("#{(enqueue_processed.to_f / enqueue_attempted.to_f * 100).to_i}%", 'success') %></td>
+          <td><%= stats_label(enqueue_processed, 'light') %> / <%= stats_label("#{(enqueue_processed.to_f / enqueue_attempted.to_f * 100).to_s.to_i}%", 'success') %></td>
           <td><%= stats_label(enqueue_skipped, 'warning') %></td>
           <td><%= stats_label(enqueue_failed, 'danger') %></td>
         </tr>
@@ -93,7 +93,7 @@
           </td>
           <td><%= stats_label(perform_attempted, 'light') %></td>
           <td><%= stats_label(perform_processing, 'light') %></td>
-          <td><%= stats_label(perform_processed, 'light') %> / <%= stats_label("#{(perform_processed.to_f / perform_attempted.to_f * 100).to_i}%", 'success') %></td>
+          <td><%= stats_label(perform_processed, 'light') %> / <%= stats_label("#{(perform_processed.to_f / perform_attempted.to_f * 100).to_s.to_i}%", 'success') %></td>
           <td><%= stats_label(perform_skipped, 'warning') %></td>
           <td><%= stats_label(perform_failed, 'danger') %></td>
         </tr>
@@ -119,7 +119,7 @@
             </td>
             <td><%= stats_label(enqueue_attempted, 'light') %></td>
             <td><%= stats_label(enqueue_processing, 'light') %></td>
-            <td><%= stats_label(enqueue_processed, 'light') %> / <%= stats_label("#{(enqueue_processed.to_f / enqueue_attempted.to_f * 100).to_i}%", 'success') %></td>
+            <td><%= stats_label(enqueue_processed, 'light') %> / <%= stats_label("#{(enqueue_processed.to_f / enqueue_attempted.to_f * 100).to_s.to_i}%", 'success') %></td>
             <td><%= stats_label(enqueue_skipped, 'warning') %></td>
             <td><%= stats_label(enqueue_failed, 'danger') %></td>
           </tr>
@@ -131,7 +131,7 @@
             </td>
             <td><%= stats_label(perform_attempted, 'light') %></td>
             <td><%= stats_label(perform_processing, 'light') %></td>
-            <td><%= stats_label(perform_processed, 'light') %> / <%= stats_label("#{(perform_processed.to_f / perform_attempted.to_f * 100).to_i}%", 'success') %></td>
+            <td><%= stats_label(perform_processed, 'light') %> / <%= stats_label("#{(perform_processed.to_f / perform_attempted.to_f * 100).to_s.to_i}%", 'success') %></td>
             <td><%= stats_label(perform_skipped, 'warning') %></td>
             <td><%= stats_label(perform_failed, 'danger') %></td>
           </tr>
