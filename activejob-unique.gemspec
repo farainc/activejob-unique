@@ -3,7 +3,7 @@ require File.expand_path('../lib/active_job/unique/version', __FILE__)
 Gem::Specification.new do |s|
     s.name = 'activejob-unique'
     s.version     = ActiveJob::Unique::VERSION
-    s.date        = '2018-02-10'
+    s.date        = '2018-08-10'
     s.summary     = 'ActiveJob unique jobs'
     s.description = 'ActiveJob uniqueness job adpater'
     s.authors     = ['josh.c']
