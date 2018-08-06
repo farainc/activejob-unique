@@ -43,6 +43,8 @@ module ActiveJob
               stats_job_group[job_name][queue_name]['perform'] ||= {}
 
               stats_job_group[job_name][queue_name][stage][progress] = value
+
+              break if stats_job_group.size == job_names.size
             end
 
             stats_job_group
