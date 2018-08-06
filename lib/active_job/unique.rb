@@ -1,4 +1,3 @@
-require_relative 'unique/stats'
 require_relative 'unique/compatible'
 require_relative 'unique/api'
 require_relative 'unique/core'
@@ -47,9 +46,9 @@ module ActiveJob
     PROGRESS_STAGE = PROGRESS_STAGE_ENQUEUE + PROGRESS_STAGE_PERFORM
 
     PROGRESS_STATE_EXPIRATION = 30.seconds
-    PROGRESS_STATS_PREFIX = :progress_stats
+    PROGRESS_STATS_SEPARATOR = 0x1E.chr
+    PROGRESS_STATS_PREFIX = :job_progress_stats
 
-    autoload :Stats
     autoload :Compatible
     autoload :Api
     autoload :Core

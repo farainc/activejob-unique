@@ -1,5 +1,3 @@
-require_relative '../../stats'
-
 module ActiveJob
   module Unique
     module Web
@@ -9,20 +7,21 @@ module ActiveJob
             # index page of stats
             app.get '/job_stats' do
               view_path = File.join(File.expand_path('..', __FILE__), 'views')
-              today = ActiveJob::Unique::Web::SidekiqWeb.sequence_today
+
+              today = SidekiqWeb.sequence_today
 
               @job_stats = {}
-              @count = (params[:count] || 20).to_i
+              @job_stats_today = {}
+              @job_stats_all_time = {}
+              @state_keys = {}
+              @count = (params[:count] || 10).to_i
               @current_page = params[:page].to_i
               @current_page = 1 if @current_page < 1
 
-              jobs = Sidekiq.redis_pool.with do |conn|
-                conn.smembers(ActiveJob::Unique::Web::SidekiqWeb.progress_stats_jobs)
+              Sidekiq.redis_pool.with do |conn|
+                @total_size = conn.zcount(SidekiqWeb.job_progress_stats_jobs, '-inf', '+inf')
+                @state_keys = SidekiqWeb.job_progress_state_all_keys(conn)
               end
-
-              jobs.sort!
-
-              @total_size = jobs.size
 
               begin_index = (@current_page - 1) * @count
               if begin_index > @total_size
@@ -31,82 +30,73 @@ module ActiveJob
               end
               end_index = begin_index + @count - 1
 
+
               Sidekiq.redis_pool.with do |conn|
-                jobs[begin_index..end_index].each do |job_name|
-                  break if job_name.blank?
+                job_names = conn.zrevrange(SidekiqWeb.job_progress_stats_jobs, begin_index, end_index)
 
-                  # stats_job_group_key = progress_stats_job_group(job_name)
-                  # stats_job_group = regroup_progress_stats_job_group(conn.hgetall(stats_job_group_key))
+                @job_stats_all_time = SidekiqWeb.regroup_job_progress_stats(SidekiqWeb.job_progress_stats, job_names, conn)
+                @job_stats_today = SidekiqWeb.regroup_job_progress_stats("#{SidekiqWeb.job_progress_stats}:#{today}", job_names, conn)
 
-                  daily_stats_job_group_key = ActiveJob::Unique::Web::SidekiqWeb.daily_progress_stats_job_group(job_name, today)
-                  daily_stats_job_group = ActiveJob::Unique::Web::SidekiqWeb.regroup_progress_stats_job_group(conn.hgetall(daily_stats_job_group_key))
-
-                  # stats = {
-                  #   daily_stats: daily_stats_job_group,
-                  #   stats: stats_job_group
-                  # }
-
-                  @job_stats[job_name] = daily_stats_job_group
-                end
+                @job_stats = job_names
               end
 
               render(:erb, File.read(File.join(view_path, 'index.erb')))
             end
 
-            # app.get '/job_stats/uniqueness/:queue_name' do
-            #   queue_name = route_params[:queue_name]
-            #
-            #   view_path = File.join(File.expand_path('..', __FILE__), 'views')
-            #
-            #   @queue_name = queue_name
-            #   @job_stats = []
-            #
-            #   @count = (params[:count] || 10).to_i
-            #   @current_page = params[:page].to_i
-            #   @current_page = 1 if @current_page < 1
-            #
-            #   Sidekiq.redis_pool.with do |conn|
-            #     @total_size = conn.hlen("uniqueness:#{queue_name}")
-            #   end
-            #
-            #   begin_index = (@current_page - 1) * @count
-            #   if begin_index > @total_size
-            #     begin_index = 0
-            #     @current_page = 1
-            #   end
-            #   end_index = begin_index + @count - 1
-            #
-            #   Sidekiq.redis_pool.with do |conn|
-            #     cursor, raw_data = conn.hscan("uniqueness:#{queue_name}", begin_index.to_s, count: @count)
-            #     raw_data = raw_data[begin_index..end_index] if cursor == '0'
-            #
-            #     if raw_data.present?
-            #       raw_data.each do |k, v|
-            #         jp = JSON.load(v) rescue nil
-            #         next if jp.blank?
-            #
-            #         stats = {
-            #           uniqueness_id: k,
-            #           job_id: jp["j"],
-            #           progress: jp["p"],
-            #           state: jp['s'],
-            #           timeout: jp["t"],
-            #           expires: jp["e"],
-            #           updated_at: jp["u"],
-            #           reason: jp['r'],
-            #           klass: jp["k"],
-            #           args: jp["a"],
-            #           uniqueness_mode: jp["m"],
-            #           debug: jp['d']
-            #         }
-            #
-            #         @job_stats << stats
-            #       end
-            #     end
-            #   end
-            #
-            #   render(:erb, File.read(File.join(view_path, 'uniqueness.erb')))
-            # end
+            app.get '/job_stats/uniqueness/:job_name' do
+              view_path = File.join(File.expand_path('..', __FILE__), 'views')
+
+              @job_name = route_params[:job_name]
+              @job_stats = []
+
+              @count = (params[:count] || 100).to_i
+              @current_page = params[:page].to_i
+              @current_page = 1 if @current_page < 1
+
+              begin_index = (@current_page - 1) * @count
+              next_page_availabe = false
+
+              Sidekiq.redis_pool.with do |conn|
+                next_page_availabe, @job_stats = SidekiqWeb.job_progress_state_group_stats(conn, @job_name, @count, begin_index)
+              end
+
+              @total_size = @count * (@current_page - 1) + @job_stats.size
+              @total_size += 1 if next_page_availabe
+
+              render(:erb, File.read(File.join(view_path, 'uniqueness.erb')))
+            end
+
+            # delete uniqueness job
+            app.post '/job_stats/uniqueness/:job_name/:queue_name/:stage_key/:uniqueness_id/delete' do
+              job_name = route_params[:job_name]
+              queue_name = route_params[:queue_name]
+              stage_key = route_params[:stage_key]
+              uniqueness_id = route_params[:uniqueness_id]
+
+              Sidekiq.redis_pool.with do |conn|
+                SidekiqWeb.cleanup_job_progress_state_one(
+                  conn,
+                  job_name,
+                  uniqueness_id,
+                  queue_name,
+                  stage_key
+                )
+              end
+
+              redirect URI(request.referer).path
+            end
+
+            # delete job_stats uniquess for a job
+            app.post '/job_stats/uniqueness/:job_name/delete' do
+              job_name = route_params[:job_name]
+
+              Sidekiq.redis_pool.with do |conn|
+                SidekiqWeb.cleanup_job_progress_state_group(conn, job_name)
+              end
+
+              redirect URI(request.referer).path
+            end
+
             #
             # app.get '/job_stats/:stage/:queue_name' do
             #   stage = route_params[:stage]
@@ -186,17 +176,7 @@ module ActiveJob
             #   render(:erb, File.read(File.join(view_path, 'stage.erb')))
             # end
             #
-            # # delete job_stats per stage per queue
-            # app.post '/jobs_stats/:stage/:queue_name/delete' do
-            #   stage = route_params[:stage]
-            #   queue_name = route_params[:queue_name]
-            #
-            #   %i[skipped processing processed failed attempted].each do |status|
-            #     ActiveJob::JobStats::SidekiqExtension.cleanup_hash_set("jobstats:#{stage}_#{status}:#{queue_name}")
-            #   end
-            #
-            #   redirect URI(request.referer).path
-            # end
+
             #
             # # delete uniqueness jobs per queue
             # app.post '/uniqueness/:queue_name/delete' do

@@ -27,6 +27,19 @@
   }
 </style>
 <%
+  def nice_number(value)
+    value.to_s.reverse.gsub(/(\d{3})(?=\d)/, '\\1,').reverse
+  end
+
+  def short_number(value)
+    return value unless value.to_i >= 1000
+
+    return "#{(value.to_f / 1_000_000_000.00).round(1)}B" if value >= 1_000_000_000
+    return "#{(value.to_f / 1_000_000.00).round(1)}M" if value >= 1_000_000
+
+    "#{(value.to_f / 1_000.00).round(1)}K" if value >= 1_000
+  end
+
   def stats_label(value, style)
     if "#{value}" == "0"
       return "<span class='label label-none'>#{value}</span>"
@@ -34,10 +47,29 @@
       return "<span class='label label-#{style}'>#{value}</span>"
     end
   end
+
+  def progress_label(value)
+    case value
+    when 'skipped'
+      'text-warning'
+    when 'failed'
+      'text-danger'
+    end
+  end
+
+  def percentage_label(value)
+    return 'success' if value >= 100
+    return 'info' if value >= 90
+    return 'warning' if value >= 80
+
+    'danger'
+  end
+
+  stages = ['attempted', 'processing', 'processed', 'skipped', 'failed']
 %>
 <header class='row'>
   <div class='col-sm-5 col-xs-12'>
-    <h3>Job Stats</h3>
+    <h3>Job Stats (<%= @total_size %>)</h3>
   </div>
   <div class='col-sm-7 col-xs-12'>
     <% if @job_stats.size > 0 && @total_size > @count %>
@@ -48,92 +80,121 @@
 <% if @job_stats.size > 0 %>
   <table class="table table-hover table-bordered table-striped table-white">
     <thead>
-      <th>Job</th>
-      <th>Queue</th>
-      <th class="text-center">Stage</th>
-      <th><%= stats_label('Attempted', 'primary') %></th>
-      <th><%= stats_label('Processing', 'info') %></th>
-      <th><%= stats_label('Processed', 'success') %></th>
-      <th><%= stats_label('Skipped', 'warning') %></th>
-      <th><%= stats_label('Failed', 'danger') %></th>
+      <tr>
+        <th rowspan="2" style="vertical-align:top;">Job</th>
+        <th rowspan="2" style="vertical-align:top;">Queue</th>
+        <th colspan="3" class="text-center" style="vertical-align:top;">Stage</th>
+        <th colspan="2" class="text-center active">Attempted</th>
+        <th colspan="2" class="text-center info">Processing</th>
+        <th colspan="2" class="text-center success">Processed</th>
+        <th colspan="2" class="text-center warning">Skipped</th>
+        <th colspan="2" class="text-center danger">Failed</th>
+      </tr>
+      <tr>
+        <th colspan="2" class="text-center text-success"><small>Processed %</small></th>
+        <th class="text-center text-warning"><small>Unique</small></th>
+        <th class="text-center"><small>Today</small></th>
+       	<th class="text-center"><small class="text-primary">All Time</small></th>
+        <th class="text-center"><small>Today</small></th>
+       	<th class="text-center"><small class="text-primary">All Time</small></th>
+        <th class="text-center"><small>Today</small></th>
+       	<th class="text-center"><small class="text-primary">All Time</small></th>
+        <th class="text-center"><small>Today</small></th>
+       	<th class="text-center"><small class="text-primary">All Time</small></th>
+        <th class="text-center"><small>Today</small></th>
+       	<th class="text-center"><small class="text-primary">All Time</small></th>
+      </tr>
     </thead>
     <tbody>
-      <% @job_stats.each do |job_name, stats|
-        enqueue_attempted = stats.values[0]['enqueue']['attempted'].to_i
-        enqueue_processing = stats.values[0]['enqueue']['processing'].to_i
-        enqueue_processed = stats.values[0]['enqueue']['processed'].to_i
-        enqueue_skipped = stats.values[0]['enqueue']['skipped'].to_i
-        enqueue_failed = stats.values[0]['enqueue']['failed'].to_i
+      <% @job_stats.each do |job_name|
+        today_stats = @job_stats_today[job_name]
+        total_stats = @job_stats_all_time[job_name]
 
-        perform_attempted = stats.values[0]['perform']['attempted'].to_i
-        perform_processing = stats.values[0]['perform']['processing'].to_i
-        perform_processed = stats.values[0]['perform']['processed'].to_i
-        perform_skipped = stats.values[0]['perform']['skipped'].to_i
-        perform_failed = stats.values[0]['perform']['failed'].to_i
+        te_processed = today_stats.values[0]['enqueue']['processed'].to_f
+        te_attempted = today_stats.values[0]['enqueue']['attempted'].to_f
+        tep_percentage = (te_processed / te_attempted * 100).to_s.to_i
+
+        tp_processed = today_stats.values[0]['perform']['processed'].to_f
+        tp_attempted = today_stats.values[0]['perform']['attempted'].to_f
+        tpp_percentage = (tp_processed / tp_attempted * 100).to_s.to_i
+
+        queue_name = today_stats.keys[0]
       %>
         <tr>
-          <td rowspan="<%= stats.size * 2 %>"><%= job_name %></td>
-          <td rowspan="2"><%= stats.keys[0] %></td>
-          <td class="text-center">
-            <div>
-              <%= stats_label('ENQUEUE', 'primary') %>
-            </div>
+          <td rowspan="<%= total_stats.keys.size * 2 %>">
+            <a class="no-decoration" href="<%= root_path %>job_stats/uniqueness/<%= job_name %>">
+              <%= job_name %>
+            </a>
           </td>
-          <td><%= stats_label(enqueue_attempted, 'light') %></td>
-          <td><%= stats_label(enqueue_processing, 'light') %></td>
-          <td><%= stats_label(enqueue_processed, 'light') %> / <%= stats_label("#{(enqueue_processed.to_f / enqueue_attempted.to_f * 100).to_s.to_i}%", 'success') %></td>
-          <td><%= stats_label(enqueue_skipped, 'warning') %></td>
-          <td><%= stats_label(enqueue_failed, 'danger') %></td>
+          <td rowspan="2"><%= queue_name %></td>
+          <td class="text-center">
+            <%= stats_label('E', 'info') %>
+          </td>
+          <td class="<%= percentage_label(tep_percentage) %> text-center">
+            <b><small><%= tep_percentage %>%</small></b>
+          </td>
+          <td class="text-center">
+            <%= stats_label((@state_keys[job_name][queue_name]['enqueue'] rescue 0), 'warning') %>
+          </td>
+          <% stages.each do |s| %>
+            <td class="<%= progress_label(s) %> text-center"><small><%= nice_number(today_stats.values[0]['enqueue'][s].to_i) %></small></td>
+            <td class="text-center"><b><small><%= short_number(total_stats.values[0]['enqueue'][s].to_i) %></small><b></td>
+          <% end %>
         </tr>
         <tr>
           <td class="text-center">
-            <div>
-              <%= stats_label('PERFORM', 'success') %>
-            </div>
+            <%= stats_label('P', 'primary') %>
           </td>
-          <td><%= stats_label(perform_attempted, 'light') %></td>
-          <td><%= stats_label(perform_processing, 'light') %></td>
-          <td><%= stats_label(perform_processed, 'light') %> / <%= stats_label("#{(perform_processed.to_f / perform_attempted.to_f * 100).to_s.to_i}%", 'success') %></td>
-          <td><%= stats_label(perform_skipped, 'warning') %></td>
-          <td><%= stats_label(perform_failed, 'danger') %></td>
+          <td class="<%= percentage_label(tpp_percentage) %> text-center">
+            <b><small><%= tpp_percentage %>%</small></b>
+          </td>
+          <td class="text-center">
+            <%= stats_label((@state_keys[job_name][queue_name]['perform'] rescue 0), 'warning') %>
+          </td>
+          <% stages.each do |s| %>
+            <td class="<%= progress_label(s) %> text-center"><small><%= nice_number(today_stats.values[0]['perform'][s].to_i) %></small></td>
+            <td class="text-center"><b><small><%= short_number(total_stats.values[0]['perform'][s].to_i) %></small></b></td>
+          <% end %>
         </tr>
-        <% stats.keys[1..-1].each do |key|
-          enqueue_attempted = stats[key]['enqueue']['attempted'].to_i
-          enqueue_processing = stats[key]['enqueue']['processing'].to_i
-          enqueue_processed = stats[key]['enqueue']['processed'].to_i
-          enqueue_skipped = stats[key]['enqueue']['skipped'].to_i
-          enqueue_failed = stats[key]['enqueue']['failed'].to_i
+        <% total_stats.keys[1..-1].each do |key|
+          te_processed = today_stats[key]['enqueue']['processed'].to_f
+          te_attempted = today_stats[key]['enqueue']['attempted'].to_f
+          tep_percentage = (te_processed / te_attempted * 100).to_s.to_i
 
-          perform_attempted = stats[key]['perform']['attempted'].to_i
-          perform_processing = stats[key]['perform']['processing'].to_i
-          perform_processed = stats[key]['perform']['processed'].to_i
-          perform_skipped = stats[key]['perform']['skipped'].to_i
-          perform_failed = stats[key]['perform']['failed'].to_i
+          tp_processed = today_stats[key]['perform']['processed'].to_f
+          tp_attempted = today_stats[key]['perform']['attempted'].to_f
+          tpp_percentage = (tp_processed / tp_attempted * 100).to_s.to_i
         %>
           <tr>
             <td rowspan="2"><%= key %></td>
             <td class="text-center">
-              <div>
-                <%= stats_label('ENQUEUE', 'primary') %>
-              </div>
+              <%= stats_label('E', 'info') %>
             </td>
-            <td><%= stats_label(enqueue_attempted, 'light') %></td>
-            <td><%= stats_label(enqueue_processing, 'light') %></td>
-            <td><%= stats_label(enqueue_processed, 'light') %> / <%= stats_label("#{(enqueue_processed.to_f / enqueue_attempted.to_f * 100).to_s.to_i}%", 'success') %></td>
-            <td><%= stats_label(enqueue_skipped, 'warning') %></td>
-            <td><%= stats_label(enqueue_failed, 'danger') %></td>
+            <td class="<%= percentage_label(tep_percentage) %> text-center">
+              <b><small><%= tep_percentage %>%</small></b>
+            </td>
+            <td class="text-center">
+              <%= stats_label((@state_keys[job_name][key]['enqueue'] rescue 0), 'warning') %>
+            </td>
+            <% stages.each do |s| %>
+              <td class="<%= progress_label(s) %> text-center"><small><%= nice_number(today_stats[key]['enqueue'][s].to_i) %></small></td>
+              <td class="text-center"><b><small><%= short_number(total_stats[key]['enqueue'][s].to_i) %></small></b></td>
+            <% end %>
           </tr>
           <tr>
             <td class="text-center">
-              <div>
-                <%= stats_label('PERFORM', 'success') %>
-              </div>
+              <%= stats_label('P', 'primary') %>
             </td>
-            <td><%= stats_label(perform_attempted, 'light') %></td>
-            <td><%= stats_label(perform_processing, 'light') %></td>
-            <td><%= stats_label(perform_processed, 'light') %> / <%= stats_label("#{(perform_processed.to_f / perform_attempted.to_f * 100).to_s.to_i}%", 'success') %></td>
-            <td><%= stats_label(perform_skipped, 'warning') %></td>
-            <td><%= stats_label(perform_failed, 'danger') %></td>
+            <td class="<%= percentage_label(tpp_percentage) %> text-center">
+              <b><small><%= tpp_percentage %>%</small></b>
+            </td>
+            <td class="text-center">
+              <%= stats_label((@state_keys[job_name][key]['perform'] rescue 0), 'warning') %>
+            </td>
+            <% stages.each do |s| %>
+              <td class="<%= progress_label(s) %> text-center"><small><%= nice_number(today_stats[key]['perform'][s].to_i) %></small></td>
+              <td class="text-center"><b><small><%= short_number(total_stats[key]['perform'][s].to_i) %></small></b></td>
+            <% end %>
           </tr>
         <% end %>
       <% end %>

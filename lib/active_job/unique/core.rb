@@ -7,9 +7,7 @@ module ActiveJob
       extend ActiveSupport::Concern
 
       included do
-        include ActiveJob::Unique::Stats
         include ActiveJob::Unique::Compatible
-        include ActiveJob::Unique::Api
 
         class_attribute :uniqueness_mode
         class_attribute :uniqueness_expiration
@@ -18,7 +16,7 @@ module ActiveJob
         # uniqueness attributes
         attr_accessor :uniqueness_id
         attr_accessor :uniqueness_skipped
-        attr_accessor :progress_stage
+        attr_accessor :uniqueness_progress_stage
         attr_accessor :uniqueness_mode
         attr_accessor :uniqueness_debug
         attr_accessor :uniqueness_expires
@@ -31,65 +29,77 @@ module ActiveJob
           @uniqueness_debug ||= self.class.uniqueness_debug
           @uniqueness_expiration ||= self.class.uniqueness_expiration
 
-          progress_stats_initialize(job)
+          uniqueness_api.progress_stats_initialize(job)
 
-          incr_progress_stats(job, PROGRESS_STAGE_ENQUEUE_ATTEMPTED)
+          @uniqueness_progress_stage = PROGRESS_STAGE_ENQUEUE_ATTEMPTED
+          uniqueness_api.incr_progress_stats(job, @uniqueness_progress_stage)
         end
 
         around_enqueue do |job, block|
           r = nil
 
-          if allow_enqueue_processing?(job)
-            incr_progress_stats(job, PROGRESS_STAGE_ENQUEUE_PROCESSING)
-            calculate_until_timeout_uniqueness_mode_expires(job)
+          allow_processing, @uniqueness_skipped_reason = uniqueness_api.allow_enqueue_processing?(job)
+
+          if allow_processing
+            @uniqueness_progress_stage = PROGRESS_STAGE_ENQUEUE_PROCESSING
+
+            uniqueness_api.incr_progress_stats(job, @uniqueness_progress_stage)
+            uniqueness_api.calculate_until_timeout_uniqueness_mode_expires(job)
 
             s = nil
             begin
               r = block.call
-              s = PROGRESS_STAGE_ENQUEUE_PROCESSED
+              @uniqueness_progress_stage = PROGRESS_STAGE_ENQUEUE_PROCESSED
             rescue StandardError => e # LoadError, NameError edge cases
-              s = PROGRESS_STAGE_ENQUEUE_FAILED
+              @uniqueness_progress_stage = PROGRESS_STAGE_ENQUEUE_FAILED
+
               raise e
             ensure
-              incr_progress_stats(job, s)
-              ensure_cleanup_progress_state(job, PROGRESS_STAGE_ENQUEUE_PROCESSING)
+              uniqueness_api.incr_progress_stats(job, @uniqueness_progress_stage)
+              uniqueness_api.ensure_cleanup_progress_state(job, PROGRESS_STAGE_ENQUEUE_PROCESSING)
             end
           else
-            incr_progress_stats(job, PROGRESS_STAGE_ENQUEUE_SKIPPED)
+            @uniqueness_progress_stage = PROGRESS_STAGE_ENQUEUE_SKIPPED
+            uniqueness_api.incr_progress_stats(job, @uniqueness_progress_stage)
           end
 
           r
         end
 
         before_perform do |job|
-          incr_progress_stats(job, PROGRESS_STAGE_PERFORM_ATTEMPTED)
+          @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_ATTEMPTED
+          uniqueness_api.incr_progress_stats(job, @uniqueness_progress_stage)
         end
 
         around_perform do |job, block|
           r = nil
 
-          if allow_perform_processing?(job)
-            incr_progress_stats(job, PROGRESS_STAGE_PERFORM_PROCESSING)
-            set_until_timeout_uniqueness_mode_expiration(job)
+          allow_processing, @uniqueness_skipped_reason = uniqueness_api.allow_perform_processing?(job)
+
+          if allow_processing
+            @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_PROCESSING
+            uniqueness_api.incr_progress_stats(job, @uniqueness_progress_stage)
+            uniqueness_api.set_until_timeout_uniqueness_mode_expiration(job)
 
             s = nil
             begin
               r = block.call
-              s = PROGRESS_STAGE_PERFORM_PROCESSED
+              @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_PROCESSED
             rescue StandardError => e
-              s = PROGRESS_STAGE_PERFORM_FAILED
+              @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_FAILED
+
               raise e
             ensure
-              incr_progress_stats(job, s)
-              cleanup_progress_state(job, PROGRESS_STAGE_PERFORM_PROCESSING)
+              uniqueness_api.incr_progress_stats(job, @uniqueness_progress_stage)
+              uniqueness_api.cleanup_progress_state(job, PROGRESS_STAGE_PERFORM_PROCESSING)
             end
           else
-            incr_progress_stats(job, PROGRESS_STAGE_PERFORM_SKIPPED)
+            @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_SKIPPED
+            uniqueness_api.incr_progress_stats(job, @uniqueness_progress_stage)
           end
 
           r
         end
-
       end
 
       # add your instance methods here
@@ -97,11 +107,24 @@ module ActiveJob
         self.class.perform_later(*arguments)
       end
 
+      def queue_adapter
+        self.class.queue_adapter
+      end
+
+      def uniqueness_api
+        self.class.uniqueness_api
+      end
+
       # add your static(class) methods here
       module ClassMethods
+        def uniqueness_api
+          ActiveJob::Unique::Api
+        end
+
         def unique_for(option = nil, debug = false)
           # default duration for a job is 10.minutes after perform processing
           # set longer duration for long running jobs
+          return false if option.blank?
 
           self.uniqueness_expiration = 0
 

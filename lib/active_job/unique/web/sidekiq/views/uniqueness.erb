@@ -8,14 +8,9 @@
   form .btn {
     margin-right: 0;
   }
-  hr {
-    margin: 5px 0;
-  }
-  .nowrap {
-    white-space: nowrap;
-  }
-  .break-all {
-    word-break: break-all;
+  .label-none {
+    background: #eee;
+    color: #999;
   }
 </style>
 <%
@@ -30,75 +25,50 @@
 <header class='row'>
   <div class='col-sm-5 col-xs-12'>
     <h3>
-      Uniqueness jobs in
-      <span class="title"><%= @queue_name %></span>
+      <a class="no-decoration" href="<%= root_path %>job_stats">Jobs Stats</a> for
+      <span class="title"><%= @job_name %></span>
     </h3>
   </div>
   <div class='col-sm-5 col-xs-8'>
-    <% if @job_stats.size > 0 && @total_size > @count %>
-      <%= erb :_paging, :locals => { :url => "#{root_path}job_stats/uniqueness/#{@queue_name}" } %>
+    <% if @job_stats.size > 0 && @total_size.to_i > @count %>
+      <%= erb :_paging, :locals => { :url => "#{root_path}job_stats/uniqueness/#{@job_name}" } %>
     <% end %>
   </div>
   <div class='col-sm-2 col-xs-4 text-right'>
-    <form method="POST" style="margin-top: 25px;" action="<%= root_path %>uniqueness/<%= @queue_name %>/delete">
+    <form method="POST" style="margin-top: 25px;" action="<%= "#{root_path}job_stats/uniqueness/#{@job_name}/delete" %>">
       <%= csrf_tag %>
-      <input class='btn btn-danger' type="submit" name="delete" value="Delete All" data-confirm="Are you sure you want to delete all uniqueness jobs in: [<%= @queue_name %>]?"/>
+      <input class='btn btn-danger' type="submit" name="delete" value="Delete All" data-confirm="Are you sure you want to delete all uniqueness flag for [<%= @job_name %>]?"/>
     </form>
   </div>
 </header>
 <% if @job_stats.size > 0 %>
   <table class="table table-hover table-bordered table-striped table-white">
     <thead>
-      <th>Uniquenes</th>
-      <th>Time</th>
-      <th>Job</th>
-      <th></th>
+      <th>Queue</th>
+      <th>Uniqueness Id</th>
+      <th>Expires</th>
+      <th>Job Id</th>
+      <th class="text-center">Stage</th>
+      <th class="text-center active title"><%= @job_stats.size %></th>
     </thead>
     <tbody>
-      <% @job_stats.each do |job| %>
+      <% @job_stats.each do |stats| %>
         <tr>
-          <td>
-            <code><%= job[:uniqueness_id] %></code>
-            <div class="nowrap">
-              <strong>Mode:&nbsp;</strong><%= job[:uniqueness_mode] %>
-            </div>
-            <div class="nowrap">
-              <strong>Progress:&nbsp;</strong><%= job[:progress] %>
-            </div>
-            <div class="nowrap">
-              <strong>State:&nbsp;</strong><%= job[:state] %>
-            </div>
-          </td>
-          <td>
-            <div class="nowrap">
-              <strong>Timeout:&nbsp;</strong><%= job[:timeout].positive? ? (relative_time(Time.at(job[:timeout]).utc) rescue 'err') : '--' %>
-            </div>
-            <div class="nowrap">
-              <strong>Expires:&nbsp;</strong><%= job[:expires].positive? ? (relative_time(Time.at(job[:expires]).utc) rescue 'err') : '--' %>
-            </div>
-            <div class="nowrap">
-              <strong>Updated At:&nbsp;</strong><%= job[:updated_at].positive? ? (relative_time(Time.at(job[:updated_at]).utc) rescue 'err') : '--' %>
-            </div>
-          </td>
-          <td>
-            <code><%= job[:job_id] %></code>
-            <div class="nowrap">
-              <strong><%= job[:klass] %></strong>
-            </div>
-            <p class="break-all"><%= job[:args] %></p>
-            <% if job[:debug].present? || job[:reason].present? %>
-              <hr>
-              <div class="nowrap">
-                <strong>DEBUG:</strong>
-              </div>
-              <div class="nowrap"><%= job[:reason] %></div>
-              <%= (job[:debug].join('<br>') rescue '') %>
+          <td><%= stats[:queue] %></td>
+          <td><%= stats[:uniqueness_id] %></td>
+          <td><%= (relative_time(stats[:expires]) rescue 'Expired')  %></td>
+          <td><%= stats[:job_id] %></td>
+          <td class="text-center">
+            <% if stats[:stage] == 'enqueue' %>
+              <%= stats_label('E', 'info') %>
+            <% else %>
+              <%= stats_label('P', 'success') %>
             <% end %>
           </td>
-          <td>
-            <form action="<%= root_path %>uniqueness/<%= @queue_name %>/<%= job[:uniqueness_id] %>/delete" method="post">
+          <td class="text-center">
+            <form action="<%= "#{root_path}job_stats/uniqueness/#{@job_name}/#{stats[:queue]}/#{stats[:stage_key]}/#{stats[:uniqueness_id]}/delete"%>" method="post">
               <%= csrf_tag if respond_to?(:csrf_tag) %>
-              <input class='btn btn-xs btn-danger pull-right' type="submit" name="delete" value="Delete" data-confirm="Are you sure you want to delete the uniqueness job: [<%= job[:uniqueness_id] %>]?"/>
+              <input class='btn btn-xs btn-danger' type="submit" name="delete" value="Delete" data-confirm="Are you sure you want to delete the uniqueness flag: [<%= stats[:uniqueness_id] %>]?"/>
             </form>
           </td>
         </tr>
@@ -106,5 +76,5 @@
     </tbody>
   </table>
 <% else %>
-  <div class='alert alert-success'>No uniqueness job found</div>
+  <div class='alert alert-success'>No job stats found</div>
 <% end %>
