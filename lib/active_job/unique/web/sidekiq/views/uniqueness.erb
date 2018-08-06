@@ -66,7 +66,7 @@
             <% end %>
           </td>
           <td class="text-center">
-            <form action="<%= "#{root_path}job_stats/uniqueness/#{@job_name}/#{stats[:queue]}/#{stats[:stage_key]}/#{stats[:uniqueness_id]}/delete"%>" method="post">
+            <form action="<%= "#{root_path}job_stats/uniqueness/#{@job_name}/#{stats[:queue]}/#{stats[:progress_stage]}/#{stats[:uniqueness_id]}/delete"%>" method="post">
               <%= csrf_tag if respond_to?(:csrf_tag) %>
               <input class='btn btn-xs btn-danger' type="submit" name="delete" value="Delete" data-confirm="Are you sure you want to delete the uniqueness flag: [<%= stats[:uniqueness_id] %>]?"/>
             </form>
