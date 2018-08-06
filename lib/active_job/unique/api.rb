@@ -70,8 +70,8 @@ module ActiveJob
             sequence_day(now))
         end
 
-        def cleanup_progress_stats(job, day)
-          job.queue_adapter.uniqueness_cleanup_progress_stats("#{job_progress_stats}:#{day}")
+        def cleanup_progress_stats(job, time)
+          job.queue_adapter.uniqueness_cleanup_progress_stats("#{job_progress_stats}:#{sequence_day(time)}")
         end
 
         def job_progress_state
