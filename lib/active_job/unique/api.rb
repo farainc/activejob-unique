@@ -220,7 +220,7 @@ module ActiveJob
           expiration = expires.to_i - Time.now.utc.to_i
           expiration += 10
 
-          job.queue_adapter.uniqueness_et_progress_state(state_key, state_value)
+          job.queue_adapter.uniqueness_set_progress_state(state_key, state_value)
           job.queue_adapter.uniqueness_expire_progress_state(state_key, expiration)
         end
 
