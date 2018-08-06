@@ -35,17 +35,12 @@ module ActiveJob
               next unless job_names.include?(job_name)
 
               stage, progress = progress_stage.split('_')
-              next if queue_name.nil? || stage.nil? || progress.nil?
+              next if queue_name.to_s.empty? || stage.to_s.empty? || progress.to_s.empty?
 
-              unless stats_job_group.has_key?(job_name)
-                stats_job_group[job_name] = {}
-
-                unless stats_job_group[job_name].has_key?(queue_name)
-                  stats_job_group[job_name][queue_name] = {}
-                  stats_job_group[job_name][queue_name]['enqueue'] = {}
-                  stats_job_group[job_name][queue_name]['perform'] = {}
-                end
-              end
+              stats_job_group[job_name] ||= {}
+              stats_job_group[job_name][queue_name] ||= {}
+              stats_job_group[job_name][queue_name]['enqueue'] ||= {}
+              stats_job_group[job_name][queue_name]['perform'] ||= {}
 
               stats_job_group[job_name][queue_name][stage][progress] = value
             end
@@ -71,14 +66,10 @@ module ActiveJob
             all_keys = {}
 
             conn.scan_each(match: "#{job_progress_state}#{PROGRESS_STATS_SEPARATOR}*", count: 1000) do |key|
-              state_key = key.to_s.split(PROGRESS_STATS_SEPARATOR)
-              next unless state_key.size >= 5
+              state_key_prefix, job_name, queue_name, progress_stage = key.to_s.split(PROGRESS_STATS_SEPARATOR)
 
-              job_name = state_key[1]
-              queue_name = state_key[2]
-              stage = state_key[3].to_s.split('_')[0] rescue nil
-
-              next if stage.nil?
+              stage, progress = progress_stage.split('_')
+              next if job_name.to_s.empty? || queue_name.to_s.empty? || stage.to_s.empty? || progress.to_s.empty?
 
               all_keys[job_name] ||= {}
               all_keys[job_name][queue_name] ||= {}
@@ -113,28 +104,21 @@ module ActiveJob
             values = conn.mget(*keys)
 
             keys.each_with_index do |key, i|
-              state_key = key.to_s.split(PROGRESS_STATS_SEPARATOR)
-              next unless state_key.size >= 5
+              state_key_prefix, job_name, queue_name, progress_stage, uniqueness_id = key.to_s.split(PROGRESS_STATS_SEPARATOR)
 
-              queue_name = state_key[2]
-              stage_key = state_key[3].to_s
-              stage = stage_key.split('_')[0] rescue nil
-              next if stage.nil?
-
-              uniqueness_id = state_key[4]
+              stage, progress = progress_stage.split('_')
+              next if job_name.to_s.empty? || queue_name.to_s.empty? || stage.to_s.empty? || progress.to_s.empty?
 
               stats = {
                 queue: queue_name,
                 stage: stage,
-                stage_key: stage_key,
+                progress_stage: progress_stage,
                 uniqueness_id: uniqueness_id
               }
 
-              state_value = values[i].to_s.split(PROGRESS_STATS_SEPARATOR)
-              if state_value.size >= 2
-                stats[:expires] = Time.at(state_value[0].to_f).utc
-                stats[:job_id] = state_value[1]
-              end
+              timestamp, job_id = values[i].to_s.split(PROGRESS_STATS_SEPARATOR)
+              stats[:expires] = Time.at(timestamp.to_f).utc
+              stats[:job_id] = job_id
 
               job_stats << stats
             end
