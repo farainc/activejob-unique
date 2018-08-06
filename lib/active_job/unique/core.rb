@@ -67,6 +67,8 @@ module ActiveJob
         end
 
         before_perform do |job|
+          uniqueness_api.progress_stats_initialize(job)
+          
           @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_ATTEMPTED
           uniqueness_api.incr_progress_stats(job, @uniqueness_progress_stage)
         end
