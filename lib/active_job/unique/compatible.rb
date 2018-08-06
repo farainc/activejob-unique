@@ -24,7 +24,7 @@ module ActiveJob
 
           job_uniqueness_mode = job_data['uniqueness_mode'] || self.uniqueness_mode
 
-          if valid_uniqueness_mode?(job_uniqueness_mode)
+          if uniqueness_api.valid_uniqueness_mode?(job_uniqueness_mode)
             job.uniqueness_mode       = job_uniqueness_mode
             job.uniqueness_id         = job_data['uniqueness_id']
             job.uniqueness_skipped    = job_data['uniqueness_skipped']
@@ -40,7 +40,7 @@ module ActiveJob
       def serialize
         data = super
 
-        if valid_uniqueness_mode?(self.uniqueness_mode.to_s.to_sym)
+        if uniqueness_api.valid_uniqueness_mode?(self.uniqueness_mode.to_s.to_sym)
           data["uniqueness_id"]         = self.uniqueness_id
           data["uniqueness_skipped"]    = self.uniqueness_skipped
           data["uniqueness_expires"]    = self.uniqueness_expires
