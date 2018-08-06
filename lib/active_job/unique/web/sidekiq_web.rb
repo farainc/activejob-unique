@@ -62,11 +62,14 @@ module ActiveJob
             ].join(PROGRESS_STATS_SEPARATOR)
           end
 
-          def job_progress_state_all_keys(conn)
+          def job_progress_state_all_keys(conn, job_names)
             all_keys = {}
 
             conn.scan_each(match: "#{job_progress_state}#{PROGRESS_STATS_SEPARATOR}*", count: 1000) do |key|
+              i += 1
+
               state_key_prefix, job_name, queue_name, progress_stage = key.to_s.split(PROGRESS_STATS_SEPARATOR)
+              next unless job_names.include?(job_name)
 
               stage, progress = progress_stage.split('_')
               next if job_name.to_s.empty? || queue_name.to_s.empty? || stage.to_s.empty? || progress.to_s.empty?
@@ -76,6 +79,9 @@ module ActiveJob
               all_keys[job_name][queue_name][stage] ||= 0
 
               all_keys[job_name][queue_name][stage] += 1
+
+              # maxmium 10,000
+              break if i >= 10000
             end
 
             all_keys
@@ -104,10 +110,10 @@ module ActiveJob
             values = conn.mget(*keys)
 
             keys.each_with_index do |key, i|
-              state_key_prefix, job_name, queue_name, progress_stage, uniqueness_id = key.to_s.split(PROGRESS_STATS_SEPARATOR)
+              state_key_prefix, _, queue_name, progress_stage, uniqueness_id = key.to_s.split(PROGRESS_STATS_SEPARATOR)
 
               stage, progress = progress_stage.split('_')
-              next if job_name.to_s.empty? || queue_name.to_s.empty? || stage.to_s.empty? || progress.to_s.empty?
+              next if queue_name.to_s.empty? || stage.to_s.empty? || progress.to_s.empty?
 
               stats = {
                 queue: queue_name,

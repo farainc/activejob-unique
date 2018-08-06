@@ -20,7 +20,6 @@ module ActiveJob
 
               Sidekiq.redis_pool.with do |conn|
                 @total_size = conn.zcount(SidekiqWeb.job_progress_stats_jobs, '-inf', '+inf')
-                @state_keys = SidekiqWeb.job_progress_state_all_keys(conn)
               end
 
               begin_index = (@current_page - 1) * @count
@@ -33,6 +32,7 @@ module ActiveJob
 
               Sidekiq.redis_pool.with do |conn|
                 job_names = conn.zrevrange(SidekiqWeb.job_progress_stats_jobs, begin_index, end_index)
+                @state_keys = SidekiqWeb.job_progress_state_all_keys(conn, job_names)
 
                 @job_stats_all_time = SidekiqWeb.regroup_job_progress_stats(SidekiqWeb.job_progress_stats, job_names, conn)
                 @job_stats_today = SidekiqWeb.regroup_job_progress_stats("#{SidekiqWeb.job_progress_stats}:#{today}", job_names, conn)
