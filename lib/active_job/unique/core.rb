@@ -22,19 +22,21 @@ module ActiveJob
         attr_accessor :uniqueness_expires
         attr_accessor :uniqueness_expiration
         attr_accessor :uniqueness_skipped_reason
+        attr_accessor :uniqueness_timestamp
 
         before_enqueue do |job|
           @uniqueness_id = Digest::MD5.hexdigest(job.arguments.inspect.to_s)
           @uniqueness_mode ||= job.class.uniqueness_mode
           @uniqueness_debug ||= job.class.uniqueness_debug
           @uniqueness_expiration ||= job.class.uniqueness_expiration
+          @uniqueness_timestamp = Time.now.utc
 
           uniqueness_api.progress_stats_initialize(job)
 
           @uniqueness_progress_stage = PROGRESS_STAGE_ENQUEUE_ATTEMPTED
           uniqueness_api.incr_progress_stats(job)
 
-          uniqueness_api.set_progress_state_debug_data(job)
+          uniqueness_api.set_progress_state_log_data(job)
         end
 
         around_enqueue do |job, block|
@@ -71,6 +73,8 @@ module ActiveJob
 
           @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_ATTEMPTED
           uniqueness_api.incr_progress_stats(job)
+
+          uniqueness_api.set_progress_state_log_data(job)          
         end
 
         around_perform do |job, block|

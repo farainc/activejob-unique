@@ -49,6 +49,10 @@ module ActiveJob
     PROGRESS_STATS_SEPARATOR = 0x1E.chr
     PROGRESS_STATS_PREFIX = :job_progress_stats
 
+    DAY_SCORE_BASE = 100_000_000_000_000
+    QUEUE_SCORE_BASE = 10_000_000_000_000
+    UNIQUENESS_ID_SCORE_BASE = 10_000
+
     autoload :Compatible
     autoload :Api
     autoload :Core
