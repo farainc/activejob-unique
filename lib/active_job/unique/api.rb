@@ -37,8 +37,20 @@ module ActiveJob
           "#{job_progress_stats}:jobs"
         end
 
+        def job_progress_state
+          "#{PROGRESS_STATS_PREFIX}:state"
+        end
+
         def job_progress_stats_job_key(job_name, queue_name, progress_stage)
           "#{job_name}#{PROGRESS_STATS_SEPARATOR}#{queue_name}#{PROGRESS_STATS_SEPARATOR}#{progress_stage}"
+        end
+
+        def job_progress_state_logs
+          "#{job_progress_state}:logs"
+        end
+
+        def job_progress_state_logs_key(job_name)
+          "#{job_progress_state_logs}#{PROGRESS_STATS_SEPARATOR}#{job_name}"
         end
 
         def job_progress_state_key(job_name, uniqueness_id, queue_name, stage)
@@ -59,7 +71,7 @@ module ActiveJob
         end
 
         def incr_progress_stats(job)
-          now = Time.now.utc
+          job.uniqueness_timestamp = Time.now.utc
 
           # incr stats
           job_key = job_progress_stats_job_key(job.class.name, job.queue_name, job.uniqueness_progress_stage)
@@ -67,19 +79,13 @@ module ActiveJob
           job.queue_adapter.uniqueness_incr_progress_stats(
             job_progress_stats,
             job_key,
-            sequence_day(now))
+            sequence_day(job.uniqueness_timestamp))
+
+          incr_progress_state_log(job) if job.uniqueness_debug
         end
 
         def cleanup_progress_stats(job, time)
           job.queue_adapter.uniqueness_cleanup_progress_stats("#{job_progress_stats}:#{sequence_day(time)}")
-        end
-
-        def job_progress_state
-          "#{PROGRESS_STATS_PREFIX}:state"
-        end
-
-        def job_progress_state_debug
-          "#{job_progress_state}:debug"
         end
 
         def ensure_cleanup_progress_state(job, progress_stage)
@@ -122,11 +128,37 @@ module ActiveJob
           state.to_s.split(":")
         end
 
-        def set_progress_state_debug_data(job)
+        def set_progress_state_log_data(job)
           return false unless job.uniqueness_debug
+          return if job.arguments.blank?
 
-          # job.queue_adapter.uniqueness_set_progress_state_debug_data
-          # job_progress_state_debug
+          log_data_key = job_progress_state_logs_key(job.class.name)
+          log_data_field = "#{sequence_day(job.uniqueness_timestamp) % 9}#{PROGRESS_STATS_SEPARATOR}#{job.uniqueness_id}"
+
+          job.queue_adapter.uniqueness_set_progress_state_log_data(log_data_key, log_data_field, job.arguments)
+        end
+
+        def incr_progress_state_log(job)
+          day = sequence_day(job.uniqueness_timestamp)
+
+          job_name = job.class.name
+          progress_stage_score = (PROGRESS_STAGE.index(job.uniqueness_progress_stage.to_sym) + 1) / 10.0
+
+          job_score_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_score"
+          job_log_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_logs"
+
+          job_log_value = "#{job.uniqueness_id}:#{job.job_id}#{PROGRESS_STATS_SEPARATOR}#{job.uniqueness_progress_stage}#{PROGRESS_STATS_SEPARATOR}#{job.uniqueness_timestamp.to_f}"
+
+          job.queue_adapter.uniqueness_incr_progress_state_log(
+            job_score_key,
+            day,
+            job.queue_name,
+            job.uniqueness_id,
+            job.job_id,
+            progress_stage_score,
+            job_log_key,
+            job_log_value
+          )
         end
 
         def another_job_is_processing?(job, progress_stage, readonly = false)

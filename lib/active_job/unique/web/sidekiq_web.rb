@@ -10,6 +10,10 @@ module ActiveJob
         PROGRESS_STATS_SEPARATOR = 0x1E.chr
         PROGRESS_STATS_PREFIX = :job_progress_stats
 
+        DAY_SCORE_BASE = 100_000_000_000_000
+        QUEUE_SCORE_BASE = 10_000_000_000_000
+        UNIQUENESS_ID_SCORE_BASE = 10_000
+
         class << self
           def sequence_today
             Time.now.utc.to_date.strftime('%Y%m%d').to_i
@@ -52,6 +56,14 @@ module ActiveJob
             "#{PROGRESS_STATS_PREFIX}:state"
           end
 
+          def job_progress_state_logs
+            "#{job_progress_state}:logs"
+          end
+
+          def job_progress_state_logs_key(job_name)
+            "#{job_progress_state_logs}#{PROGRESS_STATS_SEPARATOR}#{job_name}"
+          end
+
           def job_progress_state_key(job_name, uniqueness_id, queue_name, stage)
             [
               job_progress_state,
@@ -62,10 +74,10 @@ module ActiveJob
             ].join(PROGRESS_STATS_SEPARATOR)
           end
 
-          def job_progress_state_all_keys(conn, job_names)
-            all_keys = {}
+          def job_progress_state_uniqueness_keys(conn, job_names)
+            uniquess_keys = {}
             i = 0
-            
+
             conn.scan_each(match: "#{job_progress_state}#{PROGRESS_STATS_SEPARATOR}*", count: 1000) do |key|
               i += 1
 
@@ -75,17 +87,37 @@ module ActiveJob
               stage, progress = progress_stage.split('_')
               next if job_name.to_s.empty? || queue_name.to_s.empty? || stage.to_s.empty? || progress.to_s.empty?
 
-              all_keys[job_name] ||= {}
-              all_keys[job_name][queue_name] ||= {}
-              all_keys[job_name][queue_name][stage] ||= 0
+              uniquess_keys[job_name] ||= {}
+              uniquess_keys[job_name][queue_name] ||= {}
+              uniquess_keys[job_name][queue_name][stage] ||= 0
 
-              all_keys[job_name][queue_name][stage] += 1
+              uniquess_keys[job_name][queue_name][stage] += 1
 
               # maxmium 10,000
               break if i >= 10000
             end
 
-            all_keys
+            uniquess_keys
+          end
+
+          def job_progress_state_log_keys(conn, job_stats_all_time)
+            job_log_keys = {}
+
+            job_stats_all_time.each do |job_name, queues|
+              job_score_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_score"
+              next unless conn.exists(job_score_key)
+
+              job_log_keys[job_name] = {}
+
+              queues.keys.each do |queue_name|
+                min = conn.zscore(job_score_key, "queue:#{queue_name}")
+                next if min.nil?
+
+                job_log_keys[job_name][queue_name] = true
+              end
+            end
+
+            job_log_keys
           end
 
           def job_progress_state_group_stats(conn, job_name, count, begin_index)
@@ -129,6 +161,24 @@ module ActiveJob
 
               job_stats << stats
             end
+
+            [next_page_availabe, job_stats]
+          end
+
+          def job_progress_state_log_uniqueness_ids(conn, day, job_name, queue_name, count, begin_index)
+            job_stats = []
+            next_page_availabe = false
+
+            job_score_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_score"
+            return [false, job_stats] unless conn.exists(job_score_key)
+
+            job_log_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_logs"
+            return [false, job_stats] unless conn.exists(job_log_key)
+
+            day_score = (day % 9) * DAY_SCORE_BASE
+
+            queue_id_score = conn.zscore(job_score_key, "queue:#{queue_name}")
+            queue_id_score = (queue_id_score % 9) * QUEUE_SCORE_BASE
 
             [next_page_availabe, job_stats]
           end

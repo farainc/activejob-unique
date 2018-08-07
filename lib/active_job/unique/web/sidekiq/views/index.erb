@@ -134,7 +134,7 @@
               <%= job_name %>
             </a>
           </td>
-          <td rowspan="2"><%= queue_name %></td>
+          <td><%= queue_name %></td>
           <td class="text-center">
             <%= stats_label('E', 'info') %>
           </td>
@@ -154,6 +154,13 @@
           <% end %>
         </tr>
         <tr>
+          <td>
+            <% if @job_log_keys[job_name] && @job_log_keys[job_name][queue_name] %>
+              <a class="no-decoration nowrap" href="<%= root_path %>job_stats/logs/<%= job_name %>/<%= queue_name %>">
+                view logs
+              </a>
+            <% end %>
+          </td>
           <td class="text-center">
             <%= stats_label('P', 'primary') %>
           </td>
@@ -182,7 +189,7 @@
           tpp_percentage = (tp_processed / tp_attempted * 100).to_s.to_i
         %>
           <tr>
-            <td rowspan="2"><%= key %></td>
+            <td><%= key %></td>
             <td class="text-center">
               <%= stats_label('E', 'info') %>
             </td>
@@ -201,6 +208,13 @@
             <% end %>
           </tr>
           <tr>
+            <td>
+              <% if @job_log_keys[job_name] && @job_log_keys[job_name][queue_name] %>
+                <a class="no-decoration nowrap" href="<%= root_path %>job_stats/logs/<%= job_name %>/<%= queue_name %>">
+                  view logs
+                </a>
+              <% end %>
+            </td>
             <td class="text-center">
               <%= stats_label('P', 'primary') %>
             </td>
