@@ -25,25 +25,25 @@ module ActiveJob
 
         before_enqueue do |job|
           @uniqueness_id = Digest::MD5.hexdigest(job.arguments.inspect.to_s)
-          @uniqueness_mode ||= self.class.uniqueness_mode
-          @uniqueness_debug ||= self.class.uniqueness_debug
-          @uniqueness_expiration ||= self.class.uniqueness_expiration
+          @uniqueness_mode ||= job.class.uniqueness_mode
+          @uniqueness_debug ||= job.class.uniqueness_debug
+          @uniqueness_expiration ||= job.class.uniqueness_expiration
 
           uniqueness_api.progress_stats_initialize(job)
 
           @uniqueness_progress_stage = PROGRESS_STAGE_ENQUEUE_ATTEMPTED
-          uniqueness_api.incr_progress_stats(job, @uniqueness_progress_stage)
+          uniqueness_api.incr_progress_stats(job)
+
+          uniqueness_api.set_progress_state_debug_data(job)
         end
 
         around_enqueue do |job, block|
           r = nil
 
-          allow_processing, @uniqueness_skipped_reason = uniqueness_api.allow_enqueue_processing?(job)
-
-          if allow_processing
+          if uniqueness_api.allow_enqueue_processing?(job)
             @uniqueness_progress_stage = PROGRESS_STAGE_ENQUEUE_PROCESSING
 
-            uniqueness_api.incr_progress_stats(job, @uniqueness_progress_stage)
+            uniqueness_api.incr_progress_stats(job)
             uniqueness_api.calculate_until_timeout_uniqueness_mode_expires(job)
 
             s = nil
@@ -55,12 +55,12 @@ module ActiveJob
 
               raise e
             ensure
-              uniqueness_api.incr_progress_stats(job, @uniqueness_progress_stage)
+              uniqueness_api.incr_progress_stats(job)
               uniqueness_api.ensure_cleanup_progress_state(job, PROGRESS_STAGE_ENQUEUE_PROCESSING)
             end
           else
             @uniqueness_progress_stage = PROGRESS_STAGE_ENQUEUE_SKIPPED
-            uniqueness_api.incr_progress_stats(job, @uniqueness_progress_stage)
+            uniqueness_api.incr_progress_stats(job)
           end
 
           r
@@ -68,19 +68,17 @@ module ActiveJob
 
         before_perform do |job|
           uniqueness_api.progress_stats_initialize(job)
-          
+
           @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_ATTEMPTED
-          uniqueness_api.incr_progress_stats(job, @uniqueness_progress_stage)
+          uniqueness_api.incr_progress_stats(job)
         end
 
         around_perform do |job, block|
           r = nil
 
-          allow_processing, @uniqueness_skipped_reason = uniqueness_api.allow_perform_processing?(job)
-
-          if allow_processing
+          if uniqueness_api.allow_perform_processing?(job)
             @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_PROCESSING
-            uniqueness_api.incr_progress_stats(job, @uniqueness_progress_stage)
+            uniqueness_api.incr_progress_stats(job)
             uniqueness_api.set_until_timeout_uniqueness_mode_expiration(job)
 
             s = nil
@@ -92,12 +90,12 @@ module ActiveJob
 
               raise e
             ensure
-              uniqueness_api.incr_progress_stats(job, @uniqueness_progress_stage)
+              uniqueness_api.incr_progress_stats(job)
               uniqueness_api.cleanup_progress_state(job, PROGRESS_STAGE_PERFORM_PROCESSING)
             end
           else
             @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_SKIPPED
-            uniqueness_api.incr_progress_stats(job, @uniqueness_progress_stage)
+            uniqueness_api.incr_progress_stats(job)
           end
 
           r
