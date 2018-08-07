@@ -3,12 +3,18 @@ class ActiveJobs::DebugJob < ApplicationJob
 
   def perform(*args)
     Sidekiq.redis_pool.with do |conn|
-      
+
 
       byebug
     end
 
     byebug
+  end
+
+  before_enqueue do |job|
+  end
+
+  before_perform do |job|
   end
 
   PROGRESS_STATS_SEPARATOR = 0x1E.chr
@@ -30,6 +36,14 @@ class ActiveJobs::DebugJob < ApplicationJob
     "#{job_name}#{PROGRESS_STATS_SEPARATOR}#{queue_name}#{PROGRESS_STATS_SEPARATOR}#{progress_stage}"
   end
 
+  def job_progress_state_debug
+    "#{job_progress_state}:debug"
+  end
+
+  def job_progress_state_debug_data_key(job_name)
+    "#{job_progress_state_debug}#{PROGRESS_STATS_SEPARATOR}#{job_name}"
+  end
+  
   def regroup_job_progress_stats(job_progress_stats_key, job_names, conn)
     stats_job_group = {}
 
