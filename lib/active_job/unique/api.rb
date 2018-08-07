@@ -58,11 +58,11 @@ module ActiveJob
           )
         end
 
-        def incr_progress_stats(job, progress_stage)
+        def incr_progress_stats(job)
           now = Time.now.utc
 
           # incr stats
-          job_key = job_progress_stats_job_key(job.class.name, job.queue_name, progress_stage)
+          job_key = job_progress_stats_job_key(job.class.name, job.queue_name, job.uniqueness_progress_stage)
 
           job.queue_adapter.uniqueness_incr_progress_stats(
             job_progress_stats,
@@ -76,6 +76,10 @@ module ActiveJob
 
         def job_progress_state
           "#{PROGRESS_STATS_PREFIX}:state"
+        end
+
+        def job_progress_state_debug
+          "#{job_progress_state}:debug"
         end
 
         def ensure_cleanup_progress_state(job, progress_stage)
@@ -118,6 +122,13 @@ module ActiveJob
           state.to_s.split(":")
         end
 
+        def set_progress_state_debug_data(job)
+          return false unless job.uniqueness_debug
+
+          # job.queue_adapter.uniqueness_set_progress_state_debug_data
+          # job_progress_state_debug
+        end
+
         def another_job_is_processing?(job, progress_stage, readonly = false)
           timestamp, job_id = getset_progress_state(job, progress_stage, readonly)
 
@@ -134,12 +145,14 @@ module ActiveJob
 
           # disallow another_job_is_processing in enqueue_stage
           if another_job_is_processing?(job, PROGRESS_STAGE_ENQUEUE_PROCESSING)
-            return [false, 'enqueue:another_job_in_enqueue_processing']
+            job.uniqueness_skipped_reason = 'enqueue:another_job_in_enqueue_processing'
+            return false
           end
 
           # disallow another_job_in_queue
           if another_job_in_queue?(job)
-            return [false, 'enqueue:another_job_in_queue']
+            job.uniqueness_skipped_reason = 'enqueue:another_job_in_queue'
+            return false
           end
 
           # allow enqueue_only_uniqueness_mode if no another_job_in_queue
@@ -147,12 +160,14 @@ module ActiveJob
 
           # disallow another_job_is_processing in perform_stage
           if another_job_is_processing?(job, PROGRESS_STAGE_PERFORM_PROCESSING, true)
-            return [false, 'enqueue:another_job_in_perform_processing']
+            job.uniqueness_skipped_reason = 'enqueue:another_job_in_perform_processing'
+            return false
           end
 
           # disallow another_job_in_worker
           if another_job_in_worker?(job)
-            return [false, 'enqueue:another_job_in_worker']
+            job.uniqueness_skipped_reason = 'enqueue:another_job_in_worker'
+            return false
           end
 
           return true unless until_timeout_uniqueness_mode?(job.uniqueness_mode)
@@ -177,12 +192,14 @@ module ActiveJob
 
           # disallow another_job_is_processing in perform_stage
           if another_job_is_processing?(job, PROGRESS_STAGE_PERFORM_PROCESSING)
-            return [false, 'perform:another_job_in_perform_processing']
+            job.uniqueness_skipped_reason = 'perform:another_job_in_perform_processing'
+            return false
           end
 
           # disallow another_job_in_worker
           if another_job_in_worker?(job)
-            return [false, 'perform:another_job_in_worker']
+            job.uniqueness_skipped_reason = 'perform:another_job_in_worker'
+            return false
           end
 
           return true unless until_timeout_uniqueness_mode?(job.uniqueness_mode)

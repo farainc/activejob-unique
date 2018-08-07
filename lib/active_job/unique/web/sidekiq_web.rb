@@ -64,7 +64,8 @@ module ActiveJob
 
           def job_progress_state_all_keys(conn, job_names)
             all_keys = {}
-
+            i = 0
+            
             conn.scan_each(match: "#{job_progress_state}#{PROGRESS_STATS_SEPARATOR}*", count: 1000) do |key|
               i += 1
 
