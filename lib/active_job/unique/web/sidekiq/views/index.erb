@@ -132,7 +132,7 @@
         tp_attempted = today_perform['attempted'].to_f rescue 0
         tpp_percentage = (tp_processed / tp_attempted * 100).to_s.to_i rescue 0
 
-        queue_name = today_stats.keys[0]
+        queue_name = today_stats.keys[0] rescue ''
       %>
         <tr>
           <td rowspan="<%= total_stats.keys.size * 2 %>">
