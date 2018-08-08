@@ -93,8 +93,14 @@
         <td><%= (relative_time(log[:timestamp]) rescue 'err') %></td>
         <td><%= log[:mode] %></td>
         <td><%= log[:expiration] %></td>
-        <td><%= (relative_time(log[:expires]) rescue '') %></td>
-        <td><%= log[:debug] %></td>
+        <td>
+          <% if log[:expires] > Time.at(0).utc %>
+            <%= (relative_time(log[:expires]) rescue 'err') %>
+          <% else %>
+            N/A
+          <% end %>
+        </td>
+        <td><code><%= log[:debug] %></code></td>
       </tr>
       <% unless log[:reason].empty? %>
         <tr><td class="<%= progress_label(log[:progress])%>" colspan="6"><%= log[:reason] %></td></tr>
