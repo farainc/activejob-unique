@@ -6,7 +6,7 @@ module ActiveJob
           def self.registered(app)
             # index page of stats
             app.get '/job_stats' do
-              view_path = File.join(File.expand_path('..', __FILE__), 'views')
+              view_path = File.join(File.expand_path(__dir__), 'views')
 
               @today = SidekiqWeb.sequence_today
 
@@ -21,7 +21,7 @@ module ActiveJob
               Sidekiq.redis_pool.with do |conn|
                 @total_size = conn.zcount(SidekiqWeb.job_progress_stats_jobs, '-inf', '+inf')
 
-                SidekiqWeb.uniqueness_cleanup_progress_stats(conn, Time.now.utc)                
+                SidekiqWeb.uniqueness_cleanup_progress_stats(conn, Time.now.utc)
               end
 
               begin_index = (@current_page - 1) * @count
@@ -47,7 +47,7 @@ module ActiveJob
             end
 
             app.get '/job_stats/uniqueness/:job_name' do
-              view_path = File.join(File.expand_path('..', __FILE__), 'views')
+              view_path = File.join(File.expand_path(__dir__), 'views')
 
               @job_name = route_params[:job_name]
               @job_stats = []
@@ -64,7 +64,8 @@ module ActiveJob
                   conn,
                   @job_name,
                   @count,
-                  begin_index)
+                  begin_index
+                )
               end
 
               @total_size = @count * (@current_page - 1) + @job_stats.size
@@ -105,16 +106,16 @@ module ActiveJob
             end
 
             app.get '/job_stats/logs/:day/:job_name/:queue_name/:uniqueness_id' do
-              view_path = File.join(File.expand_path('..', __FILE__), 'views')
+              view_path = File.join(File.expand_path(__dir__), 'views')
 
               @job_logs = []
               @job_name = route_params[:job_name]
               @queue_name = route_params[:queue_name].to_s
               @day = route_params[:day].to_i
-              @day = SidekiqWeb.sequence_today if @day < SidekiqWeb.sequence_day(Time.now.utc-3600*24*9)
+              @day = SidekiqWeb.sequence_today if @day < SidekiqWeb.sequence_day(Time.now.utc - 3600 * 24 * 9)
 
               @uniqueness_id = route_params[:uniqueness_id].to_s
-              @uniqueness_id = "*" unless @uniqueness_id.size == 32
+              @uniqueness_id = '*' unless @uniqueness_id.size == 32
 
               @count = (params[:count] || 20).to_i
               @current_page = params[:page].to_i
@@ -131,12 +132,13 @@ module ActiveJob
                   @queue_name,
                   @uniqueness_id,
                   @count,
-                  begin_index)
+                  begin_index
+                )
 
-                  # when first page display, always clean logs data 8 days ago
-                  if @current_page == 1 && @queue_name == "*" && @uniqueness_id == "*"
-                    SidekiqWeb.cleanup_job_progress_state_logs(conn, SidekiqWeb.sequence_day(Time.now.utc-3600*24*8), @job_name, @queue_name, @uniqueness_id)
-                  end
+                # when first page display, always clean logs data 8 days ago
+                if @current_page == 1 && @queue_name == '*' && @uniqueness_id == '*'
+                  SidekiqWeb.cleanup_job_progress_state_logs(conn, SidekiqWeb.sequence_day(Time.now.utc - 3600 * 24 * 8), @job_name, @queue_name, @uniqueness_id)
+                end
               end
 
               @total_size = @count * (@current_page - 1) + @job_logs.size
@@ -146,7 +148,7 @@ module ActiveJob
             end
 
             app.get '/job_stats/logs/:day/:job_name/:queue_name/:uniqueness_id/:job_id' do
-              view_path = File.join(File.expand_path('..', __FILE__), 'views')
+              view_path = File.join(File.expand_path(__dir__), 'views')
 
               @job_log = {}
               @job_name = route_params[:job_name]
@@ -210,7 +212,6 @@ module ActiveJob
 
               redirect URI(request.referer).path
             end
-
           end
         end
       end

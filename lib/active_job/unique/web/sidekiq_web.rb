@@ -57,7 +57,7 @@ module ActiveJob
           end
 
           def uniqueness_cleanup_progress_stats(conn, now)
-            day = sequence_day(now - 3600*24)
+            day = sequence_day(now - 3600 * 24)
             conn.del("#{job_progress_stats}:#{day}")
           end
 
@@ -103,7 +103,7 @@ module ActiveJob
               uniquess_keys[job_name][queue_name][stage] += 1
 
               # maxmium 10,000
-              break if i >= 10000
+              break if i >= 10_000
             end
 
             uniquess_keys
@@ -119,13 +119,13 @@ module ActiveJob
             cursor, keys = conn.scan('0', match: filter, count: 1000)
             all_keys += keys
 
-            while all_keys.size < end_index && cursor != "0"
+            while all_keys.size < end_index && cursor != '0'
               cursor, keys = conn.scan(cursor, match: filter, count: 10)
               all_keys += keys
             end
             return [0, job_stats] if all_keys.size.zero?
 
-            next_page_availabe = cursor != "0" || all_keys.size > end_index + 1
+            next_page_availabe = cursor != '0' || all_keys.size > end_index + 1
 
             keys = all_keys[begin_index..end_index]
 
@@ -162,7 +162,7 @@ module ActiveJob
               cursor, keys = conn.scan(cursor, match: filter, count: 100)
               conn.del(*keys)
 
-              break if cursor == "0"
+              break if cursor == '0'
             end
 
             true
@@ -210,13 +210,13 @@ module ActiveJob
 
             min_score = day_score + queue_id_score + uniqueness_id_score
 
-            if uniqueness_id_score > 0
-              max_score = min_score + UNIQUENESS_ID_SCORE_BASE
-            elsif queue_id_score > 0
-              max_score = min_score + QUEUE_SCORE_BASE
-            else
-              max_score = min_score + DAY_SCORE_BASE
-            end
+            max_score = if uniqueness_id_score > 0
+                          min_score + UNIQUENESS_ID_SCORE_BASE
+                        elsif queue_id_score > 0
+                          min_score + QUEUE_SCORE_BASE
+                        else
+                          min_score + DAY_SCORE_BASE
+                        end
 
             job_logs = conn.zrevrangebyscore(
               job_score_key,
@@ -225,15 +225,15 @@ module ActiveJob
               limit: [begin_index, begin_index + count + 1]
             )
 
-            [job_logs.size > count, job_logs[0..count-1]]
+            [job_logs.size > count, job_logs[0..count - 1]]
           end
 
           def job_progress_state_log_job_one(conn, day, job_name, queue_name, uniqueness_id, job_id)
             job_score_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_score"
-            return {logs: [], args: {}} unless conn.exists(job_score_key)
+            return { logs: [], args: {} } unless conn.exists(job_score_key)
 
             job_log_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_logs"
-            return {logs: [], args: {}} unless conn.exists(job_log_key)
+            return { logs: [], args: {} } unless conn.exists(job_log_key)
 
             log_data_key = job_progress_state_logs_key(job_name)
             log_data_field = "#{day % 9}#{PROGRESS_STATS_SEPARATOR}#{uniqueness_id}"
@@ -249,7 +249,7 @@ module ActiveJob
                 job_log_key,
                 job_id_score,
                 "(#{job_id_score + 1}",
-                :limit => [begin_index, 101]
+                limit: [begin_index, 101]
               )
 
               temp_logs.each do |log|
@@ -260,11 +260,11 @@ module ActiveJob
                   progress: progress_stage,
                   timestamp: Time.at(timestamp.to_f).utc
                 }
-                completed = ['enqueue_skipped',
-                             'enqueue_failed',
-                             'perform_skipped',
-                             'perform_failed',
-                             'perform_processed'].include?(progress_stage)
+                completed = %w[enqueue_skipped
+                               enqueue_failed
+                               perform_skipped
+                               perform_failed
+                               perform_processed].include?(progress_stage)
 
                 break if completed
               end
@@ -298,13 +298,13 @@ module ActiveJob
 
             min_score = day_score + queue_id_score + uniqueness_id_score
 
-            if uniqueness_id_score > 0
-              max_score = min_score + UNIQUENESS_ID_SCORE_BASE
-            elsif queue_id_score > 0
-              max_score = min_score + QUEUE_SCORE_BASE
-            else
-              max_score = min_score + DAY_SCORE_BASE
-            end
+            max_score = if uniqueness_id_score > 0
+                          min_score + UNIQUENESS_ID_SCORE_BASE
+                        elsif queue_id_score > 0
+                          min_score + QUEUE_SCORE_BASE
+                        else
+                          min_score + DAY_SCORE_BASE
+                        end
 
             conn.zremrangebyscore(
               job_score_key,
@@ -321,7 +321,7 @@ module ActiveJob
             true
           end
 
-          def cleanup_job_progress_state_log_one(conn, day, job_name, queue_name, uniqueness_id, job_id)
+          def cleanup_job_progress_state_log_one(conn, _day, job_name, queue_name, uniqueness_id, job_id)
             job_score_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_score"
             return unless conn.exists(job_score_key)
 
@@ -338,18 +338,18 @@ module ActiveJob
                 job_log_key,
                 job_id_score,
                 "(#{job_id_score + 1}",
-                :limit => [begin_index, 101]
+                limit: [begin_index, 101]
               )
 
               temp_logs.each do |log|
                 next unless (log =~ /^#{job_id}#{PROGRESS_STATS_SEPARATOR}/i) == 0
                 id, progress_stage, timestamp = log.split(PROGRESS_STATS_SEPARATOR)
 
-                completed = ['enqueue_skipped',
-                             'enqueue_failed',
-                             'perform_skipped',
-                             'perform_failed',
-                             'perform_processed'].include?(progress_stage)
+                completed = %w[enqueue_skipped
+                               enqueue_failed
+                               perform_skipped
+                               perform_failed
+                               perform_processed].include?(progress_stage)
 
                 conn.zrem(job_log_key, log)
 

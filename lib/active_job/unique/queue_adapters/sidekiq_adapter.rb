@@ -11,7 +11,7 @@ module ActiveJob
         module ClassMethods
           def uniqueness_progress_stats_initialize(stats_jobs_key, job_name)
             Sidekiq.redis_pool.with do |conn|
-              conn.zadd(stats_jobs_key, [1, job_name], { incr: true })
+              conn.zadd(stats_jobs_key, [1, job_name], incr: true)
             end
           end
 
@@ -66,7 +66,7 @@ module ActiveJob
           end
 
           def uniqueness_incr_progress_state_log_id_score(conn, job_score_key, base, new_id)
-            if conn.zadd(job_score_key, [0, "#{base}:#{new_id}"], { nx: true }) == 1
+            if conn.zadd(job_score_key, [0, "#{base}:#{new_id}"], nx: true) == 1
               conn.zincrby(job_score_key, conn.zincrby(job_score_key, 1.0, base), "#{base}:#{new_id}")
             else
               conn.zincrby(job_score_key, 0.0, "#{base}:#{new_id}")
@@ -84,10 +84,10 @@ module ActiveJob
             Sidekiq.redis_pool.with do |conn|
               day_score = ((day % 8) + 1) * DAY_SCORE_BASE
 
-              queue_id_score = uniqueness_incr_progress_state_log_id_score(conn, job_score_key,  'queue', queue_name)
+              queue_id_score = uniqueness_incr_progress_state_log_id_score(conn, job_score_key, 'queue', queue_name)
               queue_id_score = (queue_id_score % 9) * QUEUE_SCORE_BASE
 
-              uniqueness_id_score = uniqueness_incr_progress_state_log_id_score(conn, job_score_key,  'uniqueness_id', uniqueness_id)
+              uniqueness_id_score = uniqueness_incr_progress_state_log_id_score(conn, job_score_key, 'uniqueness_id', uniqueness_id)
               uniqueness_id_score *= UNIQUENESS_ID_SCORE_BASE
 
               time_score = ((Time.now.utc - Time.now.utc.midnight) / 10).to_i
@@ -95,12 +95,12 @@ module ActiveJob
               job_id_score = day_score + queue_id_score + uniqueness_id_score + time_score
               job_id_value = "#{queue_name}:#{uniqueness_id}:#{job_id}"
 
-              if conn.zadd(job_score_key, [job_id_score, job_id_value], { nx: true }) == 0
+              if conn.zadd(job_score_key, [job_id_score, job_id_value], nx: true) == 0
                 job_id_score = conn.zscore(job_score_key, job_id_value)
               end
 
               job_log_score = job_id_score + progress_stage_score
-              conn.zadd(job_log_key, [job_log_score, job_log_value], { nx: true })
+              conn.zadd(job_log_key, [job_log_score, job_log_value], nx: true)
             end
           end
 
@@ -129,10 +129,10 @@ module ActiveJob
               cursor = '0'
 
               loop do
-                cursor, hash = conn.hscan(log_data_key, {match: log_data_field_match, count: 100})
+                cursor, hash = conn.hscan(log_data_key, match: log_data_field_match, count: 100)
                 conn.hdel(hash.keys)
 
-                break if cursor == "0"
+                break if cursor == '0'
               end
 
               true

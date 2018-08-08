@@ -58,7 +58,7 @@ module ActiveJob
               raise e
             ensure
               uniqueness_api.incr_progress_stats(job)
-              uniqueness_api.ensure_cleanup_progress_state(job, PROGRESS_STAGE_ENQUEUE_PROCESSING)
+              uniqueness_api.ensure_cleanup_enqueue_progress_state(job)
             end
           else
             @uniqueness_progress_stage = PROGRESS_STAGE_ENQUEUE_SKIPPED
@@ -74,7 +74,7 @@ module ActiveJob
           @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_ATTEMPTED
           uniqueness_api.incr_progress_stats(job)
 
-          uniqueness_api.set_progress_state_log_data(job)          
+          uniqueness_api.set_progress_state_log_data(job)
         end
 
         around_perform do |job, block|
@@ -82,6 +82,7 @@ module ActiveJob
 
           if uniqueness_api.allow_perform_processing?(job)
             @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_PROCESSING
+
             uniqueness_api.incr_progress_stats(job)
             uniqueness_api.set_until_timeout_uniqueness_mode_expiration(job)
 
@@ -95,7 +96,7 @@ module ActiveJob
               raise e
             ensure
               uniqueness_api.incr_progress_stats(job)
-              uniqueness_api.cleanup_progress_state(job, PROGRESS_STAGE_PERFORM_PROCESSING)
+              uniqueness_api.ensure_cleanup_perform_progress_state(job)
             end
           else
             @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_SKIPPED
