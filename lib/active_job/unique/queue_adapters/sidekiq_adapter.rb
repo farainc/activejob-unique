@@ -67,18 +67,14 @@ module ActiveJob
 
           def uniqueness_incr_progress_state_log_id_score(conn, job_score_key, base, new_id)
             if conn.zadd(job_score_key, [0, "#{base}:#{new_id}"], { nx: true }) == 1
-              conn.zadd(job_score_key, [1, base], { incr: true })
-              id_score = conn.zscore(job_score_key, base)
-              conn.zincrby(job_score_key, id_score, "#{base}:#{new_id}")
+              conn.zincrby(job_score_key, conn.zincrby(job_score_key, 1.0, base), "#{base}:#{new_id}")
             else
-              id_score = conn.zscore(job_score_key, "#{base}:#{new_id}")
+              conn.zincrby(job_score_key, 0.0, "#{base}:#{new_id}")
             end
-
-            id_score
           end
 
-          def uniqueness_incr_progress_state_log(job_score_key,
-                                                 day,
+          def uniqueness_incr_progress_state_log(day,
+                                                 job_score_key,
                                                  queue_name,
                                                  uniqueness_id,
                                                  job_id,
@@ -86,7 +82,7 @@ module ActiveJob
                                                  job_log_key,
                                                  job_log_value)
             Sidekiq.redis_pool.with do |conn|
-              day_score = (day % 9) * DAY_SCORE_BASE
+              day_score = ((day % 8) + 1) * DAY_SCORE_BASE
 
               queue_id_score = uniqueness_incr_progress_state_log_id_score(conn, job_score_key,  'queue', queue_name)
               queue_id_score = (queue_id_score % 9) * QUEUE_SCORE_BASE
@@ -97,7 +93,7 @@ module ActiveJob
               time_score = ((Time.now.utc - Time.now.utc.midnight) / 10).to_i
 
               job_id_score = day_score + queue_id_score + uniqueness_id_score + time_score
-              job_id_value = "job_id:#{job_id}"
+              job_id_value = "#{queue_name}:#{uniqueness_id}:#{job_id}"
 
               if conn.zadd(job_score_key, [job_id_score, job_id_value], { nx: true }) == 0
                 job_id_score = conn.zscore(job_score_key, job_id_value)
@@ -108,52 +104,49 @@ module ActiveJob
             end
           end
 
-          # def uniqueness_incr_progress_state_log(job_score_key,
-          #                                          job_name_with_queue,
-          #                                          uniqueness_id_score_key,
-          #                                          job_id_score_key,
-          #                                          progress_stage_score,
-          #                                          job_debug_key,
-          #                                          job_debug_value)
-          #
-          #   Sidekiq.redis_pool.with do |conn|
-          #     if conn.zadd(job_score_key, [0, uniqueness_id_score_key], { nx: true }) == 1
-          #       conn.zadd(job_score_key, [1, job_name_with_queue], { incr: true })
-          #       uniqueness_id_score = conn.zscore(job_score_key, job_name_with_queue)
-          #       uniqueness_id_score *= UNIQUENESS_ID_SCORE_BASE
-          #       conn.zincrby(job_score_key, uniqueness_id_score, uniqueness_id_score_key)
-          #     else
-          #       uniqueness_id_score = conn.zscore(job_score_key, uniqueness_id_score_key)
-          #     end
-          #
-          #     if conn.zadd(job_score_key, [0, job_id_score_key], { nx: true }) == 1
-          #       conn.zadd(job_score_key, [1, uniqueness_id_score_key], { incr: true })
-          #       job_id_score = conn.zscore(job_score_key, uniqueness_id_score_key)
-          #       conn.zincrby(job_score_key, job_id_score, job_id_score_key)
-          #     else
-          #       job_id_score = conn.zscore(job_score_key, uniqueness_id_score_key)
-          #     end
-          #
-          #     job_debug_score = job_id_score + progress_stage_score
-          #
-          #     conn.zadd(job_debug_key, [job_debug_score, job_debug_value], { nx: true })
-          #   end
-          # end
-
-          def uniqueness_cleanup_progress_state_logs(day)
+          def uniqueness_cleanup_progress_state_logs(day,
+                                                     job_score_key,
+                                                     job_log_key,
+                                                     log_data_key,
+                                                     log_data_field_match)
             Sidekiq.redis_pool.with do |conn|
+              day_score = ((day % 8) + 1) * DAY_SCORE_BASE
+              min_score = day_score
+              max_score = day_score + DAY_SCORE_BASE - 0.1
 
+              conn.zremrangebyscore(
+                job_score_key,
+                min_score,
+                max_score
+              )
+
+              conn.zremrangebyscore(
+                job_log_key,
+                min_score,
+                max_score
+              )
+
+              cursor = '0'
+
+              loop do
+                cursor, hash = conn.hscan(log_data_key, {match: log_data_field_match, count: 100})
+                conn.hdel(hash.keys)
+
+                break if cursor == "0"
+              end
+
+              true
             end
           end
 
-          def uniqueness_another_job_in_queue?(uniqueness_id, queue_name)
+          def uniqueness_another_job_in_queue?(queue_name, uniqueness_id)
             queue = Sidekiq::Queue.new(queue_name)
             return false if queue.size.zero?
 
             queue.any? { |job| job.item['args'][0]['uniqueness_id'] == uniqueness_id }
           end
 
-          def uniqueness_another_job_in_worker?(uniqueness_id, queue_name, job_id)
+          def uniqueness_another_job_in_worker?(queue_name, uniqueness_id, job_id)
             Sidekiq::Workers.new.any? { |_p, _t, w| w['queue'] == queue_name && w['payload']['args'][0]['uniqueness_id'] == uniqueness_id && w['payload']['args'][0]['job_id'] != job_id }
           end
         end
@@ -192,6 +185,10 @@ module ActiveJob
 
         def uniqueness_incr_progress_state_log(*args)
           self.class.uniqueness_incr_progress_state_log(*args)
+        end
+
+        def uniqueness_cleanup_progress_state_logs(*args)
+          self.class.uniqueness_cleanup_progress_state_logs(*args)
         end
 
         def uniqueness_another_job_in_queue?(*args)
