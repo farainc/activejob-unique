@@ -53,13 +53,13 @@ module ActiveJob
           "#{job_progress_state_logs}#{PROGRESS_STATS_SEPARATOR}#{job_name}"
         end
 
-        def job_progress_state_key(job_name, uniqueness_id, queue_name, stage)
+        def job_progress_state_key(job_name, queue_name, uniqueness_id, stage)
           [
             job_progress_state,
             job_name,
             queue_name,
-            stage,
-            uniqueness_id
+            uniqueness_id,
+            stage
           ].join(PROGRESS_STATS_SEPARATOR)
         end
 
@@ -100,8 +100,8 @@ module ActiveJob
         def cleanup_progress_state(job, progress_stage)
           state_key = job_progress_state_key(
             job.class.name,
-            job.uniqueness_id,
             job.queue_name,
+            job.uniqueness_id,
             progress_stage)
 
           # queue_adapter.getset_progress_state(state_key, state_value)
@@ -111,8 +111,8 @@ module ActiveJob
         def getset_progress_state(job, progress_stage, readonly = false)
           state_key = job_progress_state_key(
             job.class.name,
-            job.uniqueness_id,
             job.queue_name,
+            job.uniqueness_id,
             progress_stage)
 
           # get progress_stage
@@ -135,7 +135,7 @@ module ActiveJob
           log_data_key = job_progress_state_logs_key(job.class.name)
           log_data_field = "#{sequence_day(job.uniqueness_timestamp) % 9}#{PROGRESS_STATS_SEPARATOR}#{job.uniqueness_id}"
 
-          job.queue_adapter.uniqueness_set_progress_state_log_data(log_data_key, log_data_field, job.arguments)
+          job.queue_adapter.uniqueness_set_progress_state_log_data(log_data_key, log_data_field, JSON.dump(job.arguments))
         end
 
         def incr_progress_state_log(job)
@@ -147,17 +147,35 @@ module ActiveJob
           job_score_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_score"
           job_log_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_logs"
 
-          job_log_value = "#{job.uniqueness_id}:#{job.job_id}#{PROGRESS_STATS_SEPARATOR}#{job.uniqueness_progress_stage}#{PROGRESS_STATS_SEPARATOR}#{job.uniqueness_timestamp.to_f}"
+          job_log_value = "#{job.job_id}#{PROGRESS_STATS_SEPARATOR}#{job.uniqueness_progress_stage}#{PROGRESS_STATS_SEPARATOR}#{job.uniqueness_timestamp.to_f}"
 
           job.queue_adapter.uniqueness_incr_progress_state_log(
-            job_score_key,
             day,
+            job_score_key,
             job.queue_name,
             job.uniqueness_id,
             job.job_id,
             progress_stage_score,
             job_log_key,
             job_log_value
+          )
+        end
+
+        def uniqueness_cleanup_progress_state_logs(job, time)
+          job_name = job.class.name
+          day = sequence_day(time)
+          job_score_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_score"
+          job_log_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_logs"
+
+          log_data_key = job_progress_state_logs_key(job_name)
+          log_data_field_match = "#{(day % 9)}#{PROGRESS_STATS_SEPARATOR}*"
+
+          job.queue_adapter.uniqueness_cleanup_progress_state_logs(
+            day,
+            job_score_key,
+            job_log_key,
+            log_data_key,
+            log_data_field_match
           )
         end
 
@@ -209,7 +227,7 @@ module ActiveJob
         end
 
         def another_job_in_queue?(job)
-          job.queue_adapter.uniqueness_another_job_in_queue?(job.uniqueness_id, job.queue_name)
+          job.queue_adapter.uniqueness_another_job_in_queue?(job.queue_name, job.uniqueness_id)
         end
 
         def calculate_until_timeout_uniqueness_mode_expires(job)
@@ -241,14 +259,14 @@ module ActiveJob
         end
 
         def another_job_in_worker?(job)
-          job.queue_adapter.uniqueness_another_job_in_worker?(job.uniqueness_id, job.queue_name, job.job_id)
+          job.queue_adapter.uniqueness_another_job_in_worker?(job.queue_name, job.uniqueness_id, job.job_id)
         end
 
         def get_until_timeout_uniqueness_mode_expiration(job)
           state_key = job_progress_state_key(
             job.class.name,
-            job.uniqueness_id,
             job.queue_name,
+            job.uniqueness_id,
             PROGRESS_STAGE_PERFORM_EXPIRED)
 
           Time.at(job.queue_adapter.uniqueness_get_progress_state(state_key).to_f).utc
@@ -260,8 +278,8 @@ module ActiveJob
 
           state_key = job_progress_state_key(
             job.class.name,
-            job.uniqueness_id,
             job.queue_name,
+            job.uniqueness_id,
             PROGRESS_STAGE_PERFORM_EXPIRED)
 
           state_value = job.uniqueness_expires.to_f

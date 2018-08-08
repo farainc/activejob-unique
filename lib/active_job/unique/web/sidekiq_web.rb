@@ -15,8 +15,12 @@ module ActiveJob
         UNIQUENESS_ID_SCORE_BASE = 10_000
 
         class << self
+          def sequence_day(now)
+            now.to_date.strftime('%Y%m%d').to_i
+          end
+
           def sequence_today
-            Time.now.utc.to_date.strftime('%Y%m%d').to_i
+            sequence_day(Time.now.utc)
           end
 
           def job_progress_stats
@@ -64,13 +68,13 @@ module ActiveJob
             "#{job_progress_state_logs}#{PROGRESS_STATS_SEPARATOR}#{job_name}"
           end
 
-          def job_progress_state_key(job_name, uniqueness_id, queue_name, stage)
+          def job_progress_state_key(job_name, queue_name, uniqueness_id, stage)
             [
               job_progress_state,
               job_name,
               queue_name,
-              stage,
-              uniqueness_id
+              uniqueness_id,
+              stage
             ].join(PROGRESS_STATS_SEPARATOR)
           end
 
@@ -98,26 +102,6 @@ module ActiveJob
             end
 
             uniquess_keys
-          end
-
-          def job_progress_state_log_keys(conn, job_stats_all_time)
-            job_log_keys = {}
-
-            job_stats_all_time.each do |job_name, queues|
-              job_score_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_score"
-              next unless conn.exists(job_score_key)
-
-              job_log_keys[job_name] = {}
-
-              queues.keys.each do |queue_name|
-                min = conn.zscore(job_score_key, "queue:#{queue_name}")
-                next if min.nil?
-
-                job_log_keys[job_name][queue_name] = true
-              end
-            end
-
-            job_log_keys
           end
 
           def job_progress_state_group_stats(conn, job_name, count, begin_index)
@@ -165,24 +149,6 @@ module ActiveJob
             [next_page_availabe, job_stats]
           end
 
-          def job_progress_state_log_uniqueness_ids(conn, day, job_name, queue_name, count, begin_index)
-            job_stats = []
-            next_page_availabe = false
-
-            job_score_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_score"
-            return [false, job_stats] unless conn.exists(job_score_key)
-
-            job_log_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_logs"
-            return [false, job_stats] unless conn.exists(job_log_key)
-
-            day_score = (day % 9) * DAY_SCORE_BASE
-
-            queue_id_score = conn.zscore(job_score_key, "queue:#{queue_name}")
-            queue_id_score = (queue_id_score % 9) * QUEUE_SCORE_BASE
-
-            [next_page_availabe, job_stats]
-          end
-
           def cleanup_job_progress_state_group(conn, job_name)
             cursor = 0
             filter = "#{job_progress_state}#{PROGRESS_STATS_SEPARATOR}#{job_name}#{PROGRESS_STATS_SEPARATOR}*"
@@ -197,8 +163,202 @@ module ActiveJob
             true
           end
 
-          def cleanup_job_progress_state_one(conn, job_name, uniqueness_id, queue_name, stage)
-            conn.del(job_progress_state_key(job_name, uniqueness_id, queue_name, stage))
+          def cleanup_job_progress_state_one(conn, job_name, queue_name, uniqueness_id, stage)
+            conn.del(job_progress_state_key(job_name, queue_name, uniqueness_id, stage))
+
+            true
+          end
+
+          def job_progress_state_log_keys(conn, job_stats_all_time)
+            job_log_keys = {}
+
+            job_stats_all_time.each do |job_name, queues|
+              job_score_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_score"
+              next unless conn.exists(job_score_key)
+
+              job_log_keys[job_name] = {}
+
+              queues.keys.each do |queue_name|
+                min = conn.zscore(job_score_key, "queue:#{queue_name}")
+                next if min.nil?
+
+                job_log_keys[job_name][queue_name] = true
+              end
+            end
+
+            job_log_keys
+          end
+
+          def job_progress_state_log_jobs(conn, day, job_name, queue_name, uniqueness_id, count, begin_index)
+            next_page_availabe = false
+
+            job_score_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_score"
+            return [false, []] unless conn.exists(job_score_key)
+
+            day_score = ((day % 8) + 1) * DAY_SCORE_BASE
+
+            queue_id_score = conn.zscore(job_score_key, "queue:#{queue_name}").to_i
+            queue_id_score = (queue_id_score % 9) * QUEUE_SCORE_BASE
+
+            uniqueness_id_score = conn.zscore(job_score_key, "uniqueness_id:#{uniqueness_id}").to_i
+            uniqueness_id_score *= UNIQUENESS_ID_SCORE_BASE
+
+            min_score = day_score + queue_id_score + uniqueness_id_score
+
+            if uniqueness_id_score > 0
+              max_score = min_score + UNIQUENESS_ID_SCORE_BASE
+            elsif queue_id_score > 0
+              max_score = min_score + QUEUE_SCORE_BASE
+            else
+              max_score = min_score + DAY_SCORE_BASE
+            end
+
+            job_logs = conn.zrevrangebyscore(
+              job_score_key,
+              "(#{max_score}",
+              min_score,
+              limit: [begin_index, begin_index + count + 1]
+            )
+
+            [job_logs.size > count, job_logs[0..count-1]]
+          end
+
+          def job_progress_state_log_job_one(conn, day, job_name, queue_name, uniqueness_id, job_id)
+            job_score_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_score"
+            return {logs: [], args: {}} unless conn.exists(job_score_key)
+
+            job_log_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_logs"
+            return {logs: [], args: {}} unless conn.exists(job_log_key)
+
+            log_data_key = job_progress_state_logs_key(job_name)
+            log_data_field = "#{day % 9}#{PROGRESS_STATS_SEPARATOR}#{uniqueness_id}"
+
+            job_id_score = conn.zscore(job_score_key, "#{queue_name}:#{uniqueness_id}:#{job_id}").to_i
+            begin_index = 0
+            completed = false
+
+            job_logs = []
+
+            loop do
+              temp_logs = conn.zrangebyscore(
+                job_log_key,
+                job_id_score,
+                "(#{job_id_score + 1}",
+                :limit => [begin_index, 101]
+              )
+
+              temp_logs.each do |log|
+                next unless (log =~ /^#{job_id}#{PROGRESS_STATS_SEPARATOR}/i) == 0
+
+                id, progress_stage, timestamp = log.split(PROGRESS_STATS_SEPARATOR)
+                job_logs << {
+                  progress: progress_stage,
+                  timestamp: Time.at(timestamp.to_f).utc
+                }
+                completed = ['enqueue_skipped',
+                             'enqueue_failed',
+                             'perform_skipped',
+                             'perform_failed',
+                             'perform_processed'].include?(progress_stage)
+
+                break if completed
+              end
+
+              # update index offset
+              begin_index += temp_logs.size
+
+              # break if completed || search to the end.
+              break if completed || temp_logs.size <= 100
+            end
+
+            args = JSON.parse(conn.hget(log_data_key, log_data_field)) rescue {}
+
+            { logs: job_logs, args: args }
+          end
+
+          def cleanup_job_progress_state_logs(conn, day, job_name, queue_name, uniqueness_id)
+            job_score_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_score"
+            return unless conn.exists(job_score_key)
+
+            job_log_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_logs"
+            return unless conn.exists(job_log_key)
+
+            day_score = ((day % 8) + 1) * DAY_SCORE_BASE
+
+            queue_id_score = conn.zscore(job_score_key, "queue:#{queue_name}").to_i
+            queue_id_score = (queue_id_score % 9) * QUEUE_SCORE_BASE
+
+            uniqueness_id_score = conn.zscore(job_score_key, "uniqueness_id:#{uniqueness_id}").to_i
+            uniqueness_id_score *= UNIQUENESS_ID_SCORE_BASE
+
+            min_score = day_score + queue_id_score + uniqueness_id_score
+
+            if uniqueness_id_score > 0
+              max_score = min_score + UNIQUENESS_ID_SCORE_BASE
+            elsif queue_id_score > 0
+              max_score = min_score + QUEUE_SCORE_BASE
+            else
+              max_score = min_score + DAY_SCORE_BASE
+            end
+
+            conn.zremrangebyscore(
+              job_score_key,
+              min_score,
+              "(#{max_score}"
+            )
+
+            conn.zremrangebyscore(
+              job_log_key,
+              min_score,
+              "(#{max_score}"
+            )
+
+            true
+          end
+
+          def cleanup_job_progress_state_log_one(conn, day, job_name, queue_name, uniqueness_id, job_id)
+            job_score_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_score"
+            return unless conn.exists(job_score_key)
+
+            job_log_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_logs"
+            return unless conn.exists(job_log_key)
+
+            job_id_score = conn.zscore(job_score_key, "#{queue_name}:#{uniqueness_id}:#{job_id}").to_i
+
+            begin_index = 0
+            completed = false
+
+            loop do
+              temp_logs = conn.zrangebyscore(
+                job_log_key,
+                job_id_score,
+                "(#{job_id_score + 1}",
+                :limit => [begin_index, 101]
+              )
+
+              temp_logs.each do |log|
+                next unless (log =~ /^#{job_id}#{PROGRESS_STATS_SEPARATOR}/i) == 0
+                id, progress_stage, timestamp = log.split(PROGRESS_STATS_SEPARATOR)
+
+                completed = ['enqueue_skipped',
+                             'enqueue_failed',
+                             'perform_skipped',
+                             'perform_failed',
+                             'perform_processed'].include?(progress_stage)
+
+                conn.zrem(job_log_key, log)
+
+                break if completed
+              end
+
+              # update index offset
+              begin_index += temp_logs.size
+
+              # break if completed || search to the end.
+              break if completed || temp_logs.size <= 100
+            end
+
+            conn.zrem(job_score_key, "#{queue_name}:#{uniqueness_id}:#{job_id}")
 
             true
           end
