@@ -90,7 +90,7 @@ module ActiveJob
             conn.scan_each(match: "#{job_progress_state}#{PROGRESS_STATS_SEPARATOR}*", count: 1000) do |key|
               i += 1
 
-              state_key_prefix, job_name, queue_name, progress_stage = key.to_s.split(PROGRESS_STATS_SEPARATOR)
+              state_key_prefix, job_name, queue_name, uniqueness_id, progress_stage = key.to_s.split(PROGRESS_STATS_SEPARATOR)
               next unless job_names.include?(job_name)
 
               stage, progress = progress_stage.split('_')
