@@ -255,10 +255,16 @@ module ActiveJob
               temp_logs.each do |log|
                 next unless (log =~ /^#{job_id}#{PROGRESS_STATS_SEPARATOR}/i) == 0
 
-                id, progress_stage, timestamp = log.split(PROGRESS_STATS_SEPARATOR)
+                id, progress_stage, timestamp, reason, mode, expiration, expires, debug = log.split(PROGRESS_STATS_SEPARATOR)
+
                 job_logs << {
                   progress: progress_stage,
-                  timestamp: Time.at(timestamp.to_f).utc
+                  timestamp: Time.at(timestamp.to_f).utc,
+                  reason: reason,
+                  mode: mode,
+                  expiration: expiration,
+                  expires: Time.at(expires.to_f).utc,
+                  debug: debug
                 }
                 completed = %w[enqueue_skipped
                                enqueue_failed

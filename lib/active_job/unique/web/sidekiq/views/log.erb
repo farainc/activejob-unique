@@ -80,15 +80,25 @@
 
 <h3>Progresses</h3>
 <table class="table table-hover table-bordered table-striped table-white">
-    <th>Progress</th>
-    <th>Timestamp</th>
+    <th>Stage</th>
+    <th>When</th>
+    <th>Mode</th>
+    <th colspan="2">Expires</th>
+    <th>Debug</th>
   </thead>
   <tbody>
     <% @job_log[:logs].each do |log| %>
       <tr>
-        <td class="col-xs-3 <%= progress_label(log[:progress])%>"><%= log[:progress] %></td>
+        <td class="<%= progress_label(log[:progress])%>" rowspan="<%= log[:reason].empty? ? '' : 2 %>"><%= log[:progress] %></td>
         <td><%= (relative_time(log[:timestamp]) rescue 'err') %></td>
+        <td><%= log[:mode] %></td>
+        <td><%= log[:expiration] %></td>
+        <td><%= (relative_time(log[:expires]) rescue '') %></td>
+        <td><%= log[:debug] %></td>
       </tr>
+      <% unless log[:reason].empty? %>
+        <tr><td class="<%= progress_label(log[:progress])%>" colspan="6"><%= log[:reason] %></td></tr>
+      <% end %>
     <% end %>
   </tbody>
 </table>
