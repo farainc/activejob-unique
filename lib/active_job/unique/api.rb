@@ -169,7 +169,18 @@ module ActiveJob
           job_score_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_score"
           job_log_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_logs"
 
-          job_log_value = "#{job.job_id}#{PROGRESS_STATS_SEPARATOR}#{job.uniqueness_progress_stage}#{PROGRESS_STATS_SEPARATOR}#{job.uniqueness_timestamp.to_f}"
+          job_log_values = [
+            job.job_id,
+            job.uniqueness_progress_stage,
+            job.uniqueness_timestamp.to_f,
+            job.uniqueness_skipped_reason,
+            job.uniqueness_mode,
+            job.uniqueness_expiration,
+            job.uniqueness_expires.to_f,
+            job.uniqueness_debug
+          ]
+
+          job_log_value = job_log_values.join(PROGRESS_STATS_SEPARATOR)
 
           job.queue_adapter.uniqueness_incr_progress_state_log(
             day,
@@ -217,13 +228,13 @@ module ActiveJob
 
           # disallow another_job_is_processing in enqueue_stage
           if another_job_is_processing?(job, PROGRESS_STAGE_ENQUEUE_PROCESSING)
-            job.uniqueness_skipped_reason = 'enqueue:another_job_in_enqueue_processing'
+            job.uniqueness_skipped_reason = '[enqueue] another_job_in_enqueue_processing'
             return false
           end
 
           # disallow another_job_in_queue
           if another_job_in_queue?(job)
-            job.uniqueness_skipped_reason = 'enqueue:another_job_in_queue'
+            job.uniqueness_skipped_reason = '[enqueue] another_job_in_queue'
             return false
           end
 
@@ -232,20 +243,24 @@ module ActiveJob
 
           # disallow another_job_is_processing in perform_stage
           if another_job_is_processing?(job, PROGRESS_STAGE_PERFORM_PROCESSING, true)
-            job.uniqueness_skipped_reason = 'enqueue:another_job_in_perform_processing'
+            job.uniqueness_skipped_reason = '[enqueue] another_job_in_perform_processing'
             return false
           end
 
           # disallow another_job_in_worker
           if another_job_in_worker?(job)
-            job.uniqueness_skipped_reason = 'enqueue:another_job_in_worker'
+            job.uniqueness_skipped_reason = '[enqueue] another_job_in_worker'
             return false
           end
 
           return true unless until_timeout_uniqueness_mode?(job.uniqueness_mode)
 
           # allow previous_job_expired?
-          previous_job_expired?(job)
+          return true if previous_job_expired?(job)
+
+          job.uniqueness_skipped_reason = '[enqueue] another_job_not_expired_yet'
+
+          false
         end
 
         def another_job_in_queue?(job)
@@ -264,20 +279,24 @@ module ActiveJob
 
           # disallow another_job_is_processing in perform_stage
           if another_job_is_processing?(job, PROGRESS_STAGE_PERFORM_PROCESSING)
-            job.uniqueness_skipped_reason = 'perform:another_job_in_perform_processing'
+            job.uniqueness_skipped_reason = '[perform] another_job_in_perform_processing'
             return false
           end
 
           # disallow another_job_in_worker
           if another_job_in_worker?(job)
-            job.uniqueness_skipped_reason = 'perform:another_job_in_worker'
+            job.uniqueness_skipped_reason = '[perform] another_job_in_worker'
             return false
           end
 
           return true unless until_timeout_uniqueness_mode?(job.uniqueness_mode)
 
           # allow previous_job_expired?
-          previous_job_expired?(job)
+          return true if previous_job_expired?(job)
+
+          job.uniqueness_skipped_reason = '[perform] another_job_not_expired_yet'
+
+          false
         end
 
         def another_job_in_worker?(job)
@@ -296,6 +315,8 @@ module ActiveJob
         end
 
         def set_until_timeout_uniqueness_mode_expiration(job)
+          calculate_until_timeout_uniqueness_mode_expires(job) if job.uniqueness_expires.blank?
+
           expires = Time.at(job.uniqueness_expires.to_f).utc
           return if expires < Time.now.utc
 
