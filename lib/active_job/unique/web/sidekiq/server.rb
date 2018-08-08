@@ -20,6 +20,8 @@ module ActiveJob
 
               Sidekiq.redis_pool.with do |conn|
                 @total_size = conn.zcount(SidekiqWeb.job_progress_stats_jobs, '-inf', '+inf')
+
+                SidekiqWeb.uniqueness_cleanup_progress_stats(conn, Time.now.utc)                
               end
 
               begin_index = (@current_page - 1) * @count
@@ -28,7 +30,6 @@ module ActiveJob
                 @current_page = 1
               end
               end_index = begin_index + @count - 1
-
 
               Sidekiq.redis_pool.with do |conn|
                 job_names = conn.zrevrange(SidekiqWeb.job_progress_stats_jobs, begin_index, end_index)

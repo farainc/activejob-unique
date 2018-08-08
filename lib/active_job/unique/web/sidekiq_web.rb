@@ -56,6 +56,11 @@ module ActiveJob
             stats_job_group
           end
 
+          def uniqueness_cleanup_progress_stats(conn, now)
+            day = sequence_day(now - 3600*24)
+            conn.del("#{job_progress_stats}:#{day}")
+          end
+
           def job_progress_state
             "#{PROGRESS_STATS_PREFIX}:state"
           end
