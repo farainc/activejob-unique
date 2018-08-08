@@ -132,7 +132,7 @@ module ActiveJob
             values = conn.mget(*keys)
 
             keys.each_with_index do |key, i|
-              state_key_prefix, _, queue_name, progress_stage, uniqueness_id = key.to_s.split(PROGRESS_STATS_SEPARATOR)
+              state_key_prefix, _, queue_name, uniqueness_id, progress_stage = key.to_s.split(PROGRESS_STATS_SEPARATOR)
 
               stage, progress = progress_stage.split('_')
               next if queue_name.to_s.empty? || stage.to_s.empty? || progress.to_s.empty?
