@@ -10,8 +10,13 @@ module ActiveJob
 
         module ClassMethods
           def uniqueness_progress_stats_initialize(stats_jobs_key, job_name)
+            day = Time.now.utc.to_date.to_date.strftime('%y%m%d').to_i
+            day_score = day * DAILY_SCORE_BASE
+
             Sidekiq.redis_pool.with do |conn|
-              conn.zadd(stats_jobs_key, [1, job_name], incr: true)
+              score = conn.zincrby(stats_jobs_key, 1.0, job_name)
+
+              conn.zadd(stats_jobs_key, [day_score, job_name]) if score < day_score
             end
           end
 
