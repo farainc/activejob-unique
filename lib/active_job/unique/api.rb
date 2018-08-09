@@ -264,7 +264,7 @@ module ActiveJob
         end
 
         def another_job_in_queue?(job)
-          job.queue_adapter.uniqueness_another_job_in_queue?(job.queue_name, job.uniqueness_id)
+          job.queue_adapter.uniqueness_another_job_in_queue?(job.class.name, job.queue_name, job.uniqueness_id)
         end
 
         def calculate_until_timeout_uniqueness_mode_expires(job)
@@ -300,7 +300,7 @@ module ActiveJob
         end
 
         def another_job_in_worker?(job)
-          job.queue_adapter.uniqueness_another_job_in_worker?(job.queue_name, job.uniqueness_id, job.job_id)
+          job.queue_adapter.uniqueness_another_job_in_worker?(job.class.name, job.queue_name, job.uniqueness_id, job.job_id)
         end
 
         def get_until_timeout_uniqueness_mode_expiration(job)
