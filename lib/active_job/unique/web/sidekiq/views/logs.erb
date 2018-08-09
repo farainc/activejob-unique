@@ -48,7 +48,7 @@
           day = (Time.now.utc - i*3600*24).to_date.strftime('%Y%m%d').to_i
       %>
         <td class="text-center">
-          <a class="no-decoration" href="<%= "#{root_path}job_stats/logs/#{i}/#{@job_name}/#{@queue_name}/#{@uniqueness_id}" %>"><%= day %></a>
+          <a class="no-decoration" href="<%= "#{root_path}job_stats/logs/#{day}/#{@job_name}/#{@queue_name}/#{@uniqueness_id}" %>"><%= day %></a>
         </td>
       <% end %>
     </tr>
