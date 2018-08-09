@@ -137,7 +137,7 @@ module ActiveJob
 
                 # when first page display, always clean logs data 8 days ago
                 if @current_page == 1 && @queue_name == '*' && @uniqueness_id == '*'
-                  SidekiqWeb.cleanup_job_progress_state_logs(conn, SidekiqWeb.sequence_day(Time.now.utc - 3600 * 24 * 8), @job_name, @queue_name, @uniqueness_id)
+                  SidekiqWeb.cleanup_job_progress_state_logs(conn, SidekiqWeb.sequence_day(Time.now.utc - 3600 * 24 * 7), @job_name, @queue_name, @uniqueness_id)
                 end
               end
 
