@@ -86,6 +86,9 @@ module ActiveJob
           "#{job_progress_stage_logs}#{PROGRESS_STATS_SEPARATOR}#{job_name}"
         end
 
+        def uniqueness_cleanup_all_progress_stats(job)
+          job.queue_adapter.uniqueness_cleanup_all_progress_stats("#{PROGRESS_STATS_PREFIX}*")
+        end
       end
     end
   end

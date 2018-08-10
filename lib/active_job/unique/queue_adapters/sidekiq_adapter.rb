@@ -39,6 +39,12 @@ module ActiveJob
             end
           end
 
+          def uniqueness_cleanup_all_progress_stats(match_filter)
+            Sidekiq.redis_pool.with do |conn|
+              conn.scan_each(match: match_filter){|k| conn.del(k)}
+            end
+          end
+
           def uniqueness_get_progress_stage_state(state_key, state_field)
             Sidekiq.redis_pool.with do |conn|
               conn.hget(state_key, state_field)
@@ -187,6 +193,10 @@ module ActiveJob
           self.class.uniqueness_cleanup_progress_stats(*args)
         end
 
+        def uniqueness_cleanup_all_progress_stats(*args)
+          self.class.uniqueness_cleanup_all_progress_stats(*args)
+        end
+
         def uniqueness_get_progress_stage_state(*args)
           self.class.uniqueness_get_progress_stage_state(*args)
         end
@@ -230,6 +240,7 @@ module ActiveJob
         def uniqueness_another_job_in_worker?(*args)
           self.class.uniqueness_another_job_in_worker?(*args)
         end
+
       end
     end
   end
