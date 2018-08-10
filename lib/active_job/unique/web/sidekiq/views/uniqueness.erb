@@ -21,6 +21,17 @@
       return "<span class='label label-#{style}'>#{value}</span>"
     end
   end
+
+  def progress_label(progress)
+    case progress
+    when 'enqueue_processed', 'perform_processed'
+      'success'
+    when 'enqueue_skipped', 'perform_skipped'
+      'warning'
+    when 'enqueue_failed', 'perform_failed'
+      'danger'
+    end
+  end
 %>
 <header class='row'>
   <div class='col-sm-5 col-xs-12'>
@@ -32,13 +43,13 @@
   </div>
   <div class='col-sm-5 col-xs-8'>
     <% if @job_stats.size > 0 && @total_size.to_i > @count %>
-      <%= erb :_paging, :locals => { :url => "#{root_path}job_stats/uniqueness/#{@job_name}" } %>
+      <%= erb :_paging, :locals => { :url => "#{root_path}job_stats/uniqueness/#{@job_name}/#{@queue_name}/#{@stage}" } %>
     <% end %>
   </div>
   <div class='col-sm-2 col-xs-4 text-right'>
-    <form method="POST" style="margin-top: 25px;" action="<%= "#{root_path}job_stats/uniqueness/#{@job_name}/delete" %>">
+    <form method="POST" style="margin-top: 25px;" action="<%= "#{root_path}job_stats/uniqueness/#{@job_name}/#{@queue_name}/#{@stage}/*/delete" %>">
       <%= csrf_tag %>
-      <input class='btn btn-danger' type="submit" name="delete" value="Delete All" data-confirm="Are you sure you want to delete all uniqueness flag for [<%= @job_name %>]?"/>
+      <input class='btn btn-danger' type="submit" name="delete" value="Delete All" data-confirm="Are you sure you want to delete all progress flag for [<%= @job_name %>/<%= @queue_name %>/<%= @stage %>]?"/>
     </form>
   </div>
 </header>
@@ -48,28 +59,41 @@
       <th>Job</th>
       <th>Queue</th>
       <th>Uniqueness Id</th>
-      <th>Expires</th>
       <th>Job Id</th>
+      <th>Timestamp</th>
+      <th class="text-center">Progress</th>
       <th class="text-center">Stage</th>
       <th class="text-center active title"><%= @job_stats.size %></th>
     </thead>
     <tbody>
       <% @job_stats.each do |stats| %>
         <tr>
-          <td><%= @job_name %></td>
-          <td><%= stats[:queue] %></td>
+          <td>
+            <a class="no-decoration" href="<%= "#{root_path}job_stats/uniqueness/#{stats[:job_name]}/*/*" %>"><%= stats[:job_name] %></a>
+          </td>
+          <td>
+            <a class="no-decoration" href="<%= "#{root_path}job_stats/uniqueness/#{stats[:job_name]}/#{stats[:queue]}/*" %>"><%= stats[:queue] %></a>
+          </td>
           <td><%= stats[:uniqueness_id] %></td>
-          <td><%= (relative_time(stats[:expires]) rescue 'Expired')  %></td>
           <td><%= stats[:job_id] %></td>
-          <td class="text-center">
-            <% if stats[:stage] == 'enqueue' %>
-              <%= stats_label('E', 'info') %>
-            <% else %>
-              <%= stats_label('P', 'success') %>
-            <% end %>
+          <td><%= (relative_time(stats[:timestamp]) rescue 'err')  %></td>
+          <td class="text-center class="<%= progress_label(stats[:progress_stage])%>" ">
+            <%= stats[:progress_stage] %>
           </td>
           <td class="text-center">
-            <form action="<%= "#{root_path}job_stats/uniqueness/#{@job_name}/#{stats[:queue]}/#{stats[:progress_stage]}/#{stats[:uniqueness_id]}/delete"%>" method="post">
+            <% if stats[:progress_stage] =~ /^enqueue/i %>
+              <a class="no-decoration" href="<%= "#{root_path}job_stats/uniqueness/#{stats[:job_name]}/#{stats[:queue]}/enqueue" %>">
+                <%= stats_label('E', 'info') %>
+              </a>
+            <% else %>
+              <a class="no-decoration" href="<%= "#{root_path}job_stats/uniqueness/#{stats[:job_name]}/#{stats[:queue]}/perform" %>">
+                <%= stats_label('P', 'primary') %>
+              </a>
+            <% end %>
+            </a>
+          </td>
+          <td class="text-center">
+            <form action="<%= "#{root_path}job_stats/uniqueness/#{stats[:job_name]}/#{stats[:queue]}/#{stats[:progress_stage].to_s.split('_')[0]}/#{stats[:uniqueness_id]}/delete"%>" method="post">
               <%= csrf_tag if respond_to?(:csrf_tag) %>
               <input class='btn btn-xs btn-danger' type="submit" name="delete" value="Delete" data-confirm="Are you sure you want to delete the uniqueness flag: [<%= stats[:uniqueness_id] %>]?"/>
             </form>

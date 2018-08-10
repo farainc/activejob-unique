@@ -13,7 +13,8 @@ module ActiveJob
               @job_stats = {}
               @job_stats_today = {}
               @job_stats_all_time = {}
-              @state_keys = {}
+              @job_log_keys = {}
+              @uniqueness_flag_keys = {}
               @count = (params[:count] || 20).to_i
               @current_page = params[:page].to_i
               @current_page = 1 if @current_page < 1
@@ -21,7 +22,7 @@ module ActiveJob
               Sidekiq.redis_pool.with do |conn|
                 @total_size = conn.zcount(SidekiqWeb.job_progress_stats_jobs, '-inf', '+inf')
 
-                SidekiqWeb.uniqueness_cleanup_progress_stats(conn, Time.now.utc)
+                SidekiqWeb.cleanup_yesterday_progress_stats(conn, Time.now.utc)
               end
 
               begin_index = (@current_page - 1) * @count
@@ -33,12 +34,13 @@ module ActiveJob
 
               Sidekiq.redis_pool.with do |conn|
                 job_names = conn.zrevrange(SidekiqWeb.job_progress_stats_jobs, begin_index, end_index)
-                @state_keys = SidekiqWeb.job_progress_state_uniqueness_keys(conn, job_names)
+
+                @uniqueness_flag_keys = SidekiqWeb.group_job_progress_stage_uniqueness_flag_keys(conn, job_names)
 
                 @job_stats_all_time = SidekiqWeb.regroup_job_progress_stats(SidekiqWeb.job_progress_stats, job_names, conn)
                 @job_stats_today = SidekiqWeb.regroup_job_progress_stats("#{SidekiqWeb.job_progress_stats}:#{@today}", job_names, conn)
 
-                @job_log_keys = SidekiqWeb.job_progress_state_log_keys(conn, @job_stats_all_time)
+                @job_log_keys = SidekiqWeb.group_job_progress_stage_log_keys(conn, @job_stats_all_time)
 
                 @job_stats = job_names
               end
@@ -46,10 +48,12 @@ module ActiveJob
               render(:erb, File.read(File.join(view_path, 'index.erb')))
             end
 
-            app.get '/job_stats/uniqueness/:job_name' do
+            app.get '/job_stats/uniqueness/:job_name/:queue_name/:stage' do
               view_path = File.join(File.expand_path(__dir__), 'views')
 
               @job_name = route_params[:job_name]
+              @queue_name = route_params[:queue_name]
+              @stage = route_params[:stage]
               @job_stats = []
 
               @count = (params[:count] || 20).to_i
@@ -60,9 +64,11 @@ module ActiveJob
               next_page_availabe = false
 
               Sidekiq.redis_pool.with do |conn|
-                next_page_availabe, @job_stats = SidekiqWeb.job_progress_state_group_stats(
+                next_page_availabe, @job_stats = SidekiqWeb.query_job_progress_stage_state_uniqueness(
                   conn,
                   @job_name,
+                  @queue_name,
+                  @stage,
                   @count,
                   begin_index
                 )
@@ -74,31 +80,72 @@ module ActiveJob
               render(:erb, File.read(File.join(view_path, 'uniqueness.erb')))
             end
 
-            # delete multiple uniqueness flag for a job
-            app.post '/job_stats/uniqueness/:job_name/delete' do
+            # delete single uniqueness flag
+            app.post '/job_stats/uniqueness/:job_name/:queue_name/:stage/:uniqueness_id/delete' do
               job_name = route_params[:job_name]
+              queue_name = route_params[:queue_name]
+              uniqueness_id = route_params[:uniqueness_id].to_s
+              stage = route_params[:stage]
 
               Sidekiq.redis_pool.with do |conn|
-                SidekiqWeb.cleanup_job_progress_state_group(conn, job_name)
+                SidekiqWeb.cleanup_job_progress_state_uniqueness(
+                  conn,
+                  job_name,
+                  queue_name,
+                  stage,
+                  uniqueness_id
+                )
               end
 
               redirect URI(request.referer).path
             end
 
-            # delete single uniqueness flag
-            app.post '/job_stats/uniqueness/:job_name/:queue_name/:stage_key/:uniqueness_id/delete' do
-              job_name = route_params[:job_name]
-              queue_name = route_params[:queue_name]
-              stage_key = route_params[:stage_key]
-              uniqueness_id = route_params[:uniqueness_id].to_s
+            app.get '/job_stats/processing/:job_name/:queue_name/:uniqueness_id' do
+              view_path = File.join(File.expand_path(__dir__), 'views')
+
+              @job_name = route_params[:job_name]
+              @queue_name = route_params[:queue_name]
+              @uniqueness_id = route_params[:uniqueness_id]
+              @job_stats = []
+
+              @count = (params[:count] || 20).to_i
+              @current_page = params[:page].to_i
+              @current_page = 1 if @current_page < 1
+
+              begin_index = (@current_page - 1) * @count
+              next_page_availabe = false
 
               Sidekiq.redis_pool.with do |conn|
-                SidekiqWeb.cleanup_job_progress_state_one(
+                next_page_availabe, @job_stats = SidekiqWeb.query_job_progress_stage_state_processing(
+                  conn,
+                  @job_name,
+                  @queue_name,
+                  @uniqueness_id,
+                  @count,
+                  begin_index
+                )
+              end
+
+              @total_size = @count * (@current_page - 1) + @job_stats.size
+              @total_size += 1 if next_page_availabe
+
+              render(:erb, File.read(File.join(view_path, 'processing.erb')))
+            end
+
+            # delete single processing flag
+            app.post '/job_stats/processing/:job_name/:queue_name/:uniqueness_id/:stage/delete' do
+              job_name = route_params[:job_name]
+              queue_name = route_params[:queue_name]
+              uniqueness_id = route_params[:uniqueness_id].to_s
+              stage = route_params[:stage].to_s
+
+              Sidekiq.redis_pool.with do |conn|
+                SidekiqWeb.cleanup_job_progress_state_processing(
                   conn,
                   job_name,
                   queue_name,
                   uniqueness_id,
-                  stage_key
+                  stage
                 )
               end
 
@@ -125,7 +172,7 @@ module ActiveJob
               next_page_availabe = false
 
               Sidekiq.redis_pool.with do |conn|
-                next_page_availabe, @job_logs = SidekiqWeb.job_progress_state_log_jobs(
+                next_page_availabe, @job_logs = SidekiqWeb.query_job_progress_stage_log_jobs(
                   conn,
                   @day,
                   @job_name,
@@ -137,7 +184,7 @@ module ActiveJob
 
                 # when first page display, always clean logs data 8 days ago
                 if @current_page == 1 && @queue_name == '*' && @uniqueness_id == '*'
-                  SidekiqWeb.cleanup_job_progress_state_logs(conn, SidekiqWeb.sequence_day(Time.now.utc - 3600 * 24 * 7), @job_name, @queue_name, @uniqueness_id)
+                  SidekiqWeb.cleanup_job_progress_stage_logs(conn, SidekiqWeb.sequence_day(Time.now.utc - 3600 * 24 * 7), @job_name, @queue_name, @uniqueness_id)
                 end
               end
 
@@ -158,7 +205,7 @@ module ActiveJob
               @job_id = route_params[:job_id]
 
               Sidekiq.redis_pool.with do |conn|
-                @job_log = SidekiqWeb.job_progress_state_log_job_one(
+                @job_log = SidekiqWeb.query_job_progress_stage_log_job_one(
                   conn,
                   @day,
                   @job_name,
@@ -179,7 +226,7 @@ module ActiveJob
               uniqueness_id = route_params[:uniqueness_id].to_s
 
               Sidekiq.redis_pool.with do |conn|
-                SidekiqWeb.cleanup_job_progress_state_logs(
+                SidekiqWeb.cleanup_job_progress_stage_logs(
                   conn,
                   day,
                   job_name,

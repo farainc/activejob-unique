@@ -1,224 +1,66 @@
 require 'active_support/concern'
 require 'active_job/base'
 
+require_relative 'api_base'
+require_relative 'api_stats'
+require_relative 'api_state'
+require_relative 'api_logging'
+
 module ActiveJob
   module Unique
     class Api
+      include ActiveJob::Unique::ApiBase
+      include ActiveJob::Unique::ApiStats
+      include ActiveJob::Unique::ApiState
+      include ActiveJob::Unique::ApiLogging
+
       class << self
-        # uniqueness job
-        def valid_uniqueness_mode?(uniqueness_mode)
-          [UNIQUENESS_MODE_WHILE_EXECUTING,
-           UNIQUENESS_MODE_UNTIL_EXECUTING,
-           UNIQUENESS_MODE_UNTIL_AND_WHILE_EXECUTING,
-           UNIQUENESS_MODE_UNTIL_TIMEOUT].include?(uniqueness_mode.to_s.to_sym)
-        end
-
-        def enqueue_only_uniqueness_mode?(uniqueness_mode)
-          UNIQUENESS_MODE_UNTIL_EXECUTING == uniqueness_mode.to_s.to_sym
-        end
-
-        def perform_only_uniqueness_mode?(uniqueness_mode)
-          UNIQUENESS_MODE_WHILE_EXECUTING == uniqueness_mode.to_s.to_sym
-        end
-
-        def until_timeout_uniqueness_mode?(uniqueness_mode)
-          UNIQUENESS_MODE_UNTIL_TIMEOUT == uniqueness_mode.to_s.to_sym
-        end
-
-        def failed_uniqueness_progress_stage?(uniqueness_progress_stage)
-          [PROGRESS_STAGE_ENQUEUE_FAILED, PROGRESS_STAGE_PERFORM_FAILED].include?(uniqueness_progress_stage)
-        end
-
-        def sequence_day(now)
-          now.to_date.strftime('%Y%m%d').to_i
-        end
-
-        def job_progress_stats
-          "#{PROGRESS_STATS_PREFIX}:stats"
-        end
-
-        def job_progress_stats_jobs
-          "#{job_progress_stats}:jobs"
-        end
-
-        def job_progress_state
-          "#{PROGRESS_STATS_PREFIX}:state"
-        end
-
-        def job_progress_stats_job_key(job_name, queue_name, progress_stage)
-          "#{job_name}#{PROGRESS_STATS_SEPARATOR}#{queue_name}#{PROGRESS_STATS_SEPARATOR}#{progress_stage}"
-        end
-
-        def job_progress_state_logs
-          "#{job_progress_state}:logs"
-        end
-
-        def job_progress_state_logs_key(job_name)
-          "#{job_progress_state_logs}#{PROGRESS_STATS_SEPARATOR}#{job_name}"
-        end
-
-        def job_progress_state_key(job_name, queue_name, uniqueness_id, stage)
-          [
-            job_progress_state,
-            job_name,
-            queue_name,
-            uniqueness_id,
-            stage
-          ].join(PROGRESS_STATS_SEPARATOR)
-        end
-
-        def progress_stats_initialize(job)
-          job.queue_adapter.uniqueness_progress_stats_initialize(
-            job_progress_stats_jobs,
-            job.class.name
-          )
-        end
-
-        def incr_progress_stats(job)
-          job.uniqueness_timestamp = Time.now.utc
-
-          # incr stats
-          job_key = job_progress_stats_job_key(job.class.name, job.queue_name, job.uniqueness_progress_stage)
-
-          job.queue_adapter.uniqueness_incr_progress_stats(
-            job_progress_stats,
-            job_key,
-            sequence_day(job.uniqueness_timestamp)
-          )
-
-          incr_progress_state_log(job) if job.uniqueness_debug
-        end
-
-        def cleanup_progress_stats(job, time)
-          job.queue_adapter.uniqueness_cleanup_progress_stats("#{job_progress_stats}:#{sequence_day(time)}")
-        end
-
-        def ensure_cleanup_enqueue_progress_state(job)
+        def ensure_progress_stage_state(job)
           return if job.uniqueness_skipped
           return unless valid_uniqueness_mode?(job.uniqueness_mode)
 
-          timestamp, job_id = getset_progress_state(job, PROGRESS_STAGE_ENQUEUE_PROCESSING)
-          return unless job_id == job.job_id
-
-          return if job.uniqueness_progress_stage == PROGRESS_STAGE_ENQUEUE_PROCESSED && !another_job_in_queue?(job)
-
-          cleanup_progress_state(job, PROGRESS_STAGE_ENQUEUE_PROCESSING)
+          case job.uniqueness_progress_stage
+          when PROGRESS_STAGE_ENQUEUE_PROCESSING, PROGRESS_STAGE_ENQUEUE_PROCESSED, PROGRESS_STAGE_PERFORM_PROCESSING
+            set_progress_stage_state(job)
+          when PROGRESS_STAGE_ENQUEUE_FAILED
+            cleanup_progress_state_stage(job)
+            cleanup_progress_stage_state_flag(job, PROGRESS_STAGE_ENQUEUE_PROCESSING)
+          when PROGRESS_STAGE_PERFORM_PROCESSED, PROGRESS_STAGE_PERFORM_FAILED
+            cleanup_progress_state_stage(job)
+            cleanup_progress_stage_state_flag(job, PROGRESS_STAGE_PERFORM_PROCESSING)
+          end
         end
 
-        def ensure_cleanup_perform_progress_state(job)
-          return if job.uniqueness_skipped
-          return unless valid_uniqueness_mode?(job.uniqueness_mode)
+        # for both enqueue/perform stage
+        def another_job_is_processing?(job, progress_stage)
+          timestamp = getset_progress_stage_state_flag(job, progress_stage)
 
-          return until_timeout_uniqueness_mode?(job.uniqueness_mode) &&
-                 job.uniqueness_progress_stage != PROGRESS_STAGE_PERFORM_FAILED
+          return false if timestamp < Time.now.utc.to_f
 
-          cleanup_progress_state(job, PROGRESS_STAGE_PERFORM_PROCESSING)
-        end
-
-        def cleanup_progress_state(job, progress_stage)
-          state_key = job_progress_state_key(
-            job.class.name,
-            job.queue_name,
-            job.uniqueness_id,
-            progress_stage
-          )
-
-          state_value = "#{Time.now.utc.to_f}#{PROGRESS_STATS_SEPARATOR}#{job.job_id}"
-
-          job.queue_adapter.uniqueness_getset_progress_state(state_key, state_value)
-          job.queue_adapter.uniqueness_expire_progress_state(state_key, PROGRESS_STATE_EXPIRATION)
-        end
-
-        def getset_progress_state(job, progress_stage, readonly = false)
-          state_key = job_progress_state_key(
-            job.class.name,
-            job.queue_name,
-            job.uniqueness_id,
-            progress_stage
-          )
-
-          # get progress_stage
-          return job.queue_adapter.uniqueness_get_progress_state(state_key).to_s.split(PROGRESS_STATS_SEPARATOR) if readonly
-
-          # getset progress_stage
-          expiration = PROGRESS_STATE_EXPIRATION
-          state_value = "#{expiration.from_now.utc.to_f}#{PROGRESS_STATS_SEPARATOR}#{job.job_id}"
-
-          state = job.queue_adapter.uniqueness_getset_progress_state(state_key, state_value)
-          job.queue_adapter.uniqueness_expire_progress_state(state_key, expiration)
-
-          state.to_s.split(PROGRESS_STATS_SEPARATOR)
-        end
-
-        def set_progress_state_log_data(job)
-          return false unless job.uniqueness_debug
-          return if job.arguments.blank?
-
-          log_data_key = job_progress_state_logs_key(job.class.name)
-          log_data_field = "#{sequence_day(job.uniqueness_timestamp) % 9}#{PROGRESS_STATS_SEPARATOR}#{job.uniqueness_id}"
-
-          job.queue_adapter.uniqueness_set_progress_state_log_data(log_data_key, log_data_field, JSON.dump(job.arguments))
-        end
-
-        def incr_progress_state_log(job)
-          day = sequence_day(job.uniqueness_timestamp)
-
-          job_name = job.class.name
-          progress_stage_score = (PROGRESS_STAGE.index(job.uniqueness_progress_stage.to_sym) + 1) / 10.0
-
-          job_score_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_score"
-          job_log_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_logs"
-
-          job_log_values = [
-            job.job_id,
-            job.uniqueness_progress_stage,
-            job.uniqueness_timestamp.to_f,
-            job.uniqueness_skipped_reason,
-            job.uniqueness_mode,
-            job.uniqueness_expiration,
-            job.uniqueness_expires.to_f,
-            job.uniqueness_debug
-          ]
-
-          job_log_value = job_log_values.join(PROGRESS_STATS_SEPARATOR)
-
-          job.queue_adapter.uniqueness_incr_progress_state_log(
-            day,
-            job_score_key,
-            job.queue_name,
-            job.uniqueness_id,
-            job.job_id,
-            progress_stage_score,
-            job_log_key,
-            job_log_value
-          )
-        end
-
-        def uniqueness_cleanup_progress_state_logs(job, time)
-          job_name = job.class.name
-          day = sequence_day(time)
-          job_score_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_score"
-          job_log_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_logs"
-
-          log_data_key = job_progress_state_logs_key(job_name)
-          log_data_field_match = "#{(day % 9)}#{PROGRESS_STATS_SEPARATOR}*"
-
-          job.queue_adapter.uniqueness_cleanup_progress_state_logs(
-            day,
-            job_score_key,
-            job_log_key,
-            log_data_key,
-            log_data_field_match
-          )
-        end
-
-        def another_job_is_processing?(job, progress_stage, readonly = false)
-          timestamp, job_id = getset_progress_state(job, progress_stage, readonly)
-
-          return false if job_id.blank?
-          return false if timestamp.to_f < Time.now.utc.to_f
+          job.uniqueness_skipped_reason = "[#{job.uniqueness_progress_stage_group}] another_job_in_processing"
 
           true
+        end
+
+        # enqueue stage
+        def another_job_enqueued?(job)
+          progress_stage_state, timestamp = get_progress_stage_state(job)
+
+          timestamp = timestamp.to_f
+          return false if timestamp.zero?
+
+          return false unless [PROGRESS_STAGE_ENQUEUE_PROCESSING, PROGRESS_STAGE_ENQUEUE_PROCESSED].include?(progress_stage_state.to_s.to_sym)
+
+          if job.queue_adapter.uniqueness_another_job_in_queue?(
+            job.queue_name,
+            timestamp)
+
+            job.uniqueness_skipped_reason = "[#{job.uniqueness_progress_stage_group}] another_job_in_queue"
+
+            true
+          else
+            false
+          end
         end
 
         def allow_enqueue_processing?(job)
@@ -226,50 +68,46 @@ module ActiveJob
           return true unless valid_uniqueness_mode?(job.uniqueness_mode)
           return true if perform_only_uniqueness_mode?(job.uniqueness_mode)
 
-          # disallow another_job_is_processing in enqueue_stage
-          if another_job_is_processing?(job, PROGRESS_STAGE_ENQUEUE_PROCESSING)
-            job.uniqueness_skipped_reason = '[enqueue] another_job_in_enqueue_processing'
-            return false
-          end
+          # skip for another job in another_job_enqueued?
+          return false if another_job_enqueued?(job)
 
-          # disallow another_job_in_queue
-          if another_job_in_queue?(job)
-            job.uniqueness_skipped_reason = '[enqueue] another_job_in_queue'
-            return false
-          end
+          # skip for enqueue_only_uniqueness_mode &&
+          # another job in perform_processing during enqueue?
+          return false if !enqueue_only_uniqueness_mode?(job.uniqueness_mode) &&
+                          another_job_in_performing?(job)
 
-          # allow enqueue_only_uniqueness_mode if no another_job_in_queue
-          return true if enqueue_only_uniqueness_mode?(job.uniqueness_mode)
+          # skip for job with until_timeout_uniqueness_mode? &&
+          # previous job not expired yet?
+          return false if until_timeout_uniqueness_mode?(job.uniqueness_mode) &&
+                          another_job_not_expired_yet?(job)
 
-          # disallow another_job_is_processing in perform_stage
-          if another_job_is_processing?(job, PROGRESS_STAGE_PERFORM_PROCESSING, true)
-            job.uniqueness_skipped_reason = '[enqueue] another_job_in_perform_processing'
-            return false
-          end
+          # skip if another job is_processing?
+          return false if another_job_is_processing?(job, PROGRESS_STAGE_ENQUEUE_PROCESSING)
 
-          # disallow another_job_in_worker
-          if another_job_in_worker?(job)
-            job.uniqueness_skipped_reason = '[enqueue] another_job_in_worker'
-            return false
-          end
-
-          return true unless until_timeout_uniqueness_mode?(job.uniqueness_mode)
-
-          # allow previous_job_expired?
-          return true if previous_job_expired?(job)
-
-          job.uniqueness_skipped_reason = '[enqueue] another_job_not_expired_yet'
-
-          false
+          true
         end
 
-        def another_job_in_queue?(job)
-          job.queue_adapter.uniqueness_another_job_in_queue?(job.class.name, job.queue_name, job.uniqueness_id)
-        end
+        # perform stage
+        def another_job_in_performing?(job)
+          progress_stage_state, timestamp = get_progress_stage_state(job)
 
-        def calculate_until_timeout_uniqueness_mode_expires(job)
-          return unless until_timeout_uniqueness_mode?(job.uniqueness_mode)
-          job.uniqueness_expires = job.uniqueness_expiration.from_now.utc.to_f
+          timestamp = timestamp.to_f
+          return false if timestamp.zero?
+
+          return false unless PROGRESS_STAGE_PERFORM_PROCESSING == progress_stage_state.to_s.to_sym
+
+          if job.queue_adapter.uniqueness_another_job_in_worker?(
+            job.class.name,
+            job.queue_name,
+            job.uniqueness_id,
+            job.job_id)
+
+            job.uniqueness_skipped_reason = "[#{job.uniqueness_progress_stage_group}] another_job_in_worker"
+
+            true
+          else
+            false
+          end
         end
 
         def allow_perform_processing?(job)
@@ -277,54 +115,47 @@ module ActiveJob
           return true unless valid_uniqueness_mode?(job.uniqueness_mode)
           return true if enqueue_only_uniqueness_mode?(job.uniqueness_mode)
 
-          # disallow another_job_is_processing in perform_stage
-          if another_job_is_processing?(job, PROGRESS_STAGE_PERFORM_PROCESSING)
-            job.uniqueness_skipped_reason = '[perform] another_job_in_perform_processing'
-            return false
-          end
+          # skip for another job in perform_processing?
+          return false if another_job_in_performing?(job)
 
-          # disallow another_job_in_worker
-          if another_job_in_worker?(job)
-            job.uniqueness_skipped_reason = '[perform] another_job_in_worker'
-            return false
-          end
+          # skip for job with until_timeout_uniqueness_mode? &&&
+          # previous job not expired yet?
+          return false if until_timeout_uniqueness_mode?(job.uniqueness_mode) &&
+                          another_job_not_expired_yet?(job)
 
-          return true unless until_timeout_uniqueness_mode?(job.uniqueness_mode)
+          # skip if another job is_processing?
+          return false if another_job_is_processing?(job, PROGRESS_STAGE_PERFORM_PROCESSING)
 
-          # allow previous_job_expired?
-          return true if previous_job_expired?(job)
-
-          job.uniqueness_skipped_reason = '[perform] another_job_not_expired_yet'
-
-          false
+          true
         end
 
-        def another_job_in_worker?(job)
-          job.queue_adapter.uniqueness_another_job_in_worker?(job.class.name, job.queue_name, job.uniqueness_id, job.job_id)
+        def calculate_until_timeout_uniqueness_mode_expires(job)
+          return unless until_timeout_uniqueness_mode?(job.uniqueness_mode)
+          job.uniqueness_expires = job.uniqueness_expiration.from_now.utc.to_f
         end
 
         def get_until_timeout_uniqueness_mode_expiration(job)
-          state_key = job_progress_state_key(
+          state_key = job_progress_stage_state_key(
             job.class.name,
             job.queue_name,
             job.uniqueness_id,
-            PROGRESS_STAGE_PERFORM_EXPIRED
+            PROGRESS_STAGE_PERFORM_TIMEOUT
           )
 
-          Time.at(job.queue_adapter.uniqueness_get_progress_state(state_key).to_f).utc
+          job.queue_adapter.uniqueness_get_progress_stage_state_flag(state_key).to_f
         end
 
         def set_until_timeout_uniqueness_mode_expiration(job)
           calculate_until_timeout_uniqueness_mode_expires(job) if job.uniqueness_expires.blank?
 
-          expires = Time.at(job.uniqueness_expires.to_f).utc
-          return if expires < Time.now.utc
+          expires = job.uniqueness_expires.to_f
+          return if expires < Time.now.utc.to_f
 
-          state_key = job_progress_state_key(
+          state_key = job_progress_stage_state_key(
             job.class.name,
             job.queue_name,
             job.uniqueness_id,
-            PROGRESS_STAGE_PERFORM_EXPIRED
+            PROGRESS_STAGE_PERFORM_TIMEOUT
           )
 
           state_value = job.uniqueness_expires.to_f
@@ -332,12 +163,17 @@ module ActiveJob
           expiration = expires.to_i - Time.now.utc.to_i
           expiration += 10
 
-          job.queue_adapter.uniqueness_set_progress_state(state_key, state_value)
-          job.queue_adapter.uniqueness_expire_progress_state(state_key, expiration)
+          job.queue_adapter.uniqueness_set_progress_stage_state_flag(state_key, state_value)
+          job.queue_adapter.uniqueness_expire_progress_stage_state_flag(state_key, expiration)
         end
 
-        def previous_job_expired?(job)
-          get_until_timeout_uniqueness_mode_expiration(job) < Time.now.utc
+        def another_job_not_expired_yet?(job)
+          timestamp = get_until_timeout_uniqueness_mode_expiration(job)
+          return false if timestamp < Time.now.utc.to_f
+
+          job.uniqueness_skipped_reason = "[#{job.uniqueness_progress_stage_group}] another_job_not_expired_yet"
+
+          true
         end
       end
     end
