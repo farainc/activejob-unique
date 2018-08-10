@@ -148,19 +148,13 @@ module ActiveJob
             queue = Sidekiq::Queue.new(queue_name)
             return false if queue.size.zero?
 
-            in_queue = false
-
-            queue.each do |job|
-              next unless job_name == job.item['wrapped']
-              in_queue = uniqueness_id == job.item['args'][0]['uniqueness_id']
-              break if in_queue
-            end
-
-            in_queue
+            queue.any?{|q| q.item['wrapped'] == job_name && q.item['args'][0]['uniqueness_id']}
+          rescue
+            false
           end
 
           def uniqueness_another_job_in_worker?(job_name, queue_name, uniqueness_id, job_id)
-            Sidekiq::Workers.new.any? {|_p, _t, w| w['queue'] == queue_name && w['payload']['wrapped'] == job_name && w['payload']['args']['uniqueness_id'] == uniqueness_id && w['payload']['args']['job_id'] != job_id }
+            Sidekiq::Workers.new.any? {|_p, _t, w| w['queue'] == queue_name && w['payload']['wrapped'] == job_name && w['payload']['args'][0]['uniqueness_id'] == uniqueness_id && w['payload']['args'][0]['job_id'] != job_id }
           rescue
             false
           end
