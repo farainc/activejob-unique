@@ -10,4 +10,18 @@ class ActiveJobs::EnqueueJob < ApplicationJob
 
     true
   end
+
+  def self.enqueue_multiple(total = 100, times = 10)
+    [
+      ActiveJobs::WithEnqueueOnlyJob,
+      ActiveJobs::WithPerformOnlyJob,
+      ActiveJobs::WithTimeoutJob,
+      ActiveJobs::WithUniqueJob,
+      ActiveJobs::WithoutUniqueJob
+    ].each do |j|
+      j.enqueue_multiple(total, times)
+    end
+
+    true
+  end
 end

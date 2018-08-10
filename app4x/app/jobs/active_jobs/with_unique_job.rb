@@ -9,18 +9,4 @@ class ActiveJobs::WithUniqueJob < ApplicationJob
 
     true
   end
-
-  def self.enqueue_multiple
-    total = 1000
-
-    self.prepare_multiple(total)
-
-    (1..10).each do
-      (1..total).to_a.shuffle.each do |args|
-        ActiveJobs::EnqueueJob.perform_later(self.name, [args])
-      end
-    end
-
-    true
-  end
 end
