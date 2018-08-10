@@ -21,6 +21,18 @@ module ActiveJobs
     end
 
     module ClassMethods
+      def enqueue_multiple(total = 100, times = 10)
+        prepare_multiple(total)
+
+        (1..times).each do
+          (1..total).to_a.shuffle.each do |args|
+            ActiveJobs::EnqueueJob.perform_later(self.name, [args])
+          end
+        end
+
+        true
+      end
+
       def enqueue_one
         db_job = Db::ActiveJobUnique.find_one_or_create_by!(job_name: self.name, args: 1)
         db_job.update_columns(around_enqueue: 0, around_perform: 0, performed: 0)
