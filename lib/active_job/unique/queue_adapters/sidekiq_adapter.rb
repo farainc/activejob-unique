@@ -217,6 +217,10 @@ module ActiveJob
           self.class.uniqueness_get_progress_stage_state_flag(*args)
         end
 
+        def uniqueness_set_progress_stage_state_flag(*args)
+          self.class.uniqueness_set_progress_stage_state_flag(*args)
+        end
+
         def uniqueness_expire_progress_stage_state_flag(*args)
           self.class.uniqueness_expire_progress_stage_state_flag(*args)
         end
