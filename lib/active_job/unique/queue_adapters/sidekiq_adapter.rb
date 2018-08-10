@@ -148,7 +148,7 @@ module ActiveJob
             queue = Sidekiq::Queue.new(queue_name)
             return false if queue.size.zero?
 
-            queue.any?{|q| q.item['wrapped'] == job_name && q.item['args'][0]['uniqueness_id']}
+            queue.any?{|q| q.item['wrapped'] == job_name && q.item['args'][0]['uniqueness_id'] == uniqueness_id}
           rescue
             false
           end
