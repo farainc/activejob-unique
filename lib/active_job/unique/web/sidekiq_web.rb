@@ -1,5 +1,6 @@
 require 'sidekiq'
 require_relative 'sidekiq/server'
+require_relative '../api_base'
 
 module ActiveJob
   module Unique
@@ -7,34 +8,15 @@ module ActiveJob
       module SidekiqWeb
         extend ActiveSupport::Autoload
 
-        PROGRESS_STATS_SEPARATOR = 0x1E.chr
-        PROGRESS_STATS_PREFIX = :job_progress_stats
+        include ActiveJob::Unique::ApiBase
 
-        DAY_SCORE_BASE = 100_000_000_000_000
-        QUEUE_SCORE_BASE = 10_000_000_000_000
-        UNIQUENESS_ID_SCORE_BASE = 10_000
+        PROGRESS_STATS_SEPARATOR  = ActiveJob::Unique::ApiBase::PROGRESS_STATS_SEPARATOR
+        DAY_SCORE_BASE            = ActiveJob::Unique::ApiBase::DAY_SCORE_BASE
+        QUEUE_SCORE_BASE          = ActiveJob::Unique::ApiBase::QUEUE_SCORE_BASE
+        DAILY_SCORE_BASE          = ActiveJob::Unique::ApiBase::DAILY_SCORE_BASE
+        UNIQUENESS_ID_SCORE_BASE  = ActiveJob::Unique::ApiBase::UNIQUENESS_ID_SCORE_BASE
 
         class << self
-          def sequence_day(now)
-            now.to_date.strftime('%Y%m%d').to_i
-          end
-
-          def sequence_today
-            sequence_day(Time.now.utc)
-          end
-
-          def job_progress_stats
-            "#{PROGRESS_STATS_PREFIX}:stats"
-          end
-
-          def job_progress_stats_jobs
-            "#{job_progress_stats}:jobs"
-          end
-
-          def job_progress_stats_job_key(job_name, queue_name, progress_stage)
-            "#{job_name}#{PROGRESS_STATS_SEPARATOR}#{queue_name}#{PROGRESS_STATS_SEPARATOR}#{progress_stage}"
-          end
-
           def regroup_job_progress_stats(job_progress_stats_key, job_names, conn)
             stats_job_group = {}
 
@@ -56,129 +38,161 @@ module ActiveJob
             stats_job_group
           end
 
-          def uniqueness_cleanup_progress_stats(conn, now)
+          def cleanup_yesterday_progress_stats(conn, now)
             day = sequence_day(now - 3600 * 24)
             conn.del("#{job_progress_stats}:#{day}")
           end
 
-          def job_progress_state
-            "#{PROGRESS_STATS_PREFIX}:state"
-          end
+          def group_job_progress_stage_uniqueness_flag_keys(conn, job_names)
+            state_key = job_progress_stage_state
 
-          def job_progress_state_logs
-            "#{job_progress_state}:logs"
-          end
-
-          def job_progress_state_logs_key(job_name)
-            "#{job_progress_state_logs}#{PROGRESS_STATS_SEPARATOR}#{job_name}"
-          end
-
-          def job_progress_state_key(job_name, queue_name, uniqueness_id, stage)
-            [
-              job_progress_state,
-              job_name,
-              queue_name,
-              uniqueness_id,
-              stage
-            ].join(PROGRESS_STATS_SEPARATOR)
-          end
-
-          def job_progress_state_uniqueness_keys(conn, job_names)
-            uniquess_keys = {}
+            uniqueness_keys = {}
             i = 0
 
-            conn.scan_each(match: "#{job_progress_state}#{PROGRESS_STATS_SEPARATOR}*", count: 1000) do |key|
+            conn.hscan_each(state_key, count: 1000) do |name, value|
               i += 1
 
-              state_key_prefix, job_name, queue_name, uniqueness_id, progress_stage = key.to_s.split(PROGRESS_STATS_SEPARATOR)
+              job_name, queue_name, _ = name.to_s.split(PROGRESS_STATS_SEPARATOR)
               next unless job_names.include?(job_name)
+              next if queue_name.to_s.empty?
 
-              stage, progress = progress_stage.split('_')
-              next if job_name.to_s.empty? || queue_name.to_s.empty? || stage.to_s.empty? || progress.to_s.empty?
+              progress_stage, _, _ = value.to_s.split(PROGRESS_STATS_SEPARATOR)
+              stage, _ = progress_stage.split('_')
+              next if stage.to_s.empty?
 
-              uniquess_keys[job_name] ||= {}
-              uniquess_keys[job_name][queue_name] ||= {}
-              uniquess_keys[job_name][queue_name][stage] ||= 0
+              uniqueness_keys[job_name] ||= {}
+              uniqueness_keys[job_name][queue_name] ||= {}
+              uniqueness_keys[job_name][queue_name][stage] ||= 0
 
-              uniquess_keys[job_name][queue_name][stage] += 1
+              uniqueness_keys[job_name][queue_name][stage] += 1
 
               # maxmium 10,000
               break if i >= 10_000
             end
 
-            uniquess_keys
+            uniqueness_keys
           end
 
-          def job_progress_state_group_stats(conn, job_name, count, begin_index)
-            filter = "#{job_progress_state}#{PROGRESS_STATS_SEPARATOR}#{job_name}#{PROGRESS_STATS_SEPARATOR}*"
+          def query_job_progress_stage_state_uniqueness(conn, job_name, queue_name, stage, count, begin_index)
+            state_key = job_progress_stage_state
+            match_filter = [job_name, queue_name, "*"].join(PROGRESS_STATS_SEPARATOR)
+
+            i = 0
+            begin_index += 1
+            end_index = begin_index + count
             job_stats = []
-            all_keys = []
+            next_page_availabe = false
 
-            end_index = begin_index + count - 1
+            conn.hscan_each(state_key, match: match_filter, count: 100) do |name, value|
+              next if stage != '*' && (value =~ /^#{stage}/i).nil?
 
-            cursor, keys = conn.scan('0', match: filter, count: 1000)
-            all_keys += keys
+              i += 1
+              next if i < begin_index
 
-            while all_keys.size < end_index && cursor != '0'
-              cursor, keys = conn.scan(cursor, match: filter, count: 10)
-              all_keys += keys
-            end
-            return [0, job_stats] if all_keys.size.zero?
+              if i < end_index
+                n_job_name, n_queue_name, uniqueness_id = name.to_s.split(PROGRESS_STATS_SEPARATOR)
+                progress_stage, timestamp, job_id = value.to_s.split(PROGRESS_STATS_SEPARATOR)
 
-            next_page_availabe = cursor != '0' || all_keys.size > end_index + 1
+                stats = {
+                  job_name: n_job_name,
+                  queue: n_queue_name,
+                  progress_stage: progress_stage,
+                  uniqueness_id: uniqueness_id,
+                  timestamp: Time.at(timestamp.to_f).utc,
+                  job_id: job_id
+                }
 
-            keys = all_keys[begin_index..end_index]
+                job_stats << stats
+              else
+                next_page_availabe = true
 
-            values = conn.mget(*keys)
-
-            keys.each_with_index do |key, i|
-              state_key_prefix, _, queue_name, uniqueness_id, progress_stage = key.to_s.split(PROGRESS_STATS_SEPARATOR)
-
-              stage, progress = progress_stage.split('_')
-              next if queue_name.to_s.empty? || stage.to_s.empty? || progress.to_s.empty?
-
-              stats = {
-                queue: queue_name,
-                stage: stage,
-                progress_stage: progress_stage,
-                uniqueness_id: uniqueness_id
-              }
-
-              timestamp, job_id = values[i].to_s.split(PROGRESS_STATS_SEPARATOR)
-              stats[:expires] = Time.at(timestamp.to_f).utc
-              stats[:job_id] = job_id
-
-              job_stats << stats
+                break
+              end
             end
 
             [next_page_availabe, job_stats]
           end
 
-          def cleanup_job_progress_state_group(conn, job_name)
+          def cleanup_job_progress_state_uniqueness(conn, job_name, queue_name, stage, uniqueness_id)
             cursor = 0
-            filter = "#{job_progress_state}#{PROGRESS_STATS_SEPARATOR}#{job_name}#{PROGRESS_STATS_SEPARATOR}*"
+            state_key = job_progress_stage_state
+            match_filter = [job_name, queue_name, uniqueness_id].join(PROGRESS_STATS_SEPARATOR)
 
-            loop do
-              cursor, keys = conn.scan(cursor, match: filter, count: 100)
-              conn.del(*keys)
+            if stage != '*'
+              conn.hscan_each(state_key, match: match_filter, count: 100) do |name, value|
+                next if (value =~ /^#{stage}/i).nil?
+                conn.hdel(state_key, name)
+              end
+            else
+              loop do
+                cursor, key_values = conn.hscan(state_key, cursor, match: match_filter, count: 100)
+                conn.hdel(state_key, *key_values.map{|kv| kv[0]})
 
-              break if cursor == '0'
+                break if cursor == '0'
+              end
             end
 
             true
           end
 
-          def cleanup_job_progress_state_one(conn, job_name, queue_name, uniqueness_id, stage)
-            conn.del(job_progress_state_key(job_name, queue_name, uniqueness_id, stage))
+          def query_job_progress_stage_state_processing(conn, job_name, queue_name, uniqueness_id, count, begin_index)
+            match_filter = [job_progress_stage_state, job_name, queue_name, uniqueness_id, "*"].join(PROGRESS_STATS_SEPARATOR)
+
+            i = 0
+            begin_index += 1
+            end_index = begin_index + count
+            job_stats = []
+            next_page_availabe = false
+
+            conn.scan_each(match: match_filter, count: 100) do |name|
+              i += 1
+              next if i < begin_index
+
+              if i < end_index
+                _, n_job_name, n_queue_name, uniqueness_id, progress_stage = name.to_s.split(PROGRESS_STATS_SEPARATOR)
+
+                stats = {
+                  job_name: n_job_name,
+                  queue: n_queue_name,
+                  progress_stage: progress_stage,
+                  uniqueness_id: uniqueness_id,
+                  expires: Time.at(conn.get(name).to_f).utc
+                }
+
+                job_stats << stats
+              else
+                next_page_availabe = true
+
+                break
+              end
+            end
+
+            [next_page_availabe, job_stats]
+          end
+
+          def cleanup_job_progress_state_processing(conn, job_name, queue_name, uniqueness_id, stage)
+            cursor = 0
+            match_filter = [job_progress_stage_state, job_name, queue_name, uniqueness_id].join(PROGRESS_STATS_SEPARATOR)
+
+            if stage != '*'
+              conn.del("#{match_filter}#{PROGRESS_STATS_SEPARATOR}#{stage}")
+            else
+              loop do
+                cursor, keys = conn.scan(cursor, match: "#{match_filter}#{PROGRESS_STATS_SEPARATOR}*", count: 100)
+                conn.del(*keys) if keys
+
+                break if cursor == '0'
+              end
+            end
 
             true
           end
 
-          def job_progress_state_log_keys(conn, job_stats_all_time)
+          def group_job_progress_stage_log_keys(conn, job_stats_all_time)
             job_log_keys = {}
 
             job_stats_all_time.each do |job_name, queues|
-              job_score_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_score"
+              job_score_key = "#{job_progress_stage_log_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_score"
               next unless conn.exists(job_score_key)
 
               job_log_keys[job_name] = {}
@@ -194,10 +208,10 @@ module ActiveJob
             job_log_keys
           end
 
-          def job_progress_state_log_jobs(conn, day, job_name, queue_name, uniqueness_id, count, begin_index)
+          def query_job_progress_stage_log_jobs(conn, day, job_name, queue_name, uniqueness_id, count, begin_index)
             next_page_availabe = false
 
-            job_score_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_score"
+            job_score_key = "#{job_progress_stage_log_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_score"
             return [false, []] unless conn.exists(job_score_key)
 
             day_score = ((day % 8) + 1) * DAY_SCORE_BASE
@@ -228,14 +242,14 @@ module ActiveJob
             [job_logs.size > count, job_logs[0..count - 1]]
           end
 
-          def job_progress_state_log_job_one(conn, day, job_name, queue_name, uniqueness_id, job_id)
-            job_score_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_score"
+          def query_job_progress_stage_log_job_one(conn, day, job_name, queue_name, uniqueness_id, job_id)
+            job_score_key = "#{job_progress_stage_log_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_score"
             return { logs: [], args: {} } unless conn.exists(job_score_key)
 
-            job_log_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_logs"
+            job_log_key = "#{job_progress_stage_log_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_logs"
             return { logs: [], args: {} } unless conn.exists(job_log_key)
 
-            log_data_key = job_progress_state_logs_key(job_name)
+            log_data_key = job_progress_stage_log_key(job_name)
             log_data_field = "#{day % 9}#{PROGRESS_STATS_SEPARATOR}#{uniqueness_id}"
 
             job_id_score = conn.zscore(job_score_key, "#{queue_name}:#{uniqueness_id}:#{job_id}").to_i
@@ -258,7 +272,7 @@ module ActiveJob
                 id, progress_stage, timestamp, reason, mode, expiration, expires, debug = log.split(PROGRESS_STATS_SEPARATOR)
 
                 job_logs << {
-                  progress: progress_stage,
+                  progress_stage: progress_stage,
                   timestamp: Time.at(timestamp.to_f).utc,
                   reason: reason,
                   mode: mode,
@@ -287,11 +301,11 @@ module ActiveJob
             { logs: job_logs, args: args }
           end
 
-          def cleanup_job_progress_state_logs(conn, day, job_name, queue_name, uniqueness_id)
-            job_score_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_score"
+          def cleanup_job_progress_stage_logs(conn, day, job_name, queue_name, uniqueness_id)
+            job_score_key = "#{job_progress_stage_log_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_score"
             return unless conn.exists(job_score_key)
 
-            job_log_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_logs"
+            job_log_key = "#{job_progress_stage_log_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_logs"
             return unless conn.exists(job_log_key)
 
             day_score = ((day % 8) + 1) * DAY_SCORE_BASE
@@ -327,11 +341,11 @@ module ActiveJob
             true
           end
 
-          def cleanup_job_progress_state_log_one(conn, _day, job_name, queue_name, uniqueness_id, job_id)
-            job_score_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_score"
+          def cleanup_job_progress_stage_log_one(conn, _day, job_name, queue_name, uniqueness_id, job_id)
+            job_score_key = "#{job_progress_stage_log_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_score"
             return unless conn.exists(job_score_key)
 
-            job_log_key = "#{job_progress_state_logs_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_logs"
+            job_log_key = "#{job_progress_stage_log_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_logs"
             return unless conn.exists(job_log_key)
 
             job_id_score = conn.zscore(job_score_key, "#{queue_name}:#{uniqueness_id}:#{job_id}").to_i

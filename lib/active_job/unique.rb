@@ -25,7 +25,7 @@ module ActiveJob
     PROGRESS_STAGE_PERFORM_FAILED = :perform_failed
     PROGRESS_STAGE_PERFORM_PROCESSED = :perform_processed
     PROGRESS_STAGE_PERFORM_SKIPPED = :perform_skipped
-    PROGRESS_STAGE_PERFORM_EXPIRED = :perform_expired
+    PROGRESS_STAGE_PERFORM_TIMEOUT = :perform_timeout
 
     PROGRESS_STAGE_ENQUEUE = [
       PROGRESS_STAGE_ENQUEUE_ATTEMPTED,

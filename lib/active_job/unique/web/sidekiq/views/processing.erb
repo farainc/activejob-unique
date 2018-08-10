@@ -1,0 +1,83 @@
+<style type="text/css">
+  a.no-decoration:focus, a.no-decoration:hover {
+    text-decoration: none;
+  }
+  header.row .pagination {
+    margin: 25px 0 0 0 !important;
+  }
+  form .btn {
+    margin-right: 0;
+  }
+  .label-none {
+    background: #eee;
+    color: #999;
+  }
+</style>
+<%
+  def stats_label(value, style)
+    if "#{value}" == "0"
+      return "<span class='label label-none'>#{value}</span>"
+    else
+      return "<span class='label label-#{style}'>#{value}</span>"
+    end
+  end
+%>
+<header class='row'>
+  <div class='col-sm-5 col-xs-12'>
+    <h3>
+      <a class="no-decoration" href="<%= root_path %>job_stats">Job Stats</a>
+      /
+      <a class="no-decoration" href="<%= root_path %>job_stats/processing/*/*/*">Processing Flags</a>
+    </h3>
+  </div>
+  <div class='col-sm-5 col-xs-8'>
+    <% if @job_stats.size > 0 && @total_size.to_i > @count %>
+      <%= erb :_paging, :locals => { :url => "#{root_path}job_stats/processing/#{@job_name}/#{@queue_name}/#{@uniqueness_id}" } %>
+    <% end %>
+  </div>
+  <div class='col-sm-2 col-xs-4 text-right'>
+    <form method="POST" style="margin-top: 25px;" action="<%= "#{root_path}job_stats/processing/#{@job_name}/#{@queue_name}/#{@uniqueness_id}/*/delete" %>">
+      <%= csrf_tag %>
+      <input class='btn btn-danger' type="submit" name="delete" value="Delete All" data-confirm="Are you sure you want to delete all processing flag for [<%= @job_name %>\n<%= @queue_name %>\n<%= @uniqueness_id %>]?"/>
+    </form>
+  </div>
+</header>
+<% if @job_stats.size > 0 %>
+  <table class="table table-hover table-bordered table-striped table-white">
+    <thead>
+      <th>Job</th>
+      <th>Queue</th>
+      <th>Uniqueness Id</th>
+      <th>Expires</th>
+      <th class="text-center">Progress Stage</th>
+      <th class="text-center active title"><%= @job_stats.size %></th>
+    </thead>
+    <tbody>
+      <% @job_stats.each do |stats| %>
+        <tr>
+          <td>
+            <a class="no-decoration" href="<%= "#{root_path}job_stats/processing/#{stats[:job_name]}/*/*" %>"><%= stats[:job_name] %></a>
+          </td>
+          <td>
+            <a class="no-decoration" href="<%= "#{root_path}job_stats/processing/#{stats[:job_name]}/#{stats[:queue]}/*" %>"><%= stats[:queue] %></a>
+          </td>
+          <td>
+            <a class="no-decoration" href="<%= "#{root_path}job_stats/processing/#{stats[:job_name]}/#{stats[:queue]}/#{stats[:uniqueness_id]}" %>"><%= stats[:uniqueness_id] %></a>
+          </td>
+          <td><%= (relative_time(stats[:expires]) rescue 'Expired')  %></td>
+          <td class="text-center">
+            <%= stats[:progress_stage] %>
+          </td>
+          <td class="text-center">
+            <form action="<%= "#{root_path}job_stats/processing/#{stats[:job_name]}/#{stats[:queue]}/#{stats[:uniqueness_id]}/#{stats[:progress_stage]}/delete"%>" method="post">
+              <%= csrf_tag if respond_to?(:csrf_tag) %>
+              <input class='btn btn-xs btn-danger' type="submit" name="delete" value="Delete" data-confirm="Are you sure you want to delete the processing flag: [<%= stats[:uniqueness_id] %>]?"/>
+            </form>
+          </td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% else %>
+  <div class='alert alert-success'>No job stats found</div>
+<% end %>

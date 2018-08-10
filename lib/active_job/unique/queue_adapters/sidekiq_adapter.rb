@@ -15,7 +15,6 @@ module ActiveJob
 
             Sidekiq.redis_pool.with do |conn|
               score = conn.zincrby(stats_jobs_key, 1.0, job_name)
-
               conn.zadd(stats_jobs_key, [day_score, job_name]) if score < day_score
             end
           end
@@ -40,37 +39,55 @@ module ActiveJob
             end
           end
 
-          def uniqueness_getset_progress_state(state_key, data)
+          def uniqueness_get_progress_stage_state(state_key, state_field)
+            Sidekiq.redis_pool.with do |conn|
+              conn.hget(state_key, state_field)
+            end
+          end
+
+          def uniqueness_set_progress_stage_state(state_key, state_field, state_value)
+            Sidekiq.redis_pool.with do |conn|
+              conn.hset(state_key, state_field, state_value)
+            end
+          end
+
+          def uniqueness_cleanup_progress_stage_state(state_key, state_field)
+            Sidekiq.redis_pool.with do |conn|
+              conn.hdel(state_key, state_field)
+            end
+          end
+
+          def uniqueness_getset_progress_stage_state_flag(state_key, data)
             Sidekiq.redis_pool.with do |conn|
               conn.getset(state_key, data)
             end
           end
 
-          def uniqueness_get_progress_state(state_key)
+          def uniqueness_get_progress_stage_state_flag(state_key)
             Sidekiq.redis_pool.with do |conn|
               conn.get(state_key)
             end
           end
 
-          def uniqueness_set_progress_state(state_key, data)
+          def uniqueness_set_progress_stage_state_flag(state_key, data)
             Sidekiq.redis_pool.with do |conn|
               conn.set(state_key, data)
             end
           end
 
-          def uniqueness_expire_progress_state(state_key, seconds)
+          def uniqueness_expire_progress_stage_state_flag(state_key, seconds)
             Sidekiq.redis_pool.with do |conn|
               conn.expire(state_key, seconds)
             end
           end
 
-          def uniqueness_set_progress_state_log_data(log_data_key, log_data_field, log_data)
+          def uniqueness_set_progress_stage_log_data(log_data_key, log_data_field, log_data)
             Sidekiq.redis_pool.with do |conn|
               conn.hsetnx(log_data_key, log_data_field, log_data)
             end
           end
 
-          def uniqueness_incr_progress_state_log_id_score(conn, job_score_key, base, new_id)
+          def uniqueness_incr_progress_stage_log_id_score(conn, job_score_key, base, new_id)
             if conn.zadd(job_score_key, [0, "#{base}:#{new_id}"], nx: true) == 1
               conn.zincrby(job_score_key, conn.zincrby(job_score_key, 1.0, base), "#{base}:#{new_id}")
             else
@@ -78,7 +95,7 @@ module ActiveJob
             end
           end
 
-          def uniqueness_incr_progress_state_log(day,
+          def uniqueness_incr_progress_stage_log(day,
                                                  job_score_key,
                                                  queue_name,
                                                  uniqueness_id,
@@ -89,10 +106,10 @@ module ActiveJob
             Sidekiq.redis_pool.with do |conn|
               day_score = ((day % 8) + 1) * DAY_SCORE_BASE
 
-              queue_id_score = uniqueness_incr_progress_state_log_id_score(conn, job_score_key, 'queue', queue_name)
+              queue_id_score = uniqueness_incr_progress_stage_log_id_score(conn, job_score_key, 'queue', queue_name)
               queue_id_score = (queue_id_score % 9) * QUEUE_SCORE_BASE
 
-              uniqueness_id_score = uniqueness_incr_progress_state_log_id_score(conn, job_score_key, 'uniqueness_id', uniqueness_id)
+              uniqueness_id_score = uniqueness_incr_progress_stage_log_id_score(conn, job_score_key, 'uniqueness_id', uniqueness_id)
               uniqueness_id_score *= UNIQUENESS_ID_SCORE_BASE
 
               time_score = ((Time.now.utc - Time.now.utc.midnight) / 10).to_i
@@ -109,7 +126,7 @@ module ActiveJob
             end
           end
 
-          def uniqueness_cleanup_progress_state_logs(day,
+          def uniqueness_cleanup_progress_stage_logs(day,
                                                      job_score_key,
                                                      job_log_key,
                                                      log_data_key,
@@ -144,20 +161,18 @@ module ActiveJob
             end
           end
 
-          def uniqueness_another_job_in_queue?(job_name, queue_name, uniqueness_id)
+          def uniqueness_another_job_in_queue?(queue_name, enqueued_at)
             queue = Sidekiq::Queue.new(queue_name)
             return false if queue.size.zero?
 
-            queue.any?{|q| q.item['wrapped'] == job_name && q.item['args'][0]['uniqueness_id'] == uniqueness_id}
-          rescue
-            false
+            queue.latency > (Time.now.utc.to_f - enqueued_at)
           end
 
           def uniqueness_another_job_in_worker?(job_name, queue_name, uniqueness_id, job_id)
             Sidekiq::Workers.new.any? {|_p, _t, w| w['queue'] == queue_name && w['payload']['wrapped'] == job_name && w['payload']['args'][0]['uniqueness_id'] == uniqueness_id && w['payload']['args'][0]['job_id'] != job_id }
-          rescue
-            false
           end
+
+          # ClassMethods end
         end
 
         def uniqueness_progress_stats_initialize(*args)
@@ -172,32 +187,40 @@ module ActiveJob
           self.class.uniqueness_cleanup_progress_stats(*args)
         end
 
-        def uniqueness_getset_progress_state(*args)
-          self.class.uniqueness_getset_progress_state(*args)
+        def uniqueness_get_progress_stage_state(*args)
+          self.class.uniqueness_get_progress_stage_state(*args)
         end
 
-        def uniqueness_get_progress_state(*args)
-          self.class.uniqueness_get_progress_state(*args)
+        def uniqueness_set_progress_stage_state(*args)
+          self.class.uniqueness_set_progress_stage_state(*args)
         end
 
-        def uniqueness_set_progress_state(*args)
-          self.class.uniqueness_set_progress_state(*args)
+        def uniqueness_cleanup_progress_stage_state(*args)
+          self.class.uniqueness_cleanup_progress_stage_state(*args)
         end
 
-        def uniqueness_expire_progress_state(*args)
-          self.class.uniqueness_expire_progress_state(*args)
+        def uniqueness_getset_progress_stage_state_flag(*args)
+          self.class.uniqueness_getset_progress_stage_state_flag(*args)
         end
 
-        def uniqueness_set_progress_state_log_data(*args)
-          self.class.uniqueness_set_progress_state_log_data(*args)
+        def uniqueness_get_progress_stage_state_flag(*args)
+          self.class.uniqueness_get_progress_stage_state_flag(*args)
         end
 
-        def uniqueness_incr_progress_state_log(*args)
-          self.class.uniqueness_incr_progress_state_log(*args)
+        def uniqueness_expire_progress_stage_state_flag(*args)
+          self.class.uniqueness_expire_progress_stage_state_flag(*args)
         end
 
-        def uniqueness_cleanup_progress_state_logs(*args)
-          self.class.uniqueness_cleanup_progress_state_logs(*args)
+        def uniqueness_set_progress_stage_log_data(*args)
+          self.class.uniqueness_set_progress_stage_log_data(*args)
+        end
+
+        def uniqueness_incr_progress_stage_log(*args)
+          self.class.uniqueness_incr_progress_stage_log(*args)
+        end
+
+        def uniqueness_cleanup_progress_stage_logs(*args)
+          self.class.uniqueness_cleanup_progress_stage_logs(*args)
         end
 
         def uniqueness_another_job_in_queue?(*args)
