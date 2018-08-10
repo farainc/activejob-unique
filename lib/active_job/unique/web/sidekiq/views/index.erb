@@ -77,7 +77,7 @@
 %>
 <header class='row'>
   <div class='col-sm-5 col-xs-12'>
-    <h3>Job Stats / (<%= @total_size %>) jobs</h3>
+    <h3>Job Stats / <span class="title"><%= @total_size %> jobs</span>
   </div>
   <div class='col-sm-7 col-xs-12'>
     <% if @job_stats.size > 0 && @total_size > @count %>
@@ -171,13 +171,11 @@
         </tr>
         <tr>
           <td rowspan="<%= (total_stats.keys.size-1) * 2 + 1 %>">
-            <% if uniqueness_flag %>
-              <a class="no-decoration" href="<%= root_path %>job_stats/processing/<%= job_name %>/*">
-                Processing flags
-              </a>
-            <% end %>
+            <a class="no-decoration" href="<%= root_path %>job_stats/processing/<%= job_name %>/*/*">
+              Processing flags
+            </a>
             <% if @job_log_keys[job_name] %>
-              <%= "/" if uniqueness_flag %>
+              /
               <a class="no-decoration nowrap" href="<%= root_path %>job_stats/logs/<%= @today %>/<%= job_name %>/*/*">
                 All logs
               </a>
