@@ -21,14 +21,14 @@ module ActiveJob
 
           def uniqueness_incr_progress_stats(stats_key, field_name, day)
             Sidekiq.redis_pool.with do |conn|
-              conn.multi do
+              conn.multi do |multi|
                 # all time
-                conn.hsetnx(stats_key, field_name, 0)
-                conn.hincrby(stats_key, field_name, 1)
+                multi.hsetnx(stats_key, field_name, 0)
+                multi.hincrby(stats_key, field_name, 1)
 
                 # daily
-                conn.hsetnx("#{stats_key}:#{day}", field_name, 0)
-                conn.hincrby("#{stats_key}:#{day}", field_name, 1)
+                multi.hsetnx("#{stats_key}:#{day}", field_name, 0)
+                multi.hincrby("#{stats_key}:#{day}", field_name, 1)
               end
             end
           end
