@@ -135,6 +135,28 @@ module ActiveJob
             true
           end
 
+          def group_job_progress_stage_processing_flag_keys(conn, job_names)
+            state_key = "#{job_progress_stage_state}#{PROGRESS_STATS_SEPARATOR}*"
+
+            processing_keys = {}
+            i = 0
+
+            conn.scan_each(match: state_key, count: 1000) do |key|
+              i += 1
+
+              _, job_name, _ = key.to_s.split(PROGRESS_STATS_SEPARATOR)
+              next unless job_names.include?(job_name)
+              next if processing_keys.include?(job_name)
+
+              processing_keys[job_name] = true
+
+              # maxmium 10,000
+              break if i >= 10_000
+            end
+
+            processing_keys
+          end
+
           def query_job_progress_stage_state_processing(conn, job_name, queue_name, uniqueness_id, count, begin_index)
             match_filter = [job_progress_stage_state, job_name, queue_name, uniqueness_id, "*"].join(PROGRESS_STATS_SEPARATOR)
 

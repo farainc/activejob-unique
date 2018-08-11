@@ -35,10 +35,11 @@ module ActiveJob
               Sidekiq.redis_pool.with do |conn|
                 job_names = conn.zrevrange(SidekiqWeb.job_progress_stats_jobs, begin_index, end_index)
 
-                @uniqueness_flag_keys = SidekiqWeb.group_job_progress_stage_uniqueness_flag_keys(conn, job_names)
-
                 @job_stats_all_time = SidekiqWeb.regroup_job_progress_stats(SidekiqWeb.job_progress_stats, job_names, conn)
                 @job_stats_today = SidekiqWeb.regroup_job_progress_stats("#{SidekiqWeb.job_progress_stats}:#{@today}", job_names, conn)
+
+                @uniqueness_flag_keys = SidekiqWeb.group_job_progress_stage_uniqueness_flag_keys(conn, job_names)
+                @processing_flag_keys = SidekiqWeb.group_job_progress_stage_processing_flag_keys(conn, job_names)
 
                 @job_log_keys = SidekiqWeb.group_job_progress_stage_log_keys(conn, @job_stats_all_time)
 

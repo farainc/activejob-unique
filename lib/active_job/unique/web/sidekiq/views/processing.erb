@@ -22,7 +22,7 @@
     end
   end
 %>
-<header class='row'>
+<div class='row header'>
   <div class='col-sm-5 col-xs-12'>
     <h3>
       <a class="no-decoration" href="<%= root_path %>job_stats">Job Stats</a>
@@ -41,43 +41,45 @@
       <input class='btn btn-danger' type="submit" name="delete" value="Delete All" data-confirm="Are you sure you want to delete all processing flag for [<%= @job_name %>\n<%= @queue_name %>\n<%= @uniqueness_id %>]?"/>
     </form>
   </div>
-</header>
+</div>
 <% if @job_stats.size > 0 %>
-  <table class="table table-hover table-bordered table-striped table-white">
-    <thead>
-      <th>Job</th>
-      <th>Queue</th>
-      <th>Uniqueness Id</th>
-      <th>Expires</th>
-      <th class="text-center">Progress Stage</th>
-      <th class="text-center active title"><%= @job_stats.size %></th>
-    </thead>
-    <tbody>
-      <% @job_stats.each do |stats| %>
-        <tr>
-          <td>
-            <a class="no-decoration" href="<%= "#{root_path}job_stats/processing/#{stats[:job_name]}/*/*" %>"><%= stats[:job_name] %></a>
-          </td>
-          <td>
-            <a class="no-decoration" href="<%= "#{root_path}job_stats/processing/#{stats[:job_name]}/#{stats[:queue]}/*" %>"><%= stats[:queue] %></a>
-          </td>
-          <td>
-            <a class="no-decoration" href="<%= "#{root_path}job_stats/processing/#{stats[:job_name]}/#{stats[:queue]}/#{stats[:uniqueness_id]}" %>"><%= stats[:uniqueness_id] %></a>
-          </td>
-          <td><%= (relative_time(stats[:expires]) rescue 'Expired')  %></td>
-          <td class="text-center">
-            <%= stats[:progress_stage] %>
-          </td>
-          <td class="text-center">
-            <form action="<%= "#{root_path}job_stats/processing/#{stats[:job_name]}/#{stats[:queue]}/#{stats[:uniqueness_id]}/#{stats[:progress_stage]}/delete"%>" method="post">
-              <%= csrf_tag if respond_to?(:csrf_tag) %>
-              <input class='btn btn-xs btn-danger' type="submit" name="delete" value="Delete" data-confirm="Are you sure you want to delete the processing flag: [<%= stats[:uniqueness_id] %>]?"/>
-            </form>
-          </td>
-        </tr>
-      <% end %>
-    </tbody>
-  </table>
+  <div class="table_container">
+    <table class="table table-hover table-bordered table-striped table-white">
+      <thead>
+        <th>Job</th>
+        <th>Queue</th>
+        <th>Uniqueness Id</th>
+        <th>Expires</th>
+        <th class="text-center">Progress Stage</th>
+        <th class="text-center active title"><%= @job_stats.size %></th>
+      </thead>
+      <tbody>
+        <% @job_stats.each do |stats| %>
+          <tr>
+            <td>
+              <a class="no-decoration" href="<%= "#{root_path}job_stats/processing/#{stats[:job_name]}/*/*" %>"><%= stats[:job_name] %></a>
+            </td>
+            <td>
+              <a class="no-decoration" href="<%= "#{root_path}job_stats/processing/#{stats[:job_name]}/#{stats[:queue]}/*" %>"><%= stats[:queue] %></a>
+            </td>
+            <td>
+              <a class="no-decoration" href="<%= "#{root_path}job_stats/processing/#{stats[:job_name]}/#{stats[:queue]}/#{stats[:uniqueness_id]}" %>"><%= stats[:uniqueness_id] %></a>
+            </td>
+            <td><%= (relative_time(stats[:expires]) rescue 'Expired')  %></td>
+            <td class="text-center">
+              <%= stats[:progress_stage] %>
+            </td>
+            <td class="text-center">
+              <form action="<%= "#{root_path}job_stats/processing/#{stats[:job_name]}/#{stats[:queue]}/#{stats[:uniqueness_id]}/#{stats[:progress_stage]}/delete"%>" method="post">
+                <%= csrf_tag if respond_to?(:csrf_tag) %>
+                <input class='btn btn-xs btn-danger' type="submit" name="delete" value="Delete" data-confirm="Are you sure you want to delete the processing flag: [<%= stats[:uniqueness_id] %>]?"/>
+              </form>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
 <% else %>
   <div class='alert alert-success'>No job stats found</div>
 <% end %>

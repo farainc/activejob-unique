@@ -22,7 +22,7 @@
     end
   end
 %>
-<header class='row'>
+<div class='row header'>
   <div class='col-sm-5 col-xs-12'>
     <h3>
       <a class="no-decoration" href="<%= root_path %>job_stats">Job Logs</a>
@@ -41,7 +41,8 @@
       <input class='btn btn-danger' type="submit" name="delete" value="Delete All" data-confirm="Are you sure you want to delete all uniqueness flag for [<%= @job_name %>]?"/>
     </form>
   </div>
-</header>
+</div>
+<div class="table_container">
   <table class="table table-hover table-bordered table-striped table-white">
     <tr>
       <% (0..7).each do |i|
@@ -53,37 +54,40 @@
       <% end %>
     </tr>
   </table>
+</div>
 <% if @job_logs.size > 0 %>
-  <table class="table table-hover table-bordered table-striped table-white">
-    <thead>
-      <th>Day</th>
-      <th>Job</th>
-      <th>Queue</th>
-      <th>Uniqueness Id</th>
-      <th>Job Id</th>
-      <th class="text-center active title"><%= @job_logs.size %></th>
-    </thead>
-    <tbody>
-      <%
-        @job_logs.each do |log|
-          queue_name, uniqueness_id, job_id = log.to_s.split(':')
-      %>
-        <tr>
-          <td><%= @day %></td>
-          <td><a class="no-decoration" href="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/*/*"%>"><%= @job_name %></a></td>
-          <td><a class="no-decoration" href="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{queue_name}/*"%>"><%= queue_name %></a></td>
-          <td><a class="no-decoration" href="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{queue_name}/#{uniqueness_id}"%>"><%= uniqueness_id %></a></td>
-          <td><a class="no-decoration" href="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{queue_name}/#{uniqueness_id}/#{job_id}"%>"><%= job_id %></a></td>
-          <td class="text-center">
-            <form action="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{queue_name}/#{uniqueness_id}/#{job_id}/delete"%>" method="post">
-              <%= csrf_tag if respond_to?(:csrf_tag) %>
-              <input class='btn btn-xs btn-danger' type="submit" name="delete" value="Delete" data-confirm="Are you sure you want to delete the job log: [<%= job_id %>]?"/>
-            </form>
-          </td>
-        </tr>
-      <% end %>
-    </tbody>
-  </table>
+  <div class="table_container">
+    <table class="table table-hover table-bordered table-striped table-white">
+      <thead>
+        <th>Day</th>
+        <th>Job</th>
+        <th>Queue</th>
+        <th>Uniqueness Id</th>
+        <th>Job Id</th>
+        <th class="text-center active title"><%= @job_logs.size %></th>
+      </thead>
+      <tbody>
+        <%
+          @job_logs.each do |log|
+            queue_name, uniqueness_id, job_id = log.to_s.split(':')
+        %>
+          <tr>
+            <td><%= @day %></td>
+            <td><a class="no-decoration" href="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/*/*"%>"><%= @job_name %></a></td>
+            <td><a class="no-decoration" href="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{queue_name}/*"%>"><%= queue_name %></a></td>
+            <td><a class="no-decoration" href="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{queue_name}/#{uniqueness_id}"%>"><%= uniqueness_id %></a></td>
+            <td><a class="no-decoration" href="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{queue_name}/#{uniqueness_id}/#{job_id}"%>"><%= job_id %></a></td>
+            <td class="text-center">
+              <form action="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{queue_name}/#{uniqueness_id}/#{job_id}/delete"%>" method="post">
+                <%= csrf_tag if respond_to?(:csrf_tag) %>
+                <input class='btn btn-xs btn-danger' type="submit" name="delete" value="Delete" data-confirm="Are you sure you want to delete the job log: [<%= job_id %>]?"/>
+              </form>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
 <% else %>
   <div class='alert alert-success'>No job stats found</div>
 <% end %>

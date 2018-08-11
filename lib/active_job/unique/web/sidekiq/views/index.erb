@@ -73,9 +73,9 @@
     'danger'
   end
 
-  stages = ['attempted', 'processing', 'processed', 'skipped', 'failed']
+  stages = ['processed', 'skipped', 'failed', 'attempted', 'processing']
 %>
-<header class='row'>
+<div class='row header'>
   <div class='col-sm-5 col-xs-12'>
     <h3>Job Stats / <span class="title"><%= @total_size %> jobs</span>
   </div>
@@ -84,146 +84,47 @@
       <%= erb :_paging, :locals => { :url => "#{root_path}job_stats" } %>
     <% end %>
   </div>
-</header>
+</div>
 <% if @job_stats.size > 0 %>
-  <table class="table table-hover table-bordered table-striped table-white">
-    <thead>
-      <tr>
-        <th colspan="2"><a class="no-decoration" href="<%= root_path %>job_stats/processing/*/*/*">All Processing Flags </a></th>
-        <th colspan="3" class="text-center" style="vertical-align:top;">Stage</th>
-        <th colspan="2" class="text-center">Attempted</th>
-        <th colspan="2" class="text-center">Processing</th>
-        <th colspan="2" class="text-center">Processed</th>
-        <th colspan="2" class="text-center">Skipped</th>
-        <th colspan="2" class="text-center">Failed</th>
-      </tr>
-      <tr>
-        <th><small>Job</small></th>
-        <th><small>Queue</small></th>
-        <th colspan="2" class="text-center text-success nowrap"><small>Processed %</small></th>
-        <th class="text-center text-warning"><small>Unique</small></th>
-        <th class="text-center"><small>Today</small></th>
-       	<th class="text-center"><small class="nowrap">All Time</small></th>
-        <th class="text-center"><small>Today</small></th>
-       	<th class="text-center"><small class="nowrap">All Time</small></th>
-        <th class="text-center"><small>Today</small></th>
-       	<th class="text-center"><small class="nowrap">All Time</small></th>
-        <th class="text-center"><small>Today</small></th>
-       	<th class="text-center"><small class="nowrap">All Time</small></th>
-        <th class="text-center"><small>Today</small></th>
-       	<th class="text-center"><small class="nowrap">All Time</small></th>
-      </tr>
-    </thead>
-    <tbody>
-      <% @job_stats.each do |job_name|
-        today_stats = @job_stats_today[job_name]
-        total_stats = @job_stats_all_time[job_name]
-
-        today_enqueue = today_stats.values[0]['enqueue'] rescue {}
-        today_perform = today_stats.values[0]['perform'] rescue {}
-
-        total_enqueue = total_stats.values[0]['enqueue'] rescue {}
-        total_perform = total_stats.values[0]['perform'] rescue {}
-
-        te_processed = today_enqueue['processed'].to_f rescue 0
-        te_attempted = today_enqueue['attempted'].to_f rescue 0
-        tep_percentage = (te_processed / te_attempted * 100).to_s.to_i rescue 0
-
-        tp_processed = today_perform['processed'].to_f rescue 0
-        tp_attempted = today_perform['attempted'].to_f rescue 0
-        tpp_percentage = (tp_processed / tp_attempted * 100).to_s.to_i rescue 0
-
-        queue_name = total_stats.keys[0] rescue ''
-
-        enqueue_uniqueness_flag = @uniqueness_flag_keys[job_name][queue_name]['enqueue'].to_i rescue 0
-        perform_uniqueness_flag = @uniqueness_flag_keys[job_name][queue_name]['perform'].to_i rescue 0
-
-        uniqueness_flag = (enqueue_uniqueness_flag.positive? || perform_uniqueness_flag.positive?)
-      %>
+  <div class="table_container">
+    <table class="table table-hover table-bordered table-striped table-white">
+      <thead>
         <tr>
-          <td class="break-all">
-            <%= job_name %>
-          </td>
-          <td>
-            <%= queue_name %>
-          </td>
-          <td class="text-center">
-            <%= stats_label('E', 'info') %>
-          </td>
-          <td class="<%= percentage_label(tep_percentage) %> text-center">
-            <b><small><%= tep_percentage %>%</small></b>
-          </td>
-          <td class="text-center">
-            <% if enqueue_uniqueness_flag.positive? %>
-              <a class="no-decoration break-all" href="<%= root_path %>job_stats/uniqueness/<%= job_name %>/<%= queue_name%>/enqueue">
-                <%= stats_label(zero_to_empty(enqueue_uniqueness_flag), 'warning') %>
-              </a>
-            <% end %>
-          </td>
-          <%
-            stages.each do |s|
-              today_n = today_enqueue[s].to_i
-              total_n = total_enqueue[s].to_i
-          %>
-            <td class="<%= progress_label(s, today_n) %> text-center" title="<%= nice_number(today_n) %>"><small><%= short_number(today_n) %></small></td>
-            <td class="text-center text-<%= progress_label(s) %>" title="<%= nice_number(total_n) %>"><b><small><%= short_number(total_n) %></small></b></td>
-          <% end %>
+          <th colspan="2"><a class="no-decoration" href="<%= root_path %>job_stats/processing/*/*/*">All Processing Flags </a></th>
+          <th colspan="3" class="text-center" style="vertical-align:top;">Stage</th>
+          <th colspan="2" class="text-center">Processed</th>
+          <th colspan="2" class="text-center">Skipped</th>
+          <th colspan="2" class="text-center">Failed</th>
+          <th colspan="2" class="text-center">Attempted</th>
+          <th colspan="2" class="text-center">Processing</th>
         </tr>
         <tr>
-          <td rowspan="<%= (total_stats.keys.size-1) * 2 + 1 %>">
-            <a class="no-decoration" href="<%= root_path %>job_stats/processing/<%= job_name %>/*/*">
-              Processing flags
-            </a>
-            <% if @job_log_keys[job_name] %>
-              /
-              <a class="no-decoration nowrap" href="<%= root_path %>job_stats/logs/<%= @today %>/<%= job_name %>/*/*">
-                All logs
-              </a>
-            <% end %>
-          </td>
-          <td>
-            <% if uniqueness_flag %>
-              <a class="no-decoration nowrap" href="<%= root_path %>job_stats/uniqueness/<%= job_name %>/<%= queue_name %>/*">
-                Unique flags
-              </a>
-            <% end %>
-            <% if @job_log_keys[job_name] && @job_log_keys[job_name][queue_name] %>
-              <%= "/" if uniqueness_flag %>
-              <a class="no-decoration nowrap" href="<%= root_path %>job_stats/logs/<%= @today %>/<%= job_name %>/<%= queue_name %>/*">
-                logs
-              </a>
-            <% end %>
-          </td>
-          <td class="text-center">
-            <%= stats_label('P', 'primary') %>
-          </td>
-          <td class="<%= percentage_label(tpp_percentage) %> text-center">
-            <b><small><%= tpp_percentage %>%</small></b>
-          </td>
-          <td class="text-center">
-            <% if perform_uniqueness_flag.positive? %>
-              <a class="no-decoration break-all" href="<%= root_path %>job_stats/uniqueness/<%= job_name %>/<%= queue_name %>/perform">
-                <%= stats_label(zero_to_empty(perform_uniqueness_flag), 'warning') %>
-              </a>
-            <% end %>
-          </td>
-          <%
-            stages.each do |s|
-              today_n = today_perform[s].to_i
-              total_n = total_perform[s].to_i
-          %>
-            <td class="<%= progress_label(s, today_n) %> text-center" title="<%= nice_number(today_n) %>"><small><%= short_number(today_n) %></small></td>
-            <td class="text-center text-<%= progress_label(s) %>" title="<%= nice_number(total_n) %>"><b><small><%= short_number(total_n) %></small></b></td>
-          <% end %>
+          <th><small>Job</small></th>
+          <th><small>Queue</small></th>
+          <th class="text-center text-warning"><small>Unique</small></th>
+          <th colspan="2" class="text-center text-success nowrap"><small>Processed %</small></th>
+          <th class="text-center"><small>Today</small></th>
+         	<th class="text-center"><small class="nowrap">All Time</small></th>
+          <th class="text-center"><small>Today</small></th>
+         	<th class="text-center"><small class="nowrap">All Time</small></th>
+          <th class="text-center"><small>Today</small></th>
+         	<th class="text-center"><small class="nowrap">All Time</small></th>
+          <th class="text-center"><small>Today</small></th>
+         	<th class="text-center"><small class="nowrap">All Time</small></th>
+          <th class="text-center"><small>Today</small></th>
+         	<th class="text-center"><small class="nowrap">All Time</small></th>
         </tr>
-        <% next if total_stats.keys.size == 1 %>
-        <% total_stats.keys[1..-1].each do |key|
+      </thead>
+      <tbody>
+        <% @job_stats.each do |job_name|
+          today_stats = @job_stats_today[job_name]
+          total_stats = @job_stats_all_time[job_name]
 
-          today_enqueue = today_stats[key]['enqueue'] rescue {}
-          today_perform = today_stats[key]['perform'] rescue {}
+          today_enqueue = today_stats.values[0]['enqueue'] rescue {}
+          today_perform = today_stats.values[0]['perform'] rescue {}
 
-          total_enqueue = total_stats[key]['enqueue'] rescue {}
-          total_perform = total_stats[key]['perform'] rescue {}
+          total_enqueue = total_stats.values[0]['enqueue'] rescue {}
+          total_perform = total_stats.values[0]['perform'] rescue {}
 
           te_processed = today_enqueue['processed'].to_f rescue 0
           te_attempted = today_enqueue['attempted'].to_f rescue 0
@@ -233,16 +134,27 @@
           tp_attempted = today_perform['attempted'].to_f rescue 0
           tpp_percentage = (tp_processed / tp_attempted * 100).to_s.to_i rescue 0
 
-          queue_name = key
+          queue_name = total_stats.keys[0] rescue ''
 
           enqueue_uniqueness_flag = @uniqueness_flag_keys[job_name][queue_name]['enqueue'].to_i rescue 0
           perform_uniqueness_flag = @uniqueness_flag_keys[job_name][queue_name]['perform'].to_i rescue 0
 
           uniqueness_flag = (enqueue_uniqueness_flag.positive? || perform_uniqueness_flag.positive?)
+          processing_flag = @processing_flag_keys.key?(job_name)
         %>
           <tr>
+            <td class="nowrap">
+              <%= job_name %>
+            </td>
             <td>
               <%= queue_name %>
+            </td>
+            <td class="text-center">
+              <% if enqueue_uniqueness_flag.positive? %>
+                <a class="no-decoration break-all" href="<%= root_path %>job_stats/uniqueness/<%= job_name %>/<%= queue_name%>/enqueue">
+                  <%= stats_label(zero_to_empty(enqueue_uniqueness_flag), 'warning') %>
+                </a>
+              <% end %>
             </td>
             <td class="text-center">
               <%= stats_label('E', 'info') %>
@@ -250,14 +162,8 @@
             <td class="<%= percentage_label(tep_percentage) %> text-center">
               <b><small><%= tep_percentage %>%</small></b>
             </td>
-            <td class="text-center">
-              <% if enqueue_uniqueness_flag.positive? %>
-                <a class="no-decoration break-all" href="<%= root_path %>job_stats/uniqueness/<%= job_name %>/<%= queue_name %>/enqueue">
-                  <%= stats_label(zero_to_empty(enqueue_uniqueness_flag), 'warning') %>
-                </a>
-              <% end %>
-            </td>
-            <% stages.each do |s|
+            <%
+              stages.each do |s|
                 today_n = today_enqueue[s].to_i
                 total_n = total_enqueue[s].to_i
             %>
@@ -266,16 +172,30 @@
             <% end %>
           </tr>
           <tr>
-            <td>
-              <% if uniqueness_flag %>
-                <a class="no-decoration nowrap" href="<%= root_path %>job_stats/uniqueness/<%= job_name %>/<%= queue_name %>/*">
-                  Unique flags
+            <td rowspan="<%= (total_stats.keys.size-1) * 2 + 1 %>">
+              <% if processing_flag %>
+                <a class="no-decoration" href="<%= root_path %>job_stats/processing/<%= job_name %>/*/*">
+                  Processing flags
                 </a>
               <% end %>
+              <% if @job_log_keys[job_name] %>
+                <%= "/" if processing_flag %>
+                <a class="no-decoration nowrap" href="<%= root_path %>job_stats/logs/<%= @today %>/<%= job_name %>/*/*">
+                  All logs
+                </a>
+              <% end %>
+            </td>
+            <td>
               <% if @job_log_keys[job_name] && @job_log_keys[job_name][queue_name] %>
-                <%= "/" if uniqueness_flag %>
                 <a class="no-decoration nowrap" href="<%= root_path %>job_stats/logs/<%= @today %>/<%= job_name %>/<%= queue_name %>/*">
                   logs
+                </a>
+              <% end %>
+            </td>
+            <td class="text-center">
+              <% if perform_uniqueness_flag.positive? %>
+                <a class="no-decoration break-all" href="<%= root_path %>job_stats/uniqueness/<%= job_name %>/<%= queue_name %>/perform">
+                  <%= stats_label(zero_to_empty(perform_uniqueness_flag), 'warning') %>
                 </a>
               <% end %>
             </td>
@@ -284,13 +204,6 @@
             </td>
             <td class="<%= percentage_label(tpp_percentage) %> text-center">
               <b><small><%= tpp_percentage %>%</small></b>
-            </td>
-            <td class="text-center">
-              <% if perform_uniqueness_flag.positive? %>
-                <a class="no-decoration break-all" href="<%= root_path %>job_stats/uniqueness/<%= job_name %>/<%= queue_name %>/perform">
-                  <%= stats_label(zero_to_empty(perform_uniqueness_flag), 'warning') %>
-                </a>
-              <% end %>
             </td>
             <%
               stages.each do |s|
@@ -301,10 +214,90 @@
               <td class="text-center text-<%= progress_label(s) %>" title="<%= nice_number(total_n) %>"><b><small><%= short_number(total_n) %></small></b></td>
             <% end %>
           </tr>
+          <% next if total_stats.keys.size == 1 %>
+          <% total_stats.keys[1..-1].each do |key|
+
+            today_enqueue = today_stats[key]['enqueue'] rescue {}
+            today_perform = today_stats[key]['perform'] rescue {}
+
+            total_enqueue = total_stats[key]['enqueue'] rescue {}
+            total_perform = total_stats[key]['perform'] rescue {}
+
+            te_processed = today_enqueue['processed'].to_f rescue 0
+            te_attempted = today_enqueue['attempted'].to_f rescue 0
+            tep_percentage = (te_processed / te_attempted * 100).to_s.to_i rescue 0
+
+            tp_processed = today_perform['processed'].to_f rescue 0
+            tp_attempted = today_perform['attempted'].to_f rescue 0
+            tpp_percentage = (tp_processed / tp_attempted * 100).to_s.to_i rescue 0
+
+            queue_name = key
+
+            enqueue_uniqueness_flag = @uniqueness_flag_keys[job_name][queue_name]['enqueue'].to_i rescue 0
+            perform_uniqueness_flag = @uniqueness_flag_keys[job_name][queue_name]['perform'].to_i rescue 0
+
+            uniqueness_flag = (enqueue_uniqueness_flag.positive? || perform_uniqueness_flag.positive?)
+          %>
+            <tr>
+              <td>
+                <%= queue_name %>
+              </td>
+              <td class="text-center">
+                <% if enqueue_uniqueness_flag.positive? %>
+                  <a class="no-decoration break-all" href="<%= root_path %>job_stats/uniqueness/<%= job_name %>/<%= queue_name %>/enqueue">
+                    <%= stats_label(zero_to_empty(enqueue_uniqueness_flag), 'warning') %>
+                  </a>
+                <% end %>
+              </td>
+              <td class="text-center">
+                <%= stats_label('E', 'info') %>
+              </td>
+              <td class="<%= percentage_label(tep_percentage) %> text-center">
+                <b><small><%= tep_percentage %>%</small></b>
+              </td>
+              <% stages.each do |s|
+                  today_n = today_enqueue[s].to_i
+                  total_n = total_enqueue[s].to_i
+              %>
+                <td class="<%= progress_label(s, today_n) %> text-center" title="<%= nice_number(today_n) %>"><small><%= short_number(today_n) %></small></td>
+                <td class="text-center text-<%= progress_label(s) %>" title="<%= nice_number(total_n) %>"><b><small><%= short_number(total_n) %></small></b></td>
+              <% end %>
+            </tr>
+            <tr>
+              <td>
+                <% if @job_log_keys[job_name] && @job_log_keys[job_name][queue_name] %>
+                  <a class="no-decoration nowrap" href="<%= root_path %>job_stats/logs/<%= @today %>/<%= job_name %>/<%= queue_name %>/*">
+                    logs
+                  </a>
+                <% end %>
+              </td>
+              <td class="text-center">
+                <% if perform_uniqueness_flag.positive? %>
+                  <a class="no-decoration break-all" href="<%= root_path %>job_stats/uniqueness/<%= job_name %>/<%= queue_name %>/perform">
+                    <%= stats_label(zero_to_empty(perform_uniqueness_flag), 'warning') %>
+                  </a>
+                <% end %>
+              </td>
+              <td class="text-center">
+                <%= stats_label('P', 'primary') %>
+              </td>
+              <td class="<%= percentage_label(tpp_percentage) %> text-center">
+                <b><small><%= tpp_percentage %>%</small></b>
+              </td>
+              <%
+                stages.each do |s|
+                  today_n = today_perform[s].to_i
+                  total_n = total_perform[s].to_i
+              %>
+                <td class="<%= progress_label(s, today_n) %> text-center" title="<%= nice_number(today_n) %>"><small><%= short_number(today_n) %></small></td>
+                <td class="text-center text-<%= progress_label(s) %>" title="<%= nice_number(total_n) %>"><b><small><%= short_number(total_n) %></small></b></td>
+              <% end %>
+            </tr>
+          <% end %>
         <% end %>
-      <% end %>
-    </tbody>
-  </table>
+      </tbody>
+    </table>
+  </div>
 <% else %>
   <div class='alert alert-success'>No job found in sidekiq</div>
 <% end %>
