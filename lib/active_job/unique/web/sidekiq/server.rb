@@ -44,15 +44,15 @@ module ActiveJob
               end
 
               Sidekiq.redis_pool.with do |conn|
-                next_page_availabe, @job_stats_today = SidekiqWeb.regroup_job_progress_stats_today(conn, @job_stats, @queue_name, @count)
                 next_page_availabe, @job_stats_all_time = SidekiqWeb.regroup_job_progress_stats(conn, @job_stats, @queue_name, @count)
+                @job_stats.reject!{|job| !@job_stats_all_time.key?(job) } unless @job_prefix == '*' && @queue_name == '*'
+
+                next_page_availabe, @job_stats_today = SidekiqWeb.regroup_job_progress_stats_today(conn, @job_stats, @queue_name, @count)
 
                 @uniqueness_flag_keys = SidekiqWeb.group_job_progress_stage_uniqueness_flag_keys(conn, @job_stats_all_time.keys)
                 @processing_flag_keys = SidekiqWeb.group_job_progress_stage_processing_flag_keys(conn, @job_stats_all_time.keys)
 
                 @job_log_keys = SidekiqWeb.group_job_progress_stage_log_keys(conn, @job_stats_all_time)
-
-                @job_stats.reject!{|job| !@job_stats_all_time.key?(job) } unless @job_prefix == '*' && @queue_name == '*'
               end
 
               if @queue_name != '*'
