@@ -173,6 +173,7 @@
           </tr>
           <tr>
             <td rowspan="<%= (total_stats.keys.size-1) * 2 + 1 %>">
+              <small>
               <% if processing_flag %>
                 <a class="no-decoration" href="<%= root_path %>job_stats/processing/<%= job_name %>/*/*">
                   Processing flags
@@ -184,13 +185,16 @@
                   All logs
                 </a>
               <% end %>
+            </small>
             </td>
             <td>
+              <small>
               <% if @job_log_keys[job_name] && @job_log_keys[job_name][queue_name] %>
                 <a class="no-decoration nowrap" href="<%= root_path %>job_stats/logs/<%= @today %>/<%= job_name %>/<%= queue_name %>/*">
                   logs
                 </a>
               <% end %>
+              </small>
             </td>
             <td class="text-center">
               <% if perform_uniqueness_flag.positive? %>
@@ -244,7 +248,7 @@
               </td>
               <td class="text-center">
                 <% if enqueue_uniqueness_flag.positive? %>
-                  <a class="no-decoration break-all" href="<%= root_path %>job_stats/uniqueness/<%= job_name %>/<%= queue_name %>/enqueue">
+                  <a class="no-decoration" href="<%= root_path %>job_stats/uniqueness/<%= job_name %>/<%= queue_name %>/enqueue" title="View uniqueness flags">
                     <%= stats_label(zero_to_empty(enqueue_uniqueness_flag), 'warning') %>
                   </a>
                 <% end %>
@@ -265,15 +269,17 @@
             </tr>
             <tr>
               <td>
-                <% if @job_log_keys[job_name] && @job_log_keys[job_name][queue_name] %>
-                  <a class="no-decoration nowrap" href="<%= root_path %>job_stats/logs/<%= @today %>/<%= job_name %>/<%= queue_name %>/*">
-                    logs
-                  </a>
-                <% end %>
+                <small>
+                  <% if @job_log_keys[job_name] && @job_log_keys[job_name][queue_name] %>
+                    <a class="no-decoration nowrap" href="<%= root_path %>job_stats/logs/<%= @today %>/<%= job_name %>/<%= queue_name %>/*">
+                      logs
+                    </a>
+                  <% end %>
+                </small>
               </td>
               <td class="text-center">
                 <% if perform_uniqueness_flag.positive? %>
-                  <a class="no-decoration break-all" href="<%= root_path %>job_stats/uniqueness/<%= job_name %>/<%= queue_name %>/perform">
+                  <a class="no-decoration" href="<%= root_path %>job_stats/uniqueness/<%= job_name %>/<%= queue_name %>/perform" title="View uniqueness flags">
                     <%= stats_label(zero_to_empty(perform_uniqueness_flag), 'warning') %>
                   </a>
                 <% end %>
