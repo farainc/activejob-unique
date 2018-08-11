@@ -22,7 +22,7 @@ module ActiveJob
               @job_stats_all_time = {}
               @job_log_keys = {}
               @uniqueness_flag_keys = {}
-              @count = (params[:count] || 20).to_i
+              @count = (params[:count] || 10).to_i
               @current_page = params[:page].to_i
               @current_page = 1 if @current_page < 1
 
@@ -71,7 +71,7 @@ module ActiveJob
               @stage = route_params[:stage]
               @job_stats = []
 
-              @count = (params[:count] || 20).to_i
+              @count = (params[:count] || 25).to_i
               @current_page = params[:page].to_i
               @current_page = 1 if @current_page < 1
 
@@ -123,7 +123,7 @@ module ActiveJob
               @uniqueness_id = route_params[:uniqueness_id]
               @job_stats = []
 
-              @count = (params[:count] || 20).to_i
+              @count = (params[:count] || 25).to_i
               @current_page = params[:page].to_i
               @current_page = 1 if @current_page < 1
 
@@ -179,7 +179,7 @@ module ActiveJob
               @uniqueness_id = route_params[:uniqueness_id].to_s
               @uniqueness_id = '*' unless @uniqueness_id.size == 32
 
-              @count = (params[:count] || 20).to_i
+              @count = (params[:count] || 25).to_i
               @current_page = params[:page].to_i
               @current_page = 1 if @current_page < 1
 
