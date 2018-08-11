@@ -17,12 +17,27 @@ module ActiveJob
         UNIQUENESS_ID_SCORE_BASE  = ActiveJob::Unique::ApiBase::UNIQUENESS_ID_SCORE_BASE
 
         class << self
-          def regroup_job_progress_stats(job_progress_stats_key, job_names, conn)
-            stats_job_group = {}
+          def regroup_job_progress_stats_today(conn, job_names, queue_name_filter, count)
+            regroup_job_progress_stats(conn, job_names, queue_name_filter, count, sequence_today)
+          end
 
-            conn.hscan_each(job_progress_stats_key, count: 1000) do |name, value|
+          def regroup_job_progress_stats(conn, job_names, queue_name_filter, count, today = nil)
+            job_progress_stats_key = job_progress_stats
+            job_progress_stats_key = "#{job_progress_stats_key}:#{today}" if today
+
+            stats_job_group = {}
+            matched_job_names = {}
+            match_filter = "*#{PROGRESS_STATS_SEPARATOR}#{queue_name_filter}#{PROGRESS_STATS_SEPARATOR}*"
+            next_page_availabe = false
+
+            conn.hscan_each(job_progress_stats_key, match: match_filter, count: 100) do |name, value|
               job_name, queue_name, progress_stage = name.to_s.split(PROGRESS_STATS_SEPARATOR)
-              next unless job_names.include?(job_name)
+              next unless queue_name_filter == '*' || queue_name == queue_name_filter
+
+              next_page_availabe ||= (matched_job_names.size == count && !matched_job_names.key?(job_name))
+              next unless job_names.include?(job_name) && (matched_job_names.size < count || matched_job_names.key?(job_name))
+
+              matched_job_names[job_name] = true if matched_job_names.size < count
 
               stage, progress = progress_stage.split('_')
               next if queue_name.to_s.empty? || stage.to_s.empty? || progress.to_s.empty?
@@ -35,7 +50,7 @@ module ActiveJob
               stats_job_group[job_name][queue_name][stage][progress] = value
             end
 
-            stats_job_group
+            [next_page_availabe, stats_job_group]
           end
 
           def cleanup_yesterday_progress_stats(conn, now)

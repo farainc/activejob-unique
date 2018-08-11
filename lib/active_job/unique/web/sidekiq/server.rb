@@ -6,9 +6,17 @@ module ActiveJob
           def self.registered(app)
             # index page of stats
             app.get '/job_stats' do
+              redirect '/job_stats/*/*'
+            end
+
+            app.get '/job_stats/:job_prefix/:queue_name' do
               view_path = File.join(File.expand_path(__dir__), 'views')
 
               @today = SidekiqWeb.sequence_today
+
+              @job_prefix = route_params[:job_prefix].to_s
+              @queue_name = route_params[:queue_name].to_s
+              @all_jobs = []
 
               @job_stats = {}
               @job_stats_today = {}
@@ -20,30 +28,32 @@ module ActiveJob
               @current_page = 1 if @current_page < 1
 
               Sidekiq.redis_pool.with do |conn|
-                @total_size = conn.zcount(SidekiqWeb.job_progress_stats_jobs, '-inf', '+inf')
+                @all_jobs = conn.zrevrange(SidekiqWeb.job_progress_stats_jobs, 0, -1)
 
-                SidekiqWeb.cleanup_yesterday_progress_stats(conn, Time.now.utc)
+                SidekiqWeb.cleanup_yesterday_progress_stats(conn, Time.now.utc) if @job_prefix == '*' && @queue_name == '*'
               end
+
+              @all_jobs.reject!{|job| (job =~ /^#{@job_prefix}/i) != 0 } if @job_prefix != '*'
+              @total_size = @all_jobs.size
 
               begin_index = (@current_page - 1) * @count
-              if begin_index > @total_size
-                begin_index = 0
-                @current_page = 1
-              end
-              end_index = begin_index + @count - 1
+              next_page_availabe = false
 
               Sidekiq.redis_pool.with do |conn|
-                job_names = conn.zrevrange(SidekiqWeb.job_progress_stats_jobs, begin_index, end_index)
+                next_page_availabe, @job_stats_today = SidekiqWeb.regroup_job_progress_stats_today(conn, @all_jobs, @queue_name, @count)
+                next_page_availabe, @job_stats_all_time = SidekiqWeb.regroup_job_progress_stats(conn, @all_jobs, @queue_name, @count)
 
-                @job_stats_all_time = SidekiqWeb.regroup_job_progress_stats(SidekiqWeb.job_progress_stats, job_names, conn)
-                @job_stats_today = SidekiqWeb.regroup_job_progress_stats("#{SidekiqWeb.job_progress_stats}:#{@today}", job_names, conn)
-
-                @uniqueness_flag_keys = SidekiqWeb.group_job_progress_stage_uniqueness_flag_keys(conn, job_names)
-                @processing_flag_keys = SidekiqWeb.group_job_progress_stage_processing_flag_keys(conn, job_names)
+                @uniqueness_flag_keys = SidekiqWeb.group_job_progress_stage_uniqueness_flag_keys(conn, @job_stats_all_time.keys)
+                @processing_flag_keys = SidekiqWeb.group_job_progress_stage_processing_flag_keys(conn, @job_stats_all_time.keys)
 
                 @job_log_keys = SidekiqWeb.group_job_progress_stage_log_keys(conn, @job_stats_all_time)
 
-                @job_stats = job_names
+                @job_stats = @job_stats_all_time.keys
+              end
+
+              if @queue_name != '*'
+                @total_size = @count * (@current_page - 1) + @job_stats.size
+                @total_size += 1 if next_page_availabe
               end
 
               render(:erb, File.read(File.join(view_path, 'index.erb')))
