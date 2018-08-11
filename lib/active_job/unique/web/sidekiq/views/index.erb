@@ -77,7 +77,7 @@
 %>
 <div class='row header'>
   <div class='col-sm-5 col-xs-12'>
-    <h3><a href="<%= root_path %>job_stats">Job Stats</a> / <span class="title"><%= @total_size %> jobs</span>
+    <h3><a class="no-decoration" href="<%= root_path %>job_stats">Job Stats</a> / <span class="title"><%= @total_size %> jobs</span>
   </div>
   <div class='col-sm-7 col-xs-12'>
     <% if @job_stats.size > 0 && @total_size > @count %>
