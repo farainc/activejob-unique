@@ -329,3 +329,7 @@
 <% else %>
   <div class='alert alert-success'>No job found in sidekiq</div>
 <% end %>
+
+<% if @job_prefix == '*' && @queue_name == '*' %>
+<iframe src="/job_stats/cleanup" style="display:none"></iframe>
+<% end %>
