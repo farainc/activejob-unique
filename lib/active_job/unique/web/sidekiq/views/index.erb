@@ -81,7 +81,7 @@
   </div>
   <div class='col-sm-7 col-xs-12'>
     <% if @job_stats.size > 0 && @total_size > @count %>
-      <%= erb :_paging, :locals => { :url => "#{root_path}job_stats" } %>
+      <%= erb :_paging, :locals => { :url => "#{root_path}job_stats/#{@job_prefix}/#{@queue_name}" } %>
     <% end %>
   </div>
 </div>
