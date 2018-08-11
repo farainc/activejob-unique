@@ -16,9 +16,8 @@ module ActiveJob
 
               @job_prefix = route_params[:job_prefix].to_s
               @queue_name = route_params[:queue_name].to_s
-              @all_jobs = []
 
-              @job_stats = {}
+              @job_stats = []
               @job_stats_today = {}
               @job_stats_all_time = {}
               @job_log_keys = {}
@@ -27,28 +26,33 @@ module ActiveJob
               @current_page = params[:page].to_i
               @current_page = 1 if @current_page < 1
 
-              Sidekiq.redis_pool.with do |conn|
-                @all_jobs = conn.zrevrange(SidekiqWeb.job_progress_stats_jobs, 0, -1)
-
-                SidekiqWeb.cleanup_yesterday_progress_stats(conn, Time.now.utc) if @job_prefix == '*' && @queue_name == '*'
-              end
-
-              @all_jobs.reject!{|job| (job =~ /^#{@job_prefix}/i) != 0 } if @job_prefix != '*'
-              @total_size = @all_jobs.size
-
               begin_index = (@current_page - 1) * @count
               next_page_availabe = false
 
               Sidekiq.redis_pool.with do |conn|
-                next_page_availabe, @job_stats_today = SidekiqWeb.regroup_job_progress_stats_today(conn, @all_jobs, @queue_name, @count)
-                next_page_availabe, @job_stats_all_time = SidekiqWeb.regroup_job_progress_stats(conn, @all_jobs, @queue_name, @count)
+                if @job_prefix == '*' && @queue_name == '*'
+                  @total_size = conn.zcount(SidekiqWeb.job_progress_stats_jobs, '-inf', '+inf')
+                  @job_stats = conn.zrevrange(SidekiqWeb.job_progress_stats_jobs, begin_index, begin_index + @count - 1)
+
+                  SidekiqWeb.cleanup_yesterday_progress_stats(conn, Time.now.utc)
+                else
+                  @job_stats = conn.zrevrange(SidekiqWeb.job_progress_stats_jobs, 0, -1)
+                  @job_stats.reject!{|job| (job =~ /^#{@job_prefix}/i) != 0 } if @job_prefix != '*'
+
+                  @total_size = @job_stats.size
+                end
+              end
+
+              Sidekiq.redis_pool.with do |conn|
+                next_page_availabe, @job_stats_today = SidekiqWeb.regroup_job_progress_stats_today(conn, @job_stats, @queue_name, @count)
+                next_page_availabe, @job_stats_all_time = SidekiqWeb.regroup_job_progress_stats(conn, @job_stats, @queue_name, @count)
 
                 @uniqueness_flag_keys = SidekiqWeb.group_job_progress_stage_uniqueness_flag_keys(conn, @job_stats_all_time.keys)
                 @processing_flag_keys = SidekiqWeb.group_job_progress_stage_processing_flag_keys(conn, @job_stats_all_time.keys)
 
                 @job_log_keys = SidekiqWeb.group_job_progress_stage_log_keys(conn, @job_stats_all_time)
 
-                @job_stats = @job_stats_all_time.keys
+                @job_stats.reject!{|job| !@job_stats_all_time.key?(job) } unless @job_prefix == '*' && @queue_name == '*'
               end
 
               if @queue_name != '*'
