@@ -20,12 +20,21 @@ module ActiveJob
           return unless valid_uniqueness_mode?(job.uniqueness_mode)
 
           case job.uniqueness_progress_stage
-          when PROGRESS_STAGE_ENQUEUE_PROCESSING, PROGRESS_STAGE_ENQUEUE_PROCESSED, PROGRESS_STAGE_PERFORM_PROCESSING
+          when PROGRESS_STAGE_ENQUEUE_PROCESSING, PROGRESS_STAGE_PERFORM_PROCESSING
             set_progress_stage_state(job)
+          when PROGRESS_STAGE_ENQUEUE_PROCESSED
+            progress_stage, timestamp, job_id = get_progress_stage_state(job)
+
+            if progress_stage.to_s.to_sym == PROGRESS_STAGE_ENQUEUE_PROCESSING &&
+               timestamp.to_f < job.uniqueness_timestamp.to_f &&
+               job_id == job.job_id
+
+              set_progress_stage_state(job)
+            end
           when PROGRESS_STAGE_ENQUEUE_FAILED
             cleanup_progress_state_stage(job)
             cleanup_progress_stage_state_flag(job, PROGRESS_STAGE_ENQUEUE_PROCESSING)
-          when PROGRESS_STAGE_PERFORM_PROCESSED, PROGRESS_STAGE_PERFORM_FAILED
+          when PROGRESS_STAGE_PERFORM_FAILED, PROGRESS_STAGE_PERFORM_PROCESSED
             cleanup_progress_state_stage(job)
             cleanup_progress_stage_state_flag(job, PROGRESS_STAGE_PERFORM_PROCESSING)
           end
@@ -53,7 +62,8 @@ module ActiveJob
 
           if job.queue_adapter.uniqueness_another_job_in_queue?(
             job.queue_name,
-            timestamp)
+            timestamp
+          )
 
             job.uniqueness_skipped_reason = "[#{job.uniqueness_progress_stage_group}] another_job_in_queue"
 
@@ -100,7 +110,8 @@ module ActiveJob
             job.class.name,
             job.queue_name,
             job.uniqueness_id,
-            job.job_id)
+            job.job_id
+          )
 
             job.uniqueness_skipped_reason = "[#{job.uniqueness_progress_stage_group}] another_job_in_worker"
 
