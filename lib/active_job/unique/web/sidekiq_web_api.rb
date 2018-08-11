@@ -182,7 +182,7 @@ module ActiveJob
                 queue = sidekiq_queues[queue_name] || Sidekiq::Queue.new(queue_name)
                 next if queue.latency > (Time.now.utc.to_f - progress_at)
               elsif (progress_stage =~ /^perform/i) == 0
-                next if Workers.any? {|_p, _t, w| w['queue'] == queue_name && w['payload']['wrapped'] == job_name && w['payload']['args'][0]['uniqueness_id'] == uniqueness_id && w['payload']['args'][0]['job_id'] == job_id }
+                next if sidekiq_workers.any? {|_p, _t, w| w['queue'] == queue_name && w['payload']['wrapped'] == job_name && w['payload']['args'][0]['uniqueness_id'] == uniqueness_id && w['payload']['args'][0]['job_id'] == job_id }
               end
 
               conn.hdel(state_key, name)
