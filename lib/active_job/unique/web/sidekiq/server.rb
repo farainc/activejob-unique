@@ -33,8 +33,6 @@ module ActiveJob
                 if @job_prefix == '*' && @queue_name == '*'
                   @total_size = conn.zcount(SidekiqWeb.job_progress_stats_jobs, '-inf', '+inf')
                   @job_stats = conn.zrevrange(SidekiqWeb.job_progress_stats_jobs, begin_index, begin_index + @count - 1)
-
-                  SidekiqWeb.cleanup_yesterday_progress_stats(conn, Time.now.utc)
                 else
                   @job_stats = conn.zrevrange(SidekiqWeb.job_progress_stats_jobs, 0, -1)
                   @job_stats.reject!{|job| (job =~ /^#{@job_prefix}/i) != 0 } if @job_prefix != '*'
@@ -196,11 +194,6 @@ module ActiveJob
                   @count,
                   begin_index
                 )
-
-                # when first page display, always clean logs data 8 days ago
-                if @current_page == 1 && @queue_name == '*' && @uniqueness_id == '*'
-                  SidekiqWeb.cleanup_job_progress_stage_logs(conn, SidekiqWeb.sequence_day(Time.now.utc - 3600 * 24 * 7), @job_name, @queue_name, @uniqueness_id)
-                end
               end
 
               @total_size = @count * (@current_page - 1) + @job_logs.size
@@ -273,6 +266,16 @@ module ActiveJob
               end
 
               redirect URI(request.referer).path
+            end
+
+            app.get '/job_stats/cleanup' do
+              Sidekiq.redis_pool.with do |conn|
+                SidekiqWeb.cleanup_expired_progress_stats(conn)
+                SidekiqWeb.cleanup_expired_job_progress_state_uniqueness(conn)
+                SidekiqWeb.cleanup_expired_job_progress_stage_logs(conn)
+              end
+
+              json({cleanup: 'OK'})
             end
           end
         end

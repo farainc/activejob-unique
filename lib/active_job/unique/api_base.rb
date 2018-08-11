@@ -48,16 +48,20 @@ module ActiveJob
           "#{PROGRESS_STATS_PREFIX}:stats"
         end
 
+        def job_progress_stage_state
+          "#{PROGRESS_STATS_PREFIX}:state"
+        end
+
+        def job_progress_stats_cleanup
+          "#{PROGRESS_STATS_PREFIX}:cleanup"
+        end
+
         def job_progress_stats_jobs
           "#{job_progress_stats}:jobs"
         end
 
         def job_progress_stats_job_key(job_name, queue_name, progress_stage)
           "#{job_name}#{PROGRESS_STATS_SEPARATOR}#{queue_name}#{PROGRESS_STATS_SEPARATOR}#{progress_stage}"
-        end
-
-        def job_progress_stage_state
-          "#{PROGRESS_STATS_PREFIX}:state"
         end
 
         def job_progress_stage_state_key(job_name, queue_name, uniqueness_id, stage)
