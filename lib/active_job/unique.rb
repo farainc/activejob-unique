@@ -1,18 +1,21 @@
+require 'sidekiq'
+
 require_relative 'unique/compatible'
 require_relative 'unique/api'
 require_relative 'unique/core'
-require_relative 'unique/queue_adapters'
+require_relative 'unique/adapters'
 
 require_relative 'unique/version'
 
 module ActiveJob
   module Unique
-    extend ActiveSupport::Autoload
-
     UNIQUENESS_MODE_WHILE_EXECUTING = :while_executing
     UNIQUENESS_MODE_UNTIL_TIMEOUT = :until_timeout
     UNIQUENESS_MODE_UNTIL_EXECUTING = :until_executing
     UNIQUENESS_MODE_UNTIL_AND_WHILE_EXECUTING = :until_and_while_executing
+
+    PROGRESS_STAGE_ENQUEUE_GROUP = :enqueue
+    PROGRESS_STAGE_PERFORM_GROUP = :perform
 
     PROGRESS_STAGE_ENQUEUE_ATTEMPTED = :enqueue_attempted
     PROGRESS_STAGE_ENQUEUE_PROCESSING = :enqueue_processing
@@ -45,18 +48,13 @@ module ActiveJob
 
     PROGRESS_STAGE = PROGRESS_STAGE_ENQUEUE + PROGRESS_STAGE_PERFORM
 
-    PROGRESS_STATE_EXPIRATION = 30.seconds
+    PROGRESS_STATE_EXPIRATION = 30
     PROGRESS_STATS_SEPARATOR = 0x1E.chr
     PROGRESS_STATS_PREFIX = :job_progress_stats
 
     DAY_SCORE_BASE    = 100_000_000_000_000
-    QUEUE_SCORE_BASE  = 10_000_000_000_000
-    DAILY_SCORE_BASE  = 1_000_000_000
+    QUEUE_SCORE_BASE  = 1_000_000_000_000
+    DAILY_SCORE_BASE  = 10_000_000
     UNIQUENESS_ID_SCORE_BASE = 10_000
-
-    autoload :Compatible
-    autoload :Api
-    autoload :Core
-    autoload :QueueAdapters
   end
 end

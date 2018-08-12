@@ -1,6 +1,9 @@
 require 'active_support/concern'
 require 'active_job/base'
 
+require_relative 'compatible'
+require_relative 'api'
+
 module ActiveJob
   module Unique
     module Core
@@ -31,9 +34,9 @@ module ActiveJob
           @uniqueness_debug ||= job.class.uniqueness_debug
           @uniqueness_expiration ||= job.class.uniqueness_expiration
           @uniqueness_timestamp = Time.now.utc
-          @uniqueness_progress_stage_group = 'enqueue'
+          @uniqueness_progress_stage_group = PROGRESS_STAGE_ENQUEUE_GROUP
 
-          uniqueness_api.progress_stats_initialize(job)
+          uniqueness_api.initialize_progress_stats(job)
 
           @uniqueness_progress_stage = PROGRESS_STAGE_ENQUEUE_ATTEMPTED
           uniqueness_api.incr_progress_stats(job)
@@ -72,9 +75,9 @@ module ActiveJob
         end
 
         before_perform do |job|
-          @uniqueness_progress_stage_group = 'perform'
+          @uniqueness_progress_stage_group = PROGRESS_STAGE_PERFORM_GROUP
 
-          uniqueness_api.progress_stats_initialize(job)
+          uniqueness_api.initialize_progress_stats(job)
 
           @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_ATTEMPTED
           uniqueness_api.incr_progress_stats(job)

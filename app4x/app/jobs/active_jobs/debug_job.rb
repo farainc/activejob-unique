@@ -1,7 +1,4 @@
-require 'active_job/unique/web/sidekiq_web_api'
-
 class ActiveJobs::DebugJob < ApplicationJob
-  include ActiveJob::Unique::Web::SidekiqWebApi
   queue_as :default
 
 
@@ -22,7 +19,13 @@ class ActiveJobs::DebugJob < ApplicationJob
       byebug
     end
 
-    byebug  
+    byebug
+  end
+
+  def self.cleanup
+    self.queue_adapter.uniqueness_api.cleanup_expired_progress_stats
+    self.queue_adapter.uniqueness_api.cleanup_expired_progress_state_uniqueness
+    self.queue_adapter.uniqueness_api.cleanup_expired_progress_stage_logs
   end
 
   before_enqueue do |job|

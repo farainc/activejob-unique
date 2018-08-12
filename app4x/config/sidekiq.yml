@@ -7,8 +7,8 @@ production:
   :concurrency: 20
 :queues:
   - [fk_default, 50]
-  # - [fk_without_unique, 50]
-  # - [fk_with_unique, 50]
-  # - [fk_with_timeout, 50]
-  # - [fk_with_enqueue_only, 50]
-  # - [fk_with_perform_only, 50]
+  - [fk_without_unique, 50]
+  - [fk_with_unique, 50]
+  - [fk_with_timeout, 50]
+  - [fk_with_enqueue_only, 50]
+  - [fk_with_perform_only, 50]

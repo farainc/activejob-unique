@@ -1,19 +1,9 @@
 require 'active_support/concern'
-require 'active_job/base'
 
 module ActiveJob
   module Unique
     module ApiBase
       extend ActiveSupport::Concern
-
-      PROGRESS_STATE_EXPIRATION = 30.seconds
-      PROGRESS_STATS_SEPARATOR = 0x1E.chr
-      PROGRESS_STATS_PREFIX = :job_progress_stats
-
-      DAY_SCORE_BASE    = 100_000_000_000_000
-      QUEUE_SCORE_BASE  = 10_000_000_000_000
-      DAILY_SCORE_BASE  = 1_000_000_000
-      UNIQUENESS_ID_SCORE_BASE = 10_000
 
       module ClassMethods
         # uniqueness job
@@ -90,8 +80,18 @@ module ActiveJob
           "#{job_progress_stage_logs}#{PROGRESS_STATS_SEPARATOR}#{job_name}"
         end
 
-        def cleanup_all_progress_stats(job)
-          job.queue_adapter.uniqueness_cleanup_all_progress_stats("#{PROGRESS_STATS_PREFIX}*")
+        def ensure_job_stage_log_day_base(day)
+          (day % 8 + 1) * DAY_SCORE_BASE
+        end
+
+        def ensure_job_stage_log_queue_id_base(queue_id_score)
+          return 0 unless queue_id_score.positive?
+
+          ((queue_id_score - 1) % 98 + 1) * QUEUE_SCORE_BASE
+        end
+
+        def ensure_job_stage_log_uniqueness_id_base(uniqueness_id_score)
+          uniqueness_id_score * UNIQUENESS_ID_SCORE_BASE
         end
       end
     end
