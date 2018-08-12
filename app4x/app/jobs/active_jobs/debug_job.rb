@@ -26,6 +26,8 @@ class ActiveJobs::DebugJob < ApplicationJob
     self.queue_adapter.uniqueness_api.cleanup_expired_progress_stats
     self.queue_adapter.uniqueness_api.cleanup_expired_progress_state_uniqueness
     self.queue_adapter.uniqueness_api.cleanup_expired_progress_stage_logs
+
+    # Sidekiq.redis_pool.with{|c| c.keys('job_progress_stats*').each{|k| c.del(k)}}
   end
 
   before_enqueue do |job|
