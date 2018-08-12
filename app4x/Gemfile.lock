@@ -1,7 +1,7 @@
 PATH
   remote: ..
   specs:
-    activejob-unique (0.3.0)
+    activejob-unique (0.5.0)
       activejob
       activesupport
       sidekiq (>= 4.2, < 6)

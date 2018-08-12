@@ -1,10 +1,8 @@
-require 'active_support/concern'
-require 'active_job/base'
-
 require_relative 'api_base'
 require_relative 'api_stats'
 require_relative 'api_state'
 require_relative 'api_logging'
+require_relative 'api_cleanup'
 
 module ActiveJob
   module Unique
@@ -13,6 +11,7 @@ module ActiveJob
       include ActiveJob::Unique::ApiStats
       include ActiveJob::Unique::ApiState
       include ActiveJob::Unique::ApiLogging
+      include ActiveJob::Unique::ApiCleanup
 
       class << self
         def ensure_progress_stage_state(job)
@@ -32,11 +31,11 @@ module ActiveJob
               set_progress_stage_state(job)
             end
           when PROGRESS_STAGE_ENQUEUE_FAILED
-            cleanup_progress_state_stage(job)
-            cleanup_progress_stage_state_flag(job, PROGRESS_STAGE_ENQUEUE_PROCESSING)
+            expire_progress_state_stage(job)
+            expire_progress_stage_state_flag(job, PROGRESS_STAGE_ENQUEUE_PROCESSING)
           when PROGRESS_STAGE_PERFORM_FAILED, PROGRESS_STAGE_PERFORM_PROCESSED
-            cleanup_progress_state_stage(job)
-            cleanup_progress_stage_state_flag(job, PROGRESS_STAGE_PERFORM_PROCESSING)
+            expire_progress_state_stage(job)
+            expire_progress_stage_state_flag(job, PROGRESS_STAGE_PERFORM_PROCESSING)
           end
         end
 
@@ -60,7 +59,7 @@ module ActiveJob
 
           return false unless [PROGRESS_STAGE_ENQUEUE_PROCESSING, PROGRESS_STAGE_ENQUEUE_PROCESSED].include?(progress_stage_state.to_s.to_sym)
 
-          if job.queue_adapter.uniqueness_another_job_in_queue?(
+          if job.queue_adapter.uniqueness_api.another_job_in_queue?(
             job.queue_name,
             timestamp
           )
@@ -106,7 +105,7 @@ module ActiveJob
 
           return false unless PROGRESS_STAGE_PERFORM_PROCESSING == progress_stage_state.to_s.to_sym
 
-          if job.queue_adapter.uniqueness_another_job_in_worker?(
+          if job.queue_adapter.uniqueness_api.another_job_in_worker?(
             job.class.name,
             job.queue_name,
             job.uniqueness_id,
@@ -153,7 +152,7 @@ module ActiveJob
             PROGRESS_STAGE_PERFORM_TIMEOUT
           )
 
-          job.queue_adapter.uniqueness_get_progress_stage_state_flag(state_key).to_f
+          job.queue_adapter.uniqueness_api.get_progress_stage_state_flag(state_key).to_f
         end
 
         def set_until_timeout_uniqueness_mode_expiration(job)
@@ -174,8 +173,8 @@ module ActiveJob
           expiration = expires.to_i - Time.now.utc.to_i
           expiration += 10
 
-          job.queue_adapter.uniqueness_set_progress_stage_state_flag(state_key, state_value)
-          job.queue_adapter.uniqueness_expire_progress_stage_state_flag(state_key, expiration)
+          job.queue_adapter.uniqueness_api.set_progress_stage_state_flag(state_key, state_value)
+          job.queue_adapter.uniqueness_api.expire_progress_stage_state_flag(state_key, expiration)
         end
 
         def another_job_not_expired_yet?(job)

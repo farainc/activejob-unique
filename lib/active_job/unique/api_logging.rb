@@ -1,5 +1,4 @@
 require 'active_support/concern'
-require 'active_job/base'
 
 module ActiveJob
   module Unique
@@ -12,9 +11,9 @@ module ActiveJob
           return if job.arguments.blank?
 
           log_data_key = job_progress_stage_log_key(job.class.name)
-          log_data_field = "#{sequence_day(job.uniqueness_timestamp) % 9}#{PROGRESS_STATS_SEPARATOR}#{job.uniqueness_id}"
+          log_data_field = "#{(sequence_day(job.uniqueness_timestamp) % 8) + 1}#{PROGRESS_STATS_SEPARATOR}#{job.uniqueness_id}"
 
-          job.queue_adapter.uniqueness_set_progress_stage_log_data(log_data_key, log_data_field, JSON.dump(job.arguments))
+          job.queue_adapter.uniqueness_api.set_progress_stage_log_data(log_data_key, log_data_field, JSON.dump(job.arguments))
         end
 
         def incr_progress_stage_log(job)
@@ -39,7 +38,7 @@ module ActiveJob
 
           job_log_value = job_log_values.join(PROGRESS_STATS_SEPARATOR)
 
-          job.queue_adapter.uniqueness_incr_progress_stage_log(
+          job.queue_adapter.uniqueness_api.incr_progress_stage_log(
             day,
             job_score_key,
             job.queue_name,
@@ -48,24 +47,6 @@ module ActiveJob
             progress_stage_score,
             job_log_key,
             job_log_value
-          )
-        end
-
-        def cleanup_progress_stage_logs(job, time)
-          job_name = job.class.name
-          day = sequence_day(time)
-          job_score_key = "#{job_progress_stage_log_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_score"
-          job_log_key = "#{job_progress_stage_log_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_logs"
-
-          log_data_key = job_progress_stage_log_key(job_name)
-          log_data_field_match = "#{(day % 9)}#{PROGRESS_STATS_SEPARATOR}*"
-
-          job.queue_adapter.uniqueness_cleanup_progress_stage_logs(
-            day,
-            job_score_key,
-            job_log_key,
-            log_data_key,
-            log_data_field_match
           )
         end
 

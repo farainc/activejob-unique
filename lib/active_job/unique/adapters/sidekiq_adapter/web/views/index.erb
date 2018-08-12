@@ -192,7 +192,7 @@
             <% end %>
           </tr>
           <tr>
-            <td rowspan="<%= (total_stats.keys.size-1) * 2 + 1 %>">
+            <td rowspan="<%= ((total_stats.keys.size-1) rescue 0) * 2 + 1 %>">
               <small>
               <% if processing_flag %>
                 <a class="no-decoration" href="<%= root_path %>job_stats/processing/<%= job_name %>/*/*">
@@ -331,5 +331,11 @@
 <% end %>
 
 <% if @job_prefix == '*' && @queue_name == '*' %>
-<iframe src="/job_stats/cleanup" style="display:none"></iframe>
+  <script>
+    function cleanupJobStats() {
+      $.ajax({url: '/job_stats/cleanup', dataType: 'json'}).done(function(data) { setTimeout(cleanupJobStats, 30000);});
+    }
+
+    cleanupJobStats();
+  </script>
 <% end %>
