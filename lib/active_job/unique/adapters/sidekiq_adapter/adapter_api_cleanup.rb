@@ -32,7 +32,7 @@ module ActiveJob
             def cleanup_expired_progress_state_uniqueness(force_cleanup = false)
               Sidekiq.redis_pool.with do |conn|
                 now = Time.now.utc.to_f
-                timestamp = conn.hget(job_progress_stats_cleanup, 'cleanup_expired_job_progress_state_uniqueness').to_f
+                timestamp = conn.hget(job_progress_stats_cleanup, 'cleanup_expired_progress_state_uniqueness').to_f
                 return false if !force_cleanup && timestamp > now
 
                 state_key = job_progress_stage_state
@@ -61,7 +61,7 @@ module ActiveJob
                   conn.hdel(state_key, name)
                 end
 
-                conn.hset(job_progress_stats_cleanup, 'cleanup_expired_job_progress_state_uniqueness', (Time.now.utc + 60).to_f)
+                conn.hset(job_progress_stats_cleanup, 'cleanup_expired_progress_state_uniqueness', (Time.now.utc + 60).to_f)
               end
 
               true
@@ -72,7 +72,7 @@ module ActiveJob
                 now = Time.now.utc.to_f
                 day = sequence_day(Date.today - 8)
 
-                timestamp = conn.hget(job_progress_stats_cleanup, 'cleanup_expired_job_progress_stage_logs').to_f
+                timestamp = conn.hget(job_progress_stats_cleanup, 'cleanup_expired_progress_stage_logs').to_f
                 return false if !force_cleanup && timestamp > now
 
                 conn.zrange(job_progress_stats_jobs, 0, -1).each do |job_name|
@@ -84,7 +84,7 @@ module ActiveJob
                   cleanup_progress_stage_logs(day, job_score_key, job_log_key, log_data_key, log_data_field_match)
                 end
 
-                conn.hset(job_progress_stats_cleanup, 'cleanup_expired_job_progress_stage_logs', (Date.today.to_time + 3600 * 26).to_f)
+                conn.hset(job_progress_stats_cleanup, 'cleanup_expired_progress_stage_logs', (Date.today.to_time + 3600 * 26).to_f)
               end
 
               true
