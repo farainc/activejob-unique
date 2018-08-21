@@ -9,7 +9,7 @@ module ActiveJob
             extend ActiveSupport::Concern
 
             module ClassMethods
-              def query_job_progress_stats_job_names_by_queue_name(job_names, queue_name_filter, current_page)
+              def query_job_progress_stats_job_names(job_names, queue_name_filter, current_page)
                 matched_job_names = []
                 queue_name_jobs_field_key = "queue_name_jobs:#{queue_name_filter}"
 
@@ -24,7 +24,7 @@ module ActiveJob
                     match_filter = "*#{PROGRESS_STATS_SEPARATOR}#{queue_name_filter}#{PROGRESS_STATS_SEPARATOR}*"
 
                     conn.hscan_each(job_progress_stats_key, match: match_filter, count: 100) do |name, value|
-                      next if queue_name.to_s.empty?
+                      job_name, queue_name, progress_stage = name.to_s.split(PROGRESS_STATS_SEPARATOR)
                       next unless job_names.include?(job_name)
 
                       matched_job_name_collection[job_name] = true
