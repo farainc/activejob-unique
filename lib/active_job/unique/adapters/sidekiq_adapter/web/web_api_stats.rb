@@ -9,30 +9,53 @@ module ActiveJob
             extend ActiveSupport::Concern
 
             module ClassMethods
-              def regroup_job_progress_stats_today(job_names, queue_name_filter, begin_match_index, count)
-                regroup_job_progress_stats(job_names, queue_name_filter, begin_match_index, count, sequence_today)
+              def query_job_progress_stats_job_names_by_queue_name(job_names, queue_name_filter, current_page)
+                matched_job_names = []
+                queue_name_jobs_field_key = "queue_name_jobs:#{queue_name_filter}"
+
+                Sidekiq.redis_pool.with do |conn|
+                  # read matched_job_names from redis cache
+                  matched_job_names = conn.hget(job_progress_stats_key, queue_name_jobs_field_key).split(PROGRESS_STATS_SEPARATOR) if current_page > 1
+
+                  if matched_job_names.size == 0
+                    job_progress_stats_key = job_progress_stats
+
+                    matched_job_name_collection = {}
+                    match_filter = "*#{PROGRESS_STATS_SEPARATOR}#{queue_name_filter}#{PROGRESS_STATS_SEPARATOR}*"
+
+                    conn.hscan_each(job_progress_stats_key, match: match_filter, count: 100) do |name, value|
+                      next if queue_name.to_s.empty?
+                      next unless job_names.include?(job_name)
+
+                      matched_job_name_collection[job_name] = true
+                    end
+
+                    matched_job_names = matched_job_name_collection.keys
+
+                    # save matched_job_names to redis cache
+                    conn.hset(job_progress_stats_key, queue_name_jobs_field_key, matched_job_names.join(PROGRESS_STATS_SEPARATOR))
+                  end
+                end
+
+                matched_job_names
               end
 
-              def regroup_job_progress_stats(job_names, queue_name_filter, begin_match_index, count, today = nil)
+              def regroup_job_progress_stats_today(job_names, queue_name_filter)
+                regroup_job_progress_stats(job_names, queue_name_filter, sequence_today)
+              end
+
+              def regroup_job_progress_stats(job_names, queue_name_filter, today = nil)
+                stats_job_group = {}
+
                 Sidekiq.redis_pool.with do |conn|
                   job_progress_stats_key = job_progress_stats
                   job_progress_stats_key = "#{job_progress_stats_key}:#{today}" if today
 
-                  stats_job_group = {}
-                  matched_job_names = {}
                   match_filter = "*#{PROGRESS_STATS_SEPARATOR}#{queue_name_filter}#{PROGRESS_STATS_SEPARATOR}*"
-                  next_page_availabe = false
 
                   conn.hscan_each(job_progress_stats_key, match: match_filter, count: 100) do |name, value|
                     job_name, queue_name, progress_stage = name.to_s.split(PROGRESS_STATS_SEPARATOR)
-
-                    next if queue_name.to_s.empty?
                     next unless job_names.include?(job_name)
-                    next unless queue_name_filter == '*' || queue_name == queue_name_filter
-
-                    matched_job_names[job_name] = true
-                    next unless matched_job_names.size > begin_match_index
-                    next unless stats_job_group.size < count || stats_job_group.key?(job_name)
 
                     stats_job_group[job_name] ||= {}
                     stats_job_group[job_name][queue_name] ||= {}
@@ -44,11 +67,9 @@ module ActiveJob
 
                     stats_job_group[job_name][queue_name][stage][progress] = value
                   end
-
-                  next_page_availabe = matched_job_names.size > begin_match_index + count
-
-                  [next_page_availabe, stats_job_group]
                 end
+
+                stats_job_group
               end
 
               #end ClassMethods
