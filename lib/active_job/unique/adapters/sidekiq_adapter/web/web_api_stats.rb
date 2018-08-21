@@ -14,12 +14,12 @@ module ActiveJob
                 queue_name_jobs_field_key = "queue_name_jobs:#{queue_name_filter}"
 
                 Sidekiq.redis_pool.with do |conn|
+                  job_progress_stats_key = job_progress_stats
+                  
                   # read matched_job_names from redis cache
                   matched_job_names = conn.hget(job_progress_stats_key, queue_name_jobs_field_key).split(PROGRESS_STATS_SEPARATOR) if current_page > 1
 
                   if matched_job_names.size == 0
-                    job_progress_stats_key = job_progress_stats
-
                     matched_job_name_collection = {}
                     match_filter = "*#{PROGRESS_STATS_SEPARATOR}#{queue_name_filter}#{PROGRESS_STATS_SEPARATOR}*"
 
