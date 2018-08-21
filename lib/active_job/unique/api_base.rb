@@ -85,13 +85,14 @@ module ActiveJob
         end
 
         def ensure_job_stage_log_queue_id_base(queue_id_score)
+          queue_id_score = queue_id_score.to_f
           return 0 unless queue_id_score.positive?
 
           ((queue_id_score - 1) % 98 + 1) * QUEUE_SCORE_BASE
         end
 
         def ensure_job_stage_log_uniqueness_id_base(uniqueness_id_score)
-          uniqueness_id_score * UNIQUENESS_ID_SCORE_BASE
+          uniqueness_id_score.to_f * UNIQUENESS_ID_SCORE_BASE
         end
       end
     end
