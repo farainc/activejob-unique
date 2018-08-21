@@ -16,9 +16,9 @@ module ActiveJob
 
             def incr_progress_stage_log_id_score(conn, job_score_key, base, new_id)
               if conn.zadd(job_score_key, [0, "#{base}:#{new_id}"], nx: true) == 1
-                conn.zincrby(job_score_key, conn.zincrby(job_score_key, 1.0, base), "#{base}:#{new_id}")
+                conn.zincrby(job_score_key, conn.zincrby(job_score_key, 1.0, base), "#{base}:#{new_id}").to_f
               else
-                conn.zincrby(job_score_key, 0.0, "#{base}:#{new_id}")
+                conn.zincrby(job_score_key, 0.0, "#{base}:#{new_id}").to_f
               end
             end
 
@@ -45,7 +45,7 @@ module ActiveJob
                 job_id_value = "#{queue_name}:#{uniqueness_id}:#{job_id}"
 
                 if conn.zadd(job_score_key, [job_id_score, job_id_value], nx: true) == 0
-                  job_id_score = conn.zscore(job_score_key, job_id_value)
+                  job_id_score = conn.zscore(job_score_key, job_id_value).to_f
                 end
 
                 job_log_score = job_id_score + progress_stage_score

@@ -13,7 +13,7 @@ module ActiveJob
               day_score = day * DAILY_SCORE_BASE
 
               Sidekiq.redis_pool.with do |conn|
-                score = conn.zincrby(stats_jobs_key, 1.0, job_name)
+                score = conn.zincrby(stats_jobs_key, 1.0, job_name).to_f
                 conn.zadd(stats_jobs_key, [day_score, job_name]) if score < day_score
               end
             end

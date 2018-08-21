@@ -21,7 +21,7 @@ module ActiveJob
                     job_log_keys[job_name] = {}
 
                     queues.keys.each do |queue_name|
-                      min = conn.zscore(job_score_key, "queue:#{queue_name}")
+                      min = conn.zscore(job_score_key, "queue:#{queue_name}").to_f
                       next if min.nil?
 
                       job_log_keys[job_name][queue_name] = true
@@ -41,10 +41,10 @@ module ActiveJob
 
                   day_score = ensure_job_stage_log_day_base(day)
 
-                  queue_id_score = conn.zscore(job_score_key, "queue:#{queue_name}").to_i
+                  queue_id_score = conn.zscore(job_score_key, "queue:#{queue_name}").to_f
                   queue_id_score = ensure_job_stage_log_queue_id_base(queue_id_score)
 
-                  uniqueness_id_score = conn.zscore(job_score_key, "uniqueness_id:#{uniqueness_id}").to_i
+                  uniqueness_id_score = conn.zscore(job_score_key, "uniqueness_id:#{uniqueness_id}").to_f
                   uniqueness_id_score = ensure_job_stage_log_uniqueness_id_base(uniqueness_id_score)
 
                   min_score = day_score + queue_id_score + uniqueness_id_score
@@ -79,7 +79,7 @@ module ActiveJob
                   log_data_key = job_progress_stage_log_key(job_name)
                   log_data_field = "#{(day % 8) + 1}#{PROGRESS_STATS_SEPARATOR}#{uniqueness_id}"
 
-                  job_id_score = conn.zscore(job_score_key, "#{queue_name}:#{uniqueness_id}:#{job_id}").to_i
+                  job_id_score = conn.zscore(job_score_key, "#{queue_name}:#{uniqueness_id}:#{job_id}").to_f
                   begin_index = 0
                   completed = false
 
@@ -139,10 +139,10 @@ module ActiveJob
 
                   day_score = ensure_job_stage_log_day_base(day)
 
-                  queue_id_score = conn.zscore(job_score_key, "queue:#{queue_name}").to_i
+                  queue_id_score = conn.zscore(job_score_key, "queue:#{queue_name}").to_f
                   queue_id_score = ensure_job_stage_log_queue_id_base(queue_id_score)
 
-                  uniqueness_id_score = conn.zscore(job_score_key, "uniqueness_id:#{uniqueness_id}").to_i
+                  uniqueness_id_score = conn.zscore(job_score_key, "uniqueness_id:#{uniqueness_id}").to_f
                   uniqueness_id_score = ensure_job_stage_log_uniqueness_id_base(uniqueness_id_score)
 
                   min_score = day_score + queue_id_score + uniqueness_id_score
@@ -179,7 +179,7 @@ module ActiveJob
                   job_log_key = "#{job_progress_stage_log_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_logs"
                   return unless conn.exists(job_log_key)
 
-                  job_id_score = conn.zscore(job_score_key, "#{queue_name}:#{uniqueness_id}:#{job_id}").to_i
+                  job_id_score = conn.zscore(job_score_key, "#{queue_name}:#{uniqueness_id}:#{job_id}").to_f
 
                   begin_index = 0
                   completed = false
