@@ -27,82 +27,28 @@ module ActiveJob
                 @current_page = params[:page].to_i
                 @current_page = 1 if @current_page < 1
 
-                begin_match_index = 0
                 begin_index = (@current_page - 1) * @count
                 end_index = begin_index + @count - 1
 
-                next_page_availabe = false
-
                 Sidekiq.redis_pool.with do |conn|
-                  if @job_prefix == '*'
-                    if @queue_name == '*'
-                      @total_size = conn.zcount(WebApi.job_progress_stats_jobs, '-inf', '+inf')
-                      @job_stats = conn.zrevrange(WebApi.job_progress_stats_jobs, begin_index, end_index)
-                    else
-                      @job_stats = conn.zrevrange(WebApi.job_progress_stats_jobs, 0, -1)
-                      begin_match_index = begin_index
-                    end
+                  if @job_prefix == '*' && @queue_name == '*'
+                    @total_size = conn.zcount(WebApi.job_progress_stats_jobs, '-inf', '+inf')
+                    @job_stats = conn.zrevrange(WebApi.job_progress_stats_jobs, begin_index, end_index)
                   else
                     @job_stats = conn.zrevrange(WebApi.job_progress_stats_jobs, 0, -1)
-                    @job_stats.reject!{|job| (job =~ /^#{@job_prefix}/i) != 0 }
+                    @job_stats.reject!{|job| (job =~ /^#{@job_prefix}/i) != 0 } if @job_prefix != '*'
+                    @job_stats = WebApi.query_job_progress_stats_job_names_by_queue_name(@job_stats, @queue_name, @current_page) if @queue_name != '*'
 
-                    if @queue_name == '*'
-                      @total_size = @job_stats.size
-                      @job_stats = @job_stats[begin_index..end_index]
-                    else
-                      begin_match_index = begin_index
-                    end
+                    @total_size = @job_stats.size
+                    @job_stats = @job_stats[begin_index..end_index]
                   end
-
-
-                  # if @queue_name == '*'
-                  #   if @job_prefix == '*'
-                  #     @total_size = conn.zcount(WebApi.job_progress_stats_jobs, '-inf', '+inf')
-                  #     @job_stats = conn.zrevrange(WebApi.job_progress_stats_jobs, begin_index, end_index)
-                  #   else
-                  #     @job_stats = conn.zrevrange(WebApi.job_progress_stats_jobs, 0, -1)
-                  #     @job_stats.reject!{|job| (job =~ /^#{@job_prefix}/i) != 0 }
-                  #     @total_size = @job_stats.size
-                  #     @job_stats = @job_stats[begin_index..end_index]
-                  #   end
-                  # else
-                  #   @job_stats = conn.zrevrange(WebApi.job_progress_stats_jobs, 0, -1)
-                  #   @job_stats.reject!{|job| (job =~ /^#{@job_prefix}/i) != 0 } if @job_prefix != '*'
-                  #
-                  #   begin_match_index = begin_index
-                  # end
-
-                  # if @job_prefix == '*' && @queue_name == '*'
-                  #   @total_size = conn.zcount(WebApi.job_progress_stats_jobs, '-inf', '+inf')
-                  #   @job_stats = conn.zrevrange(WebApi.job_progress_stats_jobs, begin_index, end_index)
-                  # else
-                  #   @job_stats = conn.zrevrange(WebApi.job_progress_stats_jobs, 0, -1)
-                  #   @job_stats.reject!{|job| (job =~ /^#{@job_prefix}/i) != 0 } if @job_prefix != '*'
-                  #
-                  #   if @queue_name == '*'
-                  #     @total_size = @job_stats.size
-                  #     @job_stats = @job_stats[begin_index..end_index] if @total_size > (begin_index + 1)
-                  #   else
-                  #     begin_match_index = begin_index
-                  #   end
-                  # end
                 end
 
-                next_page_availabe, @job_stats_all_time = WebApi.regroup_job_progress_stats(@job_stats, @queue_name, begin_match_index, @count)
+                @job_stats_all_time = WebApi.regroup_job_progress_stats(@job_stats, @queue_name)
+                @job_stats_today = WebApi.regroup_job_progress_stats_today(@job_stats, @queue_name)
 
-                if @queue_name != '*'
-                  @job_stats = @job_stats_all_time.keys
-
-                  @total_size = @count * (@current_page - 1) + @job_stats.size
-                  @total_size += 1 if next_page_availabe
-
-                  begin_match_index = 0
-                end
-
-                next_page_availabe, @job_stats_today = WebApi.regroup_job_progress_stats_today(@job_stats, @queue_name, begin_match_index, @count)
-
-                @uniqueness_flag_keys = WebApi.group_job_progress_stage_uniqueness_flag_keys(@job_stats_all_time.keys)
-                @processing_flag_keys = WebApi.group_job_progress_stage_processing_flag_keys(@job_stats_all_time.keys)
+                @uniqueness_flag_keys = WebApi.group_job_progress_stage_uniqueness_flag_keys(@job_stats)
+                @processing_flag_keys = WebApi.group_job_progress_stage_processing_flag_keys(@job_stats)
 
                 @job_log_keys = WebApi.group_job_progress_stage_log_keys(@job_stats_all_time)
 
