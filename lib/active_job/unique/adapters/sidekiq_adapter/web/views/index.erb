@@ -129,8 +129,8 @@
       </thead>
       <tbody>
         <% @job_stats.each do |job_name|
-          today_stats = @job_stats_today[job_name]
-          total_stats = @job_stats_all_time[job_name]
+          today_stats = @job_stats_today[job_name] || {}
+          total_stats = @job_stats_all_time[job_name] || {}
 
           today_enqueue = today_stats.values[0]['enqueue'] rescue {}
           today_perform = today_stats.values[0]['perform'] rescue {}
@@ -153,6 +153,8 @@
 
           uniqueness_flag = (enqueue_uniqueness_flag.positive? || perform_uniqueness_flag.positive?)
           processing_flag = @processing_flag_keys.key?(job_name)
+
+          additional_queues = (total_stats.keys[1..-1] + today_stats.keys[1..-1]).uniq rescue []
 
           job_name_group = job_name.split('::')
         %>
@@ -238,9 +240,9 @@
               <td class="text-center text-<%= progress_label(s) %>" title="<%= nice_number(total_n) %>"><b><small><%= short_number(total_n) %></small></b></td>
             <% end %>
           </tr>
-          <% next if total_stats.keys.size == 1 %>
-          <% total_stats.keys[1..-1].each do |key|
 
+          <% next if additional_queues.size == 0 %>
+          <% additional_queues.each do |key|
             today_enqueue = today_stats[key]['enqueue'] rescue {}
             today_perform = today_stats[key]['perform'] rescue {}
 
@@ -332,10 +334,16 @@
 
 <% if @job_prefix == '*' && @queue_name == '*' %>
   <script>
-    function cleanupJobStats() {
-      $.ajax({url: '/job_stats/cleanup', dataType: 'json'}).done(function(data) { setTimeout(cleanupJobStats, 30000);});
-    }
+    function activejobUniqueCleanupJobStats() {
+      var url = 'job_stats/cleanup';
+      try {
+        url = [location.protocol, "", location.href.split('/')[2], url].join('/');
+      } catch(ex) {
+        url = "/" + url;
+      }
 
-    cleanupJobStats();
+      $.ajax({url: url, dataType: 'json'}).done(function(data) { setTimeout(activejobUniqueCleanupJobStats, 30000);});
+    }
+    activejobUniqueCleanupJobStats();
   </script>
 <% end %>
