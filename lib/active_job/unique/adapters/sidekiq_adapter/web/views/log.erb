@@ -36,9 +36,9 @@
 <div class='row header'>
   <div class='col-sm-10 col-xs-8'>
     <h3>
-      <a class="no-decoration" href="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{@queue_name}/#{@uniqueness_id}" %>">
-        Job Logs
-      </a>
+      <a class="no-decoration" href="<%= root_path %>job_stats">Job Stats</a>
+      /
+      <a class="no-decoration" href="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{@queue_name}/#{@uniqueness_id}" %>">Logs</a>
       /
       <span>Detail</span>
     </h3>
