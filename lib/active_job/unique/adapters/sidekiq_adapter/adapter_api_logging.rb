@@ -39,7 +39,9 @@ module ActiveJob
                 uniqueness_id_score = incr_progress_stage_log_id_score(conn, job_score_key, 'uniqueness_id', uniqueness_id)
                 uniqueness_id_score = ensure_job_stage_log_uniqueness_id_base(uniqueness_id_score)
 
-                time_score = ((Time.now.utc - Time.now.utc.midnight) / 10).to_i
+                # time_score with timezone
+                now = Time.now.in_time_zone(ActiveJob::Unique::Stats.timezone)
+                time_score = ((now - now.to_date.in_time_zone(ActiveJob::Unique::Stats.timezone)) / 10).to_i
 
                 job_id_score = day_score + queue_id_score + uniqueness_id_score + time_score
                 job_id_value = "#{queue_name}:#{uniqueness_id}:#{job_id}"

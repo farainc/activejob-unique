@@ -154,7 +154,7 @@ module ActiveJob
                 @job_name = route_params[:job_name]
                 @queue_name = route_params[:queue_name].to_s
                 @day = route_params[:day].to_i
-                @day = WebApi.sequence_today if @day < WebApi.sequence_day(Date.today - 7)
+                @day = WebApi.sequence_today if @day < WebApi.sequence_day(Time.now.in_time_zone(ActiveJob::Unique::Stats.timezone) - 7 * ONE_DAY_SECONDS)
 
                 @uniqueness_id = route_params[:uniqueness_id].to_s
                 @uniqueness_id = '*' unless @uniqueness_id.size == 32

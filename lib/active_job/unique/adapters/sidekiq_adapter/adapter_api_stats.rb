@@ -9,7 +9,7 @@ module ActiveJob
 
           module ClassMethods
             def initialize_progress_stats(stats_jobs_key, job_name)
-              day = Time.now.utc.to_date.to_date.strftime('%y%m%d').to_i
+              day = sequence_today
               day_score = day * DAILY_SCORE_BASE
 
               Sidekiq.redis_pool.with do |conn|
