@@ -15,22 +15,22 @@ module ActiveJob
 
                 Sidekiq.redis_pool.with do |conn|
                   job_progress_stats_key = job_progress_stats
-                  
+
                   # read matched_job_names from redis cache
                   matched_job_names = conn.hget(job_progress_stats_key, queue_name_jobs_field_key).split(PROGRESS_STATS_SEPARATOR) if current_page > 1
 
                   if matched_job_names.size == 0
-                    matched_job_name_collection = {}
+                    not_matched_job_names = {}
                     match_filter = "*#{PROGRESS_STATS_SEPARATOR}#{queue_name_filter}#{PROGRESS_STATS_SEPARATOR}*"
 
                     conn.hscan_each(job_progress_stats_key, match: match_filter, count: 100) do |name, value|
                       job_name, queue_name, progress_stage = name.to_s.split(PROGRESS_STATS_SEPARATOR)
-                      next unless job_names.include?(job_name)
+                      next if job_names.include?(job_name)
 
-                      matched_job_name_collection[job_name] = true
+                      not_matched_job_names[job_name] = true
                     end
 
-                    matched_job_names = matched_job_name_collection.keys
+                    matched_job_names = job_names - not_matched_job_names.keys
 
                     # save matched_job_names to redis cache
                     conn.hset(job_progress_stats_key, queue_name_jobs_field_key, matched_job_names.join(PROGRESS_STATS_SEPARATOR))

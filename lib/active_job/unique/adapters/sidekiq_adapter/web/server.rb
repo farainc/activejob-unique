@@ -32,7 +32,7 @@ module ActiveJob
 
                 Sidekiq.redis_pool.with do |conn|
                   if @job_prefix == '*' && @queue_name == '*'
-                    @total_size = conn.zcount(WebApi.job_progress_stats_jobs, '-inf', '+inf')
+                    @total_size = conn.zcard(WebApi.job_progress_stats_jobs)
                     @job_stats = conn.zrevrange(WebApi.job_progress_stats_jobs, begin_index, end_index)
                   else
                     @job_stats = conn.zrevrange(WebApi.job_progress_stats_jobs, 0, -1)
