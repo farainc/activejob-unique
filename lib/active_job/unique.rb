@@ -4,6 +4,7 @@ require_relative 'unique/compatible'
 require_relative 'unique/api'
 require_relative 'unique/core'
 require_relative 'unique/adapters'
+require_relative 'unique/stats'
 
 require_relative 'unique/version'
 
@@ -56,5 +57,7 @@ module ActiveJob
     QUEUE_SCORE_BASE  = 1_000_000_000_000
     DAILY_SCORE_BASE  = 10_000_000
     UNIQUENESS_ID_SCORE_BASE = 10_000
+
+    ONE_DAY_SECONDS   = 86400
   end
 end

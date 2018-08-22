@@ -16,14 +16,15 @@ module ActiveJob
 
             def cleanup_expired_progress_stats(force_cleanup = false)
               Sidekiq.redis_pool.with do |conn|
-                now = Time.now.utc.to_f
+                now = Time.now.in_time_zone(ActiveJob::Unique::Stats.timezone)
                 timestamp = conn.hget(job_progress_stats_cleanup, 'cleanup_expired_progress_stats').to_f
-                return false if !force_cleanup && timestamp > now
+                return false if !force_cleanup && timestamp > now.to_f
 
-                day = sequence_day(Date.today - 1)
+                day = sequence_day(now - ONE_DAY_SECONDS)
                 cleanup_progress_stats("#{job_progress_stats}:#{day}")
 
-                conn.hset(job_progress_stats_cleanup, 'cleanup_expired_progress_stats', (Date.today.to_time + 3600 * 26).to_f)
+                next_cleanup_at = now.to_date.in_time_zone(ActiveJob::Unique::Stats.timezone)
+                conn.hset(job_progress_stats_cleanup, 'cleanup_expired_progress_stats', (next_cleanup_at + ONE_DAY_SECONDS + 4800).to_f)
               end
 
               true
@@ -69,11 +70,11 @@ module ActiveJob
 
             def cleanup_expired_progress_stage_logs(force_cleanup = false)
               Sidekiq.redis_pool.with do |conn|
-                now = Time.now.utc.to_f
-                day = sequence_day(Date.today - 8)
+                now = Time.now.utc
+                day = sequence_day(now - 8 * ONE_DAY_SECONDS)
 
                 timestamp = conn.hget(job_progress_stats_cleanup, 'cleanup_expired_progress_stage_logs').to_f
-                return false if !force_cleanup && timestamp > now
+                return false if !force_cleanup && timestamp > now.to_f
 
                 conn.zrange(job_progress_stats_jobs, 0, -1).each do |job_name|
                   job_score_key = "#{job_progress_stage_log_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_score"
@@ -84,7 +85,8 @@ module ActiveJob
                   cleanup_progress_stage_logs(day, job_score_key, job_log_key, log_data_key, log_data_field_match)
                 end
 
-                conn.hset(job_progress_stats_cleanup, 'cleanup_expired_progress_stage_logs', (Date.today.to_time + 3600 * 26).to_f)
+                next_cleanup_at = now.to_date.in_time_zone(ActiveJob::Unique::Stats.timezone)
+                conn.hset(job_progress_stats_cleanup, 'cleanup_expired_progress_stage_logs', (next_cleanup_at + 5400).to_f)
               end
 
               true

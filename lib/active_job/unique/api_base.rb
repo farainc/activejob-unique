@@ -27,7 +27,7 @@ module ActiveJob
         end
 
         def sequence_day(now)
-          now.to_date.strftime('%Y%m%d').to_i
+          now.in_time_zone(ActiveJob::Unique::Stats.timezone).to_date.strftime('%Y%m%d').to_i
         end
 
         def sequence_today
