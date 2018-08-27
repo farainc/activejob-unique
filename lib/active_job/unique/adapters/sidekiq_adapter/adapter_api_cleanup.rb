@@ -71,7 +71,7 @@ module ActiveJob
             def cleanup_expired_progress_stage_logs(force_cleanup = false)
               Sidekiq.redis_pool.with do |conn|
                 now = Time.now.utc
-                day = sequence_day(now - 8 * ONE_DAY_SECONDS)
+                day = sequence_day(now - 7 * ONE_DAY_SECONDS)
 
                 timestamp = conn.hget(job_progress_stats_cleanup, 'cleanup_expired_progress_stage_logs').to_f
                 return false if !force_cleanup && timestamp > now.to_f
