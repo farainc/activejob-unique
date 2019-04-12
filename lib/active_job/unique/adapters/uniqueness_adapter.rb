@@ -4,8 +4,6 @@ require_relative 'uniqueness_adapter/adapter_api_state'
 require_relative 'uniqueness_adapter/adapter_api_logging'
 require_relative 'uniqueness_adapter/adapter_api_cleanup'
 
-require_relative 'uniqueness_adapter/queue_adapter'
-
 module ActiveJob
   module Unique
     module Adapters
