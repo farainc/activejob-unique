@@ -47,7 +47,7 @@ module ActiveJob
         end
 
         around_enqueue do |job, block|
-          return block.call unless uniqueness_api.valid_uniqueness_mode?(@uniqueness_mode)
+          (block.call && return) unless uniqueness_api.valid_uniqueness_mode?(@uniqueness_mode)
 
           r = nil
 
@@ -92,7 +92,7 @@ module ActiveJob
         end
 
         around_perform do |job, block|
-          return block.call unless uniqueness_api.valid_uniqueness_mode?(@uniqueness_mode)
+          (block.call && return) unless uniqueness_api.valid_uniqueness_mode?(@uniqueness_mode)
 
           r = nil
 
