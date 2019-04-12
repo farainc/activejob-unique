@@ -13,7 +13,7 @@ module ActiveJob
           log_data_key = job_progress_stage_log_key(job.class.name)
           log_data_field = "#{(sequence_day(job.uniqueness_timestamp) % 8) + 1}#{PROGRESS_STATS_SEPARATOR}#{job.uniqueness_id}"
 
-          job.queue_adapter.uniqueness_api.set_progress_stage_log_data(log_data_key, log_data_field, JSON.dump(job.arguments))
+          job.queue_adapter_uniqueness_api.set_progress_stage_log_data(log_data_key, log_data_field, JSON.dump(job.arguments))
         end
 
         def incr_progress_stage_log(job)
@@ -38,7 +38,7 @@ module ActiveJob
 
           job_log_value = job_log_values.join(PROGRESS_STATS_SEPARATOR)
 
-          job.queue_adapter.uniqueness_api.incr_progress_stage_log(
+          job.queue_adapter_uniqueness_api.incr_progress_stage_log(
             day,
             job_score_key,
             job.queue_name,

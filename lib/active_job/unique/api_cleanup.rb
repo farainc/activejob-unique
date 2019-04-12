@@ -7,7 +7,7 @@ module ActiveJob
 
       module ClassMethods
         def cleanup_progress_stats(job, time)
-          job.queue_adapter.uniqueness_api.cleanup_progress_stats("#{job_progress_stats}:#{sequence_day(time)}")
+          job.queue_adapter_uniqueness_api.cleanup_progress_stats("#{job_progress_stats}:#{sequence_day(time)}")
         end
 
         def cleanup_progress_stage_logs(job, time)
@@ -19,7 +19,7 @@ module ActiveJob
           log_data_key = job_progress_stage_log_key(job_name)
           log_data_field_match = "#{((day % 8) + 1)}#{PROGRESS_STATS_SEPARATOR}*"
 
-          job.queue_adapter.uniqueness_api.cleanup_progress_stage_logs(
+          job.queue_adapter_uniqueness_api.cleanup_progress_stage_logs(
             day,
             job_score_key,
             job_log_key,

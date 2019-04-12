@@ -129,7 +129,7 @@ module ActiveJob
         if queue_adapter.respond_to?(:uniqueness_api)
           queue_adapter.uniqueness_api
         else
-          ActiveJob::Unique::Adapters::UniquenessAdapter::QueueAdapter.uniqueness_api
+          ActiveJob::Unique::Adapters::UniquenessAdapter::AdapterApi
         end
       end
 
