@@ -125,6 +125,14 @@ module ActiveJob
         self.class.queue_adapter
       end
 
+      def queue_adapter_uniqueness_api
+        if queue_adapter.respond_to?(:uniqueness_api)
+          queue_adapter.uniqueness_api
+        else
+          ActiveJob::Unique::Adapters::UniquenessAdapter::QueueAdapter.uniqueness_api
+        end
+      end
+
       def uniqueness_api
         self.class.uniqueness_api
       end

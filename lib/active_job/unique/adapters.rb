@@ -6,6 +6,7 @@ module ActiveJob
     module Adapters
       extend ActiveSupport::Autoload
 
+      autoload :UniquenessAdapter
       autoload :SidekiqAdapter
     end
   end

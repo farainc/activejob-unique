@@ -125,9 +125,9 @@ module ActiveJob
 
                   break if cursor == '0'
                 end
-
-                true
               end
+
+              true
             end
 
             # end ClassMethods

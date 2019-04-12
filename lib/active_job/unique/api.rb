@@ -59,7 +59,7 @@ module ActiveJob
 
           return false unless [PROGRESS_STAGE_ENQUEUE_PROCESSING, PROGRESS_STAGE_ENQUEUE_PROCESSED].include?(progress_stage_state.to_s.to_sym)
 
-          if job.queue_adapter.uniqueness_api.another_job_in_queue?(
+          if job.queue_adapter_uniqueness_api.another_job_in_queue?(
             job.queue_name,
             timestamp
           )
@@ -105,7 +105,7 @@ module ActiveJob
 
           return false unless PROGRESS_STAGE_PERFORM_PROCESSING == progress_stage_state.to_s.to_sym
 
-          if job.queue_adapter.uniqueness_api.another_job_in_worker?(
+          if job.queue_adapter_uniqueness_api.another_job_in_worker?(
             job.class.name,
             job.queue_name,
             job.uniqueness_id,
@@ -152,7 +152,7 @@ module ActiveJob
             PROGRESS_STAGE_PERFORM_TIMEOUT
           )
 
-          job.queue_adapter.uniqueness_api.get_progress_stage_state_flag(state_key).to_f
+          job.queue_adapter_uniqueness_api.get_progress_stage_state_flag(state_key).to_f
         end
 
         def set_until_timeout_uniqueness_mode_expiration(job)
@@ -173,8 +173,8 @@ module ActiveJob
           expiration = expires.to_i - Time.now.utc.to_i
           expiration += 10
 
-          job.queue_adapter.uniqueness_api.set_progress_stage_state_flag(state_key, state_value)
-          job.queue_adapter.uniqueness_api.expire_progress_stage_state_flag(state_key, expiration)
+          job.queue_adapter_uniqueness_api.set_progress_stage_state_flag(state_key, state_value)
+          job.queue_adapter_uniqueness_api.expire_progress_stage_state_flag(state_key, expiration)
         end
 
         def another_job_not_expired_yet?(job)
