@@ -7,6 +7,8 @@ module ActiveJob
 
       module ClassMethods
         def initialize_progress_stats(job)
+          return unless job.queue_adapter.respond_to?(:uniqueness_api)
+
           job.queue_adapter.uniqueness_api.initialize_progress_stats(
             job_progress_stats_jobs,
             job.class.name
@@ -14,6 +16,8 @@ module ActiveJob
         end
 
         def incr_progress_stats(job)
+          return unless job.queue_adapter.respond_to?(:uniqueness_api)
+
           job.uniqueness_timestamp = Time.now.utc
 
           # incr stats
