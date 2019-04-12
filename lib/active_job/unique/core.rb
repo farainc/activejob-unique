@@ -47,32 +47,34 @@ module ActiveJob
         end
 
         around_enqueue do |job, block|
-          (block.call && return) unless uniqueness_api.valid_uniqueness_mode?(@uniqueness_mode)
-
           r = nil
 
-          if uniqueness_api.allow_enqueue_processing?(job)
-            @uniqueness_progress_stage = PROGRESS_STAGE_ENQUEUE_PROCESSING
+          if uniqueness_api.valid_uniqueness_mode?(@uniqueness_mode)
+            if uniqueness_api.allow_enqueue_processing?(job)
+              @uniqueness_progress_stage = PROGRESS_STAGE_ENQUEUE_PROCESSING
 
-            uniqueness_api.calculate_until_timeout_uniqueness_mode_expires(job)
-            uniqueness_api.incr_progress_stats(job)
-            uniqueness_api.ensure_progress_stage_state(job)
-
-            s = nil
-            begin
-              r = block.call
-              @uniqueness_progress_stage = PROGRESS_STAGE_ENQUEUE_PROCESSED
-            rescue StandardError => e # LoadError, NameError edge cases
-              @uniqueness_progress_stage = PROGRESS_STAGE_ENQUEUE_FAILED
-
-              raise e
-            ensure
+              uniqueness_api.calculate_until_timeout_uniqueness_mode_expires(job)
               uniqueness_api.incr_progress_stats(job)
               uniqueness_api.ensure_progress_stage_state(job)
+
+              s = nil
+              begin
+                r = block.call
+                @uniqueness_progress_stage = PROGRESS_STAGE_ENQUEUE_PROCESSED
+              rescue StandardError => e # LoadError, NameError edge cases
+                @uniqueness_progress_stage = PROGRESS_STAGE_ENQUEUE_FAILED
+
+                raise e
+              ensure
+                uniqueness_api.incr_progress_stats(job)
+                uniqueness_api.ensure_progress_stage_state(job)
+              end
+            else
+              @uniqueness_progress_stage = PROGRESS_STAGE_ENQUEUE_SKIPPED
+              uniqueness_api.incr_progress_stats(job)
             end
           else
-            @uniqueness_progress_stage = PROGRESS_STAGE_ENQUEUE_SKIPPED
-            uniqueness_api.incr_progress_stats(job)
+            r = block.call
           end
 
           r
@@ -92,32 +94,34 @@ module ActiveJob
         end
 
         around_perform do |job, block|
-          (block.call && return) unless uniqueness_api.valid_uniqueness_mode?(@uniqueness_mode)
-
           r = nil
 
-          if uniqueness_api.allow_perform_processing?(job)
-            @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_PROCESSING
+          if uniqueness_api.valid_uniqueness_mode?(@uniqueness_mode)
+            if uniqueness_api.allow_perform_processing?(job)
+              @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_PROCESSING
 
-            uniqueness_api.incr_progress_stats(job)
-            uniqueness_api.set_until_timeout_uniqueness_mode_expiration(job)
-            uniqueness_api.ensure_progress_stage_state(job)
-
-            s = nil
-            begin
-              r = block.call
-              @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_PROCESSED
-            rescue StandardError => e
-              @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_FAILED
-
-              raise e
-            ensure
               uniqueness_api.incr_progress_stats(job)
+              uniqueness_api.set_until_timeout_uniqueness_mode_expiration(job)
               uniqueness_api.ensure_progress_stage_state(job)
+
+              s = nil
+              begin
+                r = block.call
+                @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_PROCESSED
+              rescue StandardError => e
+                @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_FAILED
+
+                raise e
+              ensure
+                uniqueness_api.incr_progress_stats(job)
+                uniqueness_api.ensure_progress_stage_state(job)
+              end
+            else
+              @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_SKIPPED
+              uniqueness_api.incr_progress_stats(job)
             end
           else
-            @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_SKIPPED
-            uniqueness_api.incr_progress_stats(job)
+            r = block.call
           end
 
           r
