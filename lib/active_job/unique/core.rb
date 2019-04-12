@@ -36,92 +36,80 @@ module ActiveJob
           @uniqueness_timestamp = Time.now.utc
           @uniqueness_progress_stage_group = PROGRESS_STAGE_ENQUEUE_GROUP
 
-          if uniqueness_api.valid_uniqueness_mode?(@uniqueness_mode)
-            uniqueness_api.initialize_progress_stats(job)
+          uniqueness_api.initialize_progress_stats(job)
 
-            @uniqueness_progress_stage = PROGRESS_STAGE_ENQUEUE_ATTEMPTED
-            uniqueness_api.incr_progress_stats(job)
+          @uniqueness_progress_stage = PROGRESS_STAGE_ENQUEUE_ATTEMPTED
+          uniqueness_api.incr_progress_stats(job)
 
-            uniqueness_api.set_progress_stage_log_data(job)
-          end
+          uniqueness_api.set_progress_stage_log_data(job)
         end
 
         around_enqueue do |job, block|
           r = nil
 
-          if uniqueness_api.valid_uniqueness_mode?(@uniqueness_mode)
-            if uniqueness_api.allow_enqueue_processing?(job)
-              @uniqueness_progress_stage = PROGRESS_STAGE_ENQUEUE_PROCESSING
+          if uniqueness_api.allow_enqueue_processing?(job)
+            @uniqueness_progress_stage = PROGRESS_STAGE_ENQUEUE_PROCESSING
 
-              uniqueness_api.calculate_until_timeout_uniqueness_mode_expires(job)
+            uniqueness_api.calculate_until_timeout_uniqueness_mode_expires(job)
+            uniqueness_api.incr_progress_stats(job)
+            uniqueness_api.ensure_progress_stage_state(job)
+
+            s = nil
+            begin
+              r = block.call
+              @uniqueness_progress_stage = PROGRESS_STAGE_ENQUEUE_PROCESSED
+            rescue StandardError => e # LoadError, NameError edge cases
+              @uniqueness_progress_stage = PROGRESS_STAGE_ENQUEUE_FAILED
+
+              raise e
+            ensure
               uniqueness_api.incr_progress_stats(job)
               uniqueness_api.ensure_progress_stage_state(job)
-
-              s = nil
-              begin
-                r = block.call
-                @uniqueness_progress_stage = PROGRESS_STAGE_ENQUEUE_PROCESSED
-              rescue StandardError => e # LoadError, NameError edge cases
-                @uniqueness_progress_stage = PROGRESS_STAGE_ENQUEUE_FAILED
-
-                raise e
-              ensure
-                uniqueness_api.incr_progress_stats(job)
-                uniqueness_api.ensure_progress_stage_state(job)
-              end
-            else
-              @uniqueness_progress_stage = PROGRESS_STAGE_ENQUEUE_SKIPPED
-              uniqueness_api.incr_progress_stats(job)
             end
           else
-            r = block.call
+            @uniqueness_progress_stage = PROGRESS_STAGE_ENQUEUE_SKIPPED
+            uniqueness_api.incr_progress_stats(job)
           end
 
           r
         end
 
         before_perform do |job|
-          if uniqueness_api.valid_uniqueness_mode?(@uniqueness_mode)
-            @uniqueness_progress_stage_group = PROGRESS_STAGE_PERFORM_GROUP
+          @uniqueness_progress_stage_group = PROGRESS_STAGE_PERFORM_GROUP
 
-            uniqueness_api.initialize_progress_stats(job)
+          uniqueness_api.initialize_progress_stats(job)
 
-            @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_ATTEMPTED
-            uniqueness_api.incr_progress_stats(job)
+          @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_ATTEMPTED
+          uniqueness_api.incr_progress_stats(job)
 
-            uniqueness_api.set_progress_stage_log_data(job)
-          end
+          uniqueness_api.set_progress_stage_log_data(job)
         end
 
         around_perform do |job, block|
           r = nil
 
-          if uniqueness_api.valid_uniqueness_mode?(@uniqueness_mode)
-            if uniqueness_api.allow_perform_processing?(job)
-              @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_PROCESSING
+          if uniqueness_api.allow_perform_processing?(job)
+            @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_PROCESSING
 
+            uniqueness_api.incr_progress_stats(job)
+            uniqueness_api.set_until_timeout_uniqueness_mode_expiration(job)
+            uniqueness_api.ensure_progress_stage_state(job)
+
+            s = nil
+            begin
+              r = block.call
+              @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_PROCESSED
+            rescue StandardError => e
+              @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_FAILED
+
+              raise e
+            ensure
               uniqueness_api.incr_progress_stats(job)
-              uniqueness_api.set_until_timeout_uniqueness_mode_expiration(job)
               uniqueness_api.ensure_progress_stage_state(job)
-
-              s = nil
-              begin
-                r = block.call
-                @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_PROCESSED
-              rescue StandardError => e
-                @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_FAILED
-
-                raise e
-              ensure
-                uniqueness_api.incr_progress_stats(job)
-                uniqueness_api.ensure_progress_stage_state(job)
-              end
-            else
-              @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_SKIPPED
-              uniqueness_api.incr_progress_stats(job)
             end
           else
-            r = block.call
+            @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_SKIPPED
+            uniqueness_api.incr_progress_stats(job)
           end
 
           r
