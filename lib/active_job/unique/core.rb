@@ -36,15 +36,19 @@ module ActiveJob
           @uniqueness_timestamp = Time.now.utc
           @uniqueness_progress_stage_group = PROGRESS_STAGE_ENQUEUE_GROUP
 
-          uniqueness_api.initialize_progress_stats(job)
+          if uniqueness_api.valid_uniqueness_mode?(@uniqueness_mode)
+            uniqueness_api.initialize_progress_stats(job)
 
-          @uniqueness_progress_stage = PROGRESS_STAGE_ENQUEUE_ATTEMPTED
-          uniqueness_api.incr_progress_stats(job)
+            @uniqueness_progress_stage = PROGRESS_STAGE_ENQUEUE_ATTEMPTED
+            uniqueness_api.incr_progress_stats(job)
 
-          uniqueness_api.set_progress_stage_log_data(job)
+            uniqueness_api.set_progress_stage_log_data(job)
+          end
         end
 
         around_enqueue do |job, block|
+          return block.call unless uniqueness_api.valid_uniqueness_mode?(@uniqueness_mode)
+
           r = nil
 
           if uniqueness_api.allow_enqueue_processing?(job)
@@ -75,17 +79,21 @@ module ActiveJob
         end
 
         before_perform do |job|
-          @uniqueness_progress_stage_group = PROGRESS_STAGE_PERFORM_GROUP
+          if uniqueness_api.valid_uniqueness_mode?(@uniqueness_mode)
+            @uniqueness_progress_stage_group = PROGRESS_STAGE_PERFORM_GROUP
 
-          uniqueness_api.initialize_progress_stats(job)
+            uniqueness_api.initialize_progress_stats(job)
 
-          @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_ATTEMPTED
-          uniqueness_api.incr_progress_stats(job)
+            @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_ATTEMPTED
+            uniqueness_api.incr_progress_stats(job)
 
-          uniqueness_api.set_progress_stage_log_data(job)
+            uniqueness_api.set_progress_stage_log_data(job)
+          end
         end
 
         around_perform do |job, block|
+          return block.call unless uniqueness_api.valid_uniqueness_mode?(@uniqueness_mode)
+
           r = nil
 
           if uniqueness_api.allow_perform_processing?(job)
