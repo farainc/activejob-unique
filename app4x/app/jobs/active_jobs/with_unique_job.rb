@@ -4,8 +4,8 @@ class ActiveJobs::WithUniqueJob < ApplicationJob
   queue_as :with_unique
   unique_for true, true
 
-  def perform(args, *_args)
-    run(args)
+  def perform(job_args, *_args)
+    run(job_args)
 
     true
   end

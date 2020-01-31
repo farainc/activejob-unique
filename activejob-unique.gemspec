@@ -16,5 +16,5 @@ Gem::Specification.new do |s|
 
     s.add_dependency 'activejob'
     s.add_dependency 'activesupport'
-    s.add_dependency 'sidekiq', '>= 4.2', '< 6'
+    s.add_dependency 'sidekiq', '>= 4.2', '< 7'
 end

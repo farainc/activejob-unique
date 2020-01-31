@@ -3,8 +3,8 @@ class ActiveJobs::WithoutUniqueJob < ApplicationJob
 
   queue_as :without_unique
 
-  def perform(args, *_args)
-    run(args)
+  def perform(job_args, *_args)
+    run(job_args)
 
     true
   end

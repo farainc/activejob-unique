@@ -4,8 +4,8 @@ class ActiveJobs::EnqueueJob < ApplicationJob
   def perform(klass_name, args_list)
     klass = klass_name.constantize
 
-    args_list.each do |args|
-      klass.perform_later(args)
+    args_list.each do |job_args|
+      klass.perform_later(job_args)
     end
 
     true
