@@ -4,8 +4,8 @@ class ActiveJobs::WithEnqueueOnlyJob < ApplicationJob
   queue_as :with_enqueue_only
   unique_for :until_executing, true
 
-  def perform(args, *_args)
-    run(args)
+  def perform(job_args, *_args)
+    run(job_args)
 
     true
   end
