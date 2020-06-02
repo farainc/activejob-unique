@@ -77,7 +77,7 @@ module ActiveJob
                   return { logs: [], args: {} } unless conn.exists(job_log_key)
 
                   log_data_key = job_progress_stage_log_key(job_name)
-                  log_data_field = "#{(day % 8) + 1}#{PROGRESS_STATS_SEPARATOR}#{uniqueness_id}"
+                  log_data_field = "#{sequence_day_score(day)}#{PROGRESS_STATS_SEPARATOR}#{uniqueness_id}"
 
                   job_id_score = conn.zscore(job_score_key, "#{queue_name}:#{uniqueness_id}:#{job_id}").to_f
                   begin_index = 0
