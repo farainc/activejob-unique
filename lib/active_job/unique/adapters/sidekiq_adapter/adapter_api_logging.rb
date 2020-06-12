@@ -44,14 +44,14 @@ module ActiveJob
                 time_score = ((now - now.to_date.in_time_zone(ActiveJob::Unique::Stats.timezone)) / 10).to_i
 
                 job_id_score = day_score + queue_id_score + uniqueness_id_score + time_score
-                job_id_value = "#{queue_name}:#{uniqueness_id}:#{job_id}"
+                job_id_value = "#{queue_name}:#{uniqueness_id}:#{job_id}:#{job_id_score + progress_stage_score}"
 
                 if conn.zadd(job_score_key, [job_id_score, job_id_value], nx: true) == 0
                   job_id_score = conn.zscore(job_score_key, job_id_value).to_f
                 end
 
                 job_log_score = job_id_score + progress_stage_score
-                conn.zadd(job_log_key, [job_log_score, "#{job_log_value}#{PROGRESS_STATS_SEPARATOR}#{job_log_score}"], nx: true)
+                conn.zadd(job_log_key, [job_log_score, job_log_value], nx: true)
               end
             end
 
