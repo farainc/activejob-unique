@@ -85,6 +85,8 @@ module ActiveJob
 
                   job_logs = []
 
+                  real_job_id = job_id.split('_')[0]
+
                   loop do
                     temp_logs = conn.zrangebyscore(
                       job_log_key,
@@ -94,7 +96,7 @@ module ActiveJob
                     )
 
                     temp_logs.each do |log|
-                      next unless (log =~ /^#{job_id}#{PROGRESS_STATS_SEPARATOR}/i) == 0
+                      next unless (log =~ /^#{real_job_id}#{PROGRESS_STATS_SEPARATOR}/i) == 0
 
                       id, progress_stage, timestamp, reason, mode, expiration, expires, debug = log.split(PROGRESS_STATS_SEPARATOR)
 
@@ -184,6 +186,8 @@ module ActiveJob
                   begin_index = 0
                   completed = false
 
+                  real_job_id = job_id.split('_')[0]
+
                   loop do
                     temp_logs = conn.zrangebyscore(
                       job_log_key,
@@ -193,7 +197,7 @@ module ActiveJob
                     )
 
                     temp_logs.each do |log|
-                      next unless (log =~ /^#{job_id}#{PROGRESS_STATS_SEPARATOR}/i) == 0
+                      next unless (log =~ /^#{real_job_id}#{PROGRESS_STATS_SEPARATOR}/i) == 0
                       id, progress_stage, timestamp = log.split(PROGRESS_STATS_SEPARATOR)
 
                       completed = %w[enqueue_skipped
