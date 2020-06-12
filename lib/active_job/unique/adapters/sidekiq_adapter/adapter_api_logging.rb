@@ -44,7 +44,7 @@ module ActiveJob
                 time_score = ((now - now.to_date.in_time_zone(ActiveJob::Unique::Stats.timezone)) / 10).to_i
 
                 job_id_score = day_score + queue_id_score + uniqueness_id_score + time_score
-                job_id_value = "#{queue_name}:#{uniqueness_id}:#{job_id}-[#{sequence_day_score(day)}]-(#{time_score})"
+                job_id_value = "#{queue_name}:#{uniqueness_id}:#{job_id}_#{sequence_day_score(day)}-#{time_score}"
 
                 if conn.zadd(job_score_key, [job_id_score, job_id_value], nx: true) == 0
                   job_id_score = conn.zscore(job_score_key, job_id_value).to_f
