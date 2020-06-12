@@ -79,7 +79,7 @@
             <td><a class="no-decoration" href="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{queue_name}/*"%>"><%= queue_name %></a></td>
             <td><a class="no-decoration" href="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{queue_name}/#{uniqueness_id}"%>"><%= uniqueness_id %></a></td>
             <td><a class="no-decoration" href="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{queue_name}/#{uniqueness_id}/#{job_id}"%>"><%= real_job_id %></a></td>
-            <td><%= job_score.to_s.split('-') %></td>
+            <td><%= job_score.to_s.split('-').join(':') %></td>
             <td class="text-center">
               <form action="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{queue_name}/#{uniqueness_id}/#{job_id}/delete"%>" method="post">
                 <%= csrf_tag if respond_to?(:csrf_tag) %>
