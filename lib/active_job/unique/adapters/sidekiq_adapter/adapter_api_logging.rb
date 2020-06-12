@@ -51,7 +51,7 @@ module ActiveJob
                 end
 
                 job_log_score = job_id_score + progress_stage_score
-                conn.zadd(job_log_key, [job_log_score, job_log_value], nx: true)
+                conn.zadd(job_log_key, [job_log_score, "#{job_log_value}#{PROGRESS_STATS_SEPARATOR}#{job_log_score}"], nx: true)
               end
             end
 
