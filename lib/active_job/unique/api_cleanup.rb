@@ -17,7 +17,7 @@ module ActiveJob
           job_log_key = "#{job_progress_stage_log_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_logs"
 
           log_data_key = job_progress_stage_log_key(job_name)
-          log_data_field_match = "#{((day % 8) + 1)}#{PROGRESS_STATS_SEPARATOR}*"
+          log_data_field_match = "#{sequence_day_score(day)}#{PROGRESS_STATS_SEPARATOR}*"
 
           job.queue_adapter_uniqueness_api.cleanup_progress_stage_logs(
             day,

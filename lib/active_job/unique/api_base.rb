@@ -30,6 +30,10 @@ module ActiveJob
           now.in_time_zone(ActiveJob::Unique::Stats.timezone).to_date.strftime('%Y%m%d').to_i
         end
 
+        def sequence_day_score(day)
+          ((Date.parse(day.to_s) - Time.at(0).in_time_zone(ActiveJob::Unique::Stats.timezone).to_date).to_i) % 8 + 1
+        end
+
         def sequence_today
           sequence_day(Time.now.utc)
         end
@@ -81,7 +85,7 @@ module ActiveJob
         end
 
         def ensure_job_stage_log_day_base(day)
-          (day % 8 + 1) * DAY_SCORE_BASE
+          sequence_day_score(day) * DAY_SCORE_BASE
         end
 
         def ensure_job_stage_log_queue_id_base(queue_id_score)
