@@ -24,7 +24,7 @@ module ActiveJob
                     match_filter = "*#{PROGRESS_STATS_SEPARATOR}#{queue_name_filter}#{PROGRESS_STATS_SEPARATOR}*"
 
                     conn.hscan_each(job_progress_stats_key, match: match_filter, count: 100) do |name, value|
-                      job_name, queue_name, progress_stage = name.to_s.split(PROGRESS_STATS_SEPARATOR)
+                      job_name, _, _ = name.to_s.split(PROGRESS_STATS_SEPARATOR)
                       next unless job_names.include?(job_name)
 
                       matched_job_name_collection[job_name] = true

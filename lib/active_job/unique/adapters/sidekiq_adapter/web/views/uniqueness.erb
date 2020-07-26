@@ -49,7 +49,7 @@
   <div class='col-sm-2 col-xs-4 text-right'>
     <form method="POST" style="margin-top: 25px;" action="<%= "#{root_path}job_stats/uniqueness/#{@job_name}/#{@queue_name}/#{@stage}/*/delete" %>">
       <%= csrf_tag %>
-      <input class='btn btn-danger' type="submit" name="delete" value="Delete All" data-confirm="Are you sure you want to delete all progress flag for [<%= @job_name %>/<%= @queue_name %>/<%= @stage %>]?"/>
+      <input class='btn btn-danger' type="submit" name="delete" value="Delete All" data-confirm="<%= "Are you sure you want to delete all uniqueness flags for:\n#{@job_name}\n#{@queue.name}\n#{@stage}" %>"/>
     </form>
   </div>
 </div>

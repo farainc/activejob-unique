@@ -34,8 +34,6 @@ module ActiveJob
 
               def query_job_progress_stage_log_jobs(day, job_name, queue_name, uniqueness_id, count, begin_index)
                 Sidekiq.redis_pool.with do |conn|
-                  next_page_availabe = false
-
                   job_score_key = "#{job_progress_stage_log_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_score"
                   return [false, []] unless conn.exists?(job_score_key)
 
@@ -98,7 +96,7 @@ module ActiveJob
                     temp_logs.each do |log|
                       next unless (log =~ /^#{real_job_id}#{PROGRESS_STATS_SEPARATOR}/i) == 0
 
-                      id, progress_stage, timestamp, reason, mode, expiration, expires, debug = log.split(PROGRESS_STATS_SEPARATOR)
+                      _, progress_stage, timestamp, reason, mode, expiration, expires, debug = log.split(PROGRESS_STATS_SEPARATOR)
 
                       job_logs << {
                         progress_stage: progress_stage,
@@ -198,7 +196,7 @@ module ActiveJob
 
                     temp_logs.each do |log|
                       next unless (log =~ /^#{real_job_id}#{PROGRESS_STATS_SEPARATOR}/i) == 0
-                      id, progress_stage, timestamp = log.split(PROGRESS_STATS_SEPARATOR)
+                      _, progress_stage, _ = log.split(PROGRESS_STATS_SEPARATOR)
 
                       completed = %w[enqueue_skipped
                                      enqueue_failed
