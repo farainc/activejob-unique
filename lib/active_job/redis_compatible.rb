@@ -2,8 +2,10 @@ if Redis::VERSION < '4.2'
   module RedisCompatible
     extend ActiveSupport::Concern
 
-    alias_method :exists?, :exists
+    def exists?(key)
+      exists(key)
+    end
   end
 
-  Redis.senc(include: RedisCompatible)
+  Redis.send(:include, RedisCompatible)
 end
