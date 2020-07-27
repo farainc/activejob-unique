@@ -1,4 +1,4 @@
-if Redis.VERSION < 4.2
+if Redis::VERSION < '4.2'
   module RedisCompatible
     extend ActiveSupport::Concern
 
