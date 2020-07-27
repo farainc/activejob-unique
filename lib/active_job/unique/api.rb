@@ -141,7 +141,7 @@ module ActiveJob
 
         def calculate_until_timeout_uniqueness_mode_expires(job)
           return unless until_timeout_uniqueness_mode?(job.uniqueness_mode)
-          job.uniqueness_expires = job.uniqueness_expiration.from_now.utc.to_f
+          job.uniqueness_expires = job.uniqueness_expiration.seconds.from_now.utc.to_f
         end
 
         def get_until_timeout_uniqueness_mode_expiration(job)

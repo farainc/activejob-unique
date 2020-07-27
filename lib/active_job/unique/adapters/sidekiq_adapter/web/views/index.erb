@@ -194,7 +194,7 @@
             <% end %>
           </tr>
           <tr>
-            <td rowspan="<%= ((total_stats.keys.size-1) rescue 0) * 2 + 1 %>">
+            <td rowspan="<%= additional_queues.size * 2 + 1 %>">
               <small>
               <% if processing_flag %>
                 <a class="no-decoration" href="<%= root_path %>job_stats/processing/<%= job_name %>/*/*">
@@ -207,7 +207,7 @@
                   All logs
                 </a>
               <% end %>
-            </small>
+              </small>
             </td>
             <td>
               <small>
