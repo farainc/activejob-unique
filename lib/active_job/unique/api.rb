@@ -105,6 +105,10 @@ module ActiveJob
 
           return false unless PROGRESS_STAGE_PERFORM_PROCESSING == progress_stage_state.to_s.to_sym
 
+          # keep in perform_processing stage when processing expires check is N/A
+          return true if timestamp > -5.minutes.from_now.to_f
+
+          # processing expires check is available
           if job.queue_adapter_uniqueness_api.another_job_in_worker?(
             job.class.name,
             job.queue_name,
