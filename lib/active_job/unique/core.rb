@@ -28,14 +28,18 @@ module ActiveJob
         attr_accessor :uniqueness_timestamp
         attr_accessor :uniqueness_progress_stage_group
 
-        before_enqueue do |job|
-          @uniqueness_id = Digest::MD5.hexdigest(job.arguments.inspect.to_s)
-          @uniqueness_mode ||= job.class.uniqueness_mode
-          @uniqueness_debug ||= job.class.uniqueness_debug
-          @uniqueness_expiration ||= job.class.uniqueness_expiration
+        def initialize(*args)
+          super(*args)
+
+          @uniqueness_id = Digest::MD5.hexdigest(args.inspect.to_s)
+          @uniqueness_mode ||= self.class.uniqueness_mode
+          @uniqueness_debug ||= self.class.uniqueness_debug
+          @uniqueness_expiration ||= self.class.uniqueness_expiration
           @uniqueness_timestamp = Time.now.utc
           @uniqueness_progress_stage_group = PROGRESS_STAGE_ENQUEUE_GROUP
+        end
 
+        before_enqueue do |job|
           uniqueness_api.initialize_progress_stats(job)
 
           @uniqueness_progress_stage = PROGRESS_STAGE_ENQUEUE_ATTEMPTED
