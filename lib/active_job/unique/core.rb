@@ -15,6 +15,7 @@ module ActiveJob
         class_attribute :uniqueness_mode
         class_attribute :uniqueness_expiration
         class_attribute :uniqueness_debug
+        class_attribute :uniqueness_debug_limits
 
         # uniqueness attributes
         attr_accessor :uniqueness_id
@@ -22,6 +23,7 @@ module ActiveJob
         attr_accessor :uniqueness_progress_stage
         attr_accessor :uniqueness_mode
         attr_accessor :uniqueness_debug
+        attr_accessor :uniqueness_debug_limits
         attr_accessor :uniqueness_expires
         attr_accessor :uniqueness_expiration
         attr_accessor :uniqueness_skipped_reason
@@ -34,6 +36,7 @@ module ActiveJob
           @uniqueness_id = Digest::MD5.hexdigest(args.inspect.to_s)
           @uniqueness_mode ||= self.class.uniqueness_mode
           @uniqueness_debug ||= self.class.uniqueness_debug
+          @uniqueness_debug_limits ||= self.class.uniqueness_debug_limits
           @uniqueness_expiration ||= self.class.uniqueness_expiration
           @uniqueness_timestamp = Time.now.utc
           @uniqueness_progress_stage_group = PROGRESS_STAGE_ENQUEUE_GROUP
@@ -180,14 +183,16 @@ module ActiveJob
         #          UNIQUENESS_MODE_UNTIL_AND_WHILE_EXECUTING]
         #     unique_for UNIQUENESS_MODE_WHILE_EXECUTING (string or symbol)
         #
-        #     unqiue
+        #     #5. [DEBUG MODE], args[1]: true, args[2]: limits (1000)
+        #     unique_for true, true, 1000
+        #
         #     def perform
         #       "Hello World!"
         #     end
         #   end
         #
         #   puts MyJob.new(*args).perform_now # => "Hello World!"
-        def unique_for(option = nil, debug = false)
+        def unique_for(option = nil, debug = false, debug_limits = 1000)
           # default duration for a job is 10.minutes after perform processing
           # set longer duration for long running jobs
           return false if option.blank?
@@ -208,7 +213,11 @@ module ActiveJob
             self.uniqueness_mode = option.to_sym
           end
 
-          self.uniqueness_debug = debug
+          self.uniqueness_debug = (debug == true)
+
+          debug_limits = debug_limits.to_i.abs()
+          debug_limits = 1000 if debug_limits.zero?
+          self.uniqueness_debug_limits = debug_limits
 
           true
         end

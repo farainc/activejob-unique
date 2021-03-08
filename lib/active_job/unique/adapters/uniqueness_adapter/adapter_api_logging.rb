@@ -21,7 +21,8 @@ module ActiveJob
                                         job_id,
                                         progress_stage_score,
                                         job_log_key,
-                                        job_log_value)
+                                        job_log_value,
+                                        debug_limits)
             end
           end
           # end ClassMethods

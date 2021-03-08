@@ -12,6 +12,9 @@ module ActiveJob
               Sidekiq.redis_pool.with do |conn|
                 conn.hsetnx(log_data_key, log_data_field, log_data)
               end
+            rescue StandardError => ex
+              Sidekiq.logger.error ex
+              Sidekiq.logger.error ex.backtrace.join("\n") unless ex.backtrace.nil?
             end
 
             def incr_progress_stage_log_id_score(conn, job_score_key, base, new_id)
@@ -20,6 +23,9 @@ module ActiveJob
               else
                 conn.zincrby(job_score_key, 0.0, "#{base}:#{new_id}").to_f
               end
+            rescue StandardError => ex
+              Sidekiq.logger.error ex
+              Sidekiq.logger.error ex.backtrace.join("\n") unless ex.backtrace.nil?
             end
 
             def incr_progress_stage_log(day,
@@ -29,7 +35,8 @@ module ActiveJob
                                         job_id,
                                         progress_stage_score,
                                         job_log_key,
-                                        job_log_value)
+                                        job_log_value,
+                                        debug_limits)
               Sidekiq.redis_pool.with do |conn|
                 job_id_value = "#{queue_name}:#{uniqueness_id}:#{job_id}"
                 job_id_score = conn.zscore(job_score_key, job_id_value).to_f
@@ -56,11 +63,17 @@ module ActiveJob
 
                 job_log_score = job_id_score + progress_stage_score
                 conn.zadd(job_log_key, [job_log_score, job_log_value], nx: true)
-              end
-            end
 
+                # remove over liimts debug info
+                conn.zremrangebyrank(job_log_key, 0, (0-debug_limits))
+              end
+            rescue StandardError => ex
+              Sidekiq.logger.error ex
+              Sidekiq.logger.error ex.backtrace.join("\n") unless ex.backtrace.nil?
+            end
           end
           # end ClassMethods
+
         end
       end
     end

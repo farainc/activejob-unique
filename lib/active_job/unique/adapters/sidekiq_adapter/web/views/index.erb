@@ -336,14 +336,7 @@
 <% if @job_prefix == '*' && @queue_name == '*' %>
   <script>
     function activejobUniqueCleanupJobStats() {
-      var url = 'job_stats/cleanup';
-      try {
-        url = [location.protocol, "", location.href.split('/')[2], url].join('/');
-      } catch(ex) {
-        url = "/" + url;
-      }
-
-      $.ajax({url: url, dataType: 'json'}).done(function(data) { setTimeout(activejobUniqueCleanupJobStats, 30000);});
+      $.ajax({url: '/job_stats/cleanup?r='+ (new Date()).getTime()}).done(function(data) { setTimeout(activejobUniqueCleanupJobStats, 30000);});
     }
     activejobUniqueCleanupJobStats();
   </script>
