@@ -17,6 +17,7 @@ module ActiveJob
         end
 
         def incr_progress_stage_log(job)
+          return false unless job.uniqueness_debug
           day = sequence_day(job.uniqueness_timestamp)
 
           job_name = job.class.name
@@ -33,7 +34,8 @@ module ActiveJob
             job.uniqueness_mode,
             job.uniqueness_expiration,
             job.uniqueness_expires.to_f,
-            job.uniqueness_debug
+            job.uniqueness_debug,
+            job.uniqueness_debug_limits
           ]
 
           job_log_value = job_log_values.join(PROGRESS_STATS_SEPARATOR)
@@ -46,7 +48,8 @@ module ActiveJob
             job.job_id,
             progress_stage_score,
             job_log_key,
-            job_log_value
+            job_log_value,
+            job.uniqueness_debug_limits
           )
         end
 
