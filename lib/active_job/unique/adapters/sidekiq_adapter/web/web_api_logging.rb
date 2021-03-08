@@ -118,7 +118,7 @@ module ActiveJob
 
                   args = JSON.parse(conn.hget(log_data_key, log_data_field)) rescue {}
 
-                  { logs: job_logs.sort_by{ |log| log.sort_key }, args: args }
+                  { logs: job_logs.sort_by{ |log| log[:sort_key] }, args: args }
                 end
               end
 
