@@ -104,7 +104,8 @@ module ActiveJob
                         mode: mode,
                         expiration: expiration,
                         expires: Time.at(expires.to_f).utc,
-                        debug: debug
+                        debug: debug,
+                        sort_key: timestamp.to_f
                       }
                     end
 
@@ -117,7 +118,7 @@ module ActiveJob
 
                   args = JSON.parse(conn.hget(log_data_key, log_data_field)) rescue {}
 
-                  { logs: job_logs, args: args }
+                  { logs: job_logs.sort_by{ |log| log.sort_key }, args: args }
                 end
               end
 
