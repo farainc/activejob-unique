@@ -78,6 +78,7 @@ module ActiveJob
                   log_data_field = "#{sequence_day_score(day)}#{PROGRESS_STATS_SEPARATOR}#{uniqueness_id}"
 
                   job_id_score = conn.zscore(job_score_key, "#{queue_name}:#{uniqueness_id}:#{job_id}").to_f
+
                   begin_index = 0
                   completed = false
 
@@ -88,7 +89,7 @@ module ActiveJob
                       job_log_key,
                       job_id_score,
                       "(#{job_id_score + 1}",
-                      limit: [begin_index, 101]
+                      limit: [0, 101]
                     )
 
                     temp_logs.each do |log|
@@ -105,20 +106,13 @@ module ActiveJob
                         expires: Time.at(expires.to_f).utc,
                         debug: debug
                       }
-                      completed = %w[enqueue_skipped
-                                     enqueue_failed
-                                     perform_skipped
-                                     perform_failed
-                                     perform_processed].include?(progress_stage)
-
-                      break if completed
                     end
 
                     # update index offset
                     begin_index += temp_logs.size
 
                     # break if completed || search to the end.
-                    break if completed || temp_logs.size <= 100
+                    break if temp_logs.size <= 100
                   end
 
                   args = JSON.parse(conn.hget(log_data_key, log_data_field)) rescue {}
@@ -177,42 +171,16 @@ module ActiveJob
                   job_log_key = "#{job_progress_stage_log_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_logs"
                   return unless conn.exists?(job_log_key)
 
-                  job_id_score = conn.zscore(job_score_key, "#{queue_name}:#{uniqueness_id}:#{job_id}").to_f
+                  job_id_value = "#{queue_name}:#{uniqueness_id}:#{job_id}"
+                  job_id_score = conn.zscore(job_score_key, job_id_value).to_f
 
-                  begin_index = 0
-                  completed = false
+                  conn.zremrangebyscore(
+                    job_log_key,
+                    job_id_score,
+                    "(#{job_id_score + 1}"
+                  )
 
-                  loop do
-                    temp_logs = conn.zrangebyscore(
-                      job_log_key,
-                      job_id_score,
-                      "(#{job_id_score + 1}",
-                      limit: [begin_index, 101]
-                    )
-
-                    temp_logs.each do |log|
-                      next unless (log =~ /^#{job_id}#{PROGRESS_STATS_SEPARATOR}/i) == 0
-                      _, progress_stage, _ = log.split(PROGRESS_STATS_SEPARATOR)
-
-                      completed = %w[enqueue_skipped
-                                     enqueue_failed
-                                     perform_skipped
-                                     perform_failed
-                                     perform_processed].include?(progress_stage)
-
-                      conn.zrem(job_log_key, log)
-
-                      break if completed
-                    end
-
-                    # update index offset
-                    begin_index += temp_logs.size
-
-                    # break if completed || search to the end.
-                    break if completed || temp_logs.size <= 100
-                  end
-
-                  conn.zrem(job_score_key, "#{queue_name}:#{uniqueness_id}:#{job_id}")
+                  conn.zrem(job_score_key, job_id_value)
 
                   true
                 end
