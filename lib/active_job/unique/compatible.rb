@@ -24,13 +24,14 @@ module ActiveJob
 
           job_uniqueness_mode = job_data['uniqueness_mode'] || uniqueness_mode
 
-          if uniqueness_api.valid_uniqueness_mode?(job_uniqueness_mode)
-            job.uniqueness_mode       = job_uniqueness_mode
-            job.uniqueness_id         = job_data['uniqueness_id']
-            job.uniqueness_skipped    = job_data['uniqueness_skipped']
-            job.uniqueness_expires    = job_data['uniqueness_expires']
-            job.uniqueness_expiration = job_data['uniqueness_expiration']
-            job.uniqueness_debug      = job_data['uniqueness_debug'] || uniqueness_debug
+          if uniqueness_api.valid_uniqueness_mode?(job_uniqueness_mode.to_s.to_sym)
+            job.uniqueness_mode         = job_uniqueness_mode
+            job.uniqueness_id           = job_data['uniqueness_id']
+            job.uniqueness_skipped      = job_data['uniqueness_skipped']
+            job.uniqueness_expires      = job_data['uniqueness_expires']
+            job.uniqueness_expiration   = job_data['uniqueness_expiration']
+            job.uniqueness_debug        = job_data['uniqueness_debug'] || uniqueness_debug
+            job.uniqueness_debug_limits = job_data['uniqueness_debug_limits'] || uniqueness_debug_limits
           end
 
           job
@@ -41,12 +42,13 @@ module ActiveJob
         data = super
 
         if uniqueness_api.valid_uniqueness_mode?(uniqueness_mode.to_s.to_sym)
-          data['uniqueness_id']         = uniqueness_id
-          data['uniqueness_skipped']    = uniqueness_skipped
-          data['uniqueness_expires']    = uniqueness_expires
-          data['uniqueness_expiration'] = uniqueness_expiration
-          data['uniqueness_mode']       = uniqueness_mode
-          data['uniqueness_debug']      = uniqueness_debug
+          data['uniqueness_id']           = uniqueness_id
+          data['uniqueness_skipped']      = uniqueness_skipped
+          data['uniqueness_expires']      = uniqueness_expires
+          data['uniqueness_expiration']   = uniqueness_expiration
+          data['uniqueness_mode']         = uniqueness_mode
+          data['uniqueness_debug']        = uniqueness_debug
+          data['uniqueness_debug_limits'] = uniqueness_debug_limits
         end
 
         data
