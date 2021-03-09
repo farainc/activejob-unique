@@ -149,7 +149,7 @@ module ActiveJob
         end
 
         # Set unique job options:
-        #   unique_for [option (boolean:integer:duration:string:symbol), debug_flag (boolean)]
+        #   unique_for [option (boolean:integer:duration:string:symbol), debug_flag (boolean), debug_limits (integer)]
         #
         #   MODE:
         #
