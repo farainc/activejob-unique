@@ -100,15 +100,10 @@ module ActiveJob
         def another_job_in_performing?(job)
           progress_stage_state, timestamp = get_progress_stage_state(job)
 
-          timestamp = timestamp.to_f
-          return false if timestamp.zero?
+          # if processing & not expired
+          return true if PROGRESS_STAGE_PERFORM_PROCESSING == progress_stage_state.to_s.to_sym && timestamp.to_f > -5.minutes.from_now.to_f
 
-          return false unless PROGRESS_STAGE_PERFORM_PROCESSING == progress_stage_state.to_s.to_sym
-
-          # keep in perform_processing stage when processing expires check is N/A
-          return true if timestamp > -5.minutes.from_now.to_f
-
-          # processing expires check is available
+          # check another_job_in_worker? from adapter api
           if job.queue_adapter_uniqueness_api.another_job_in_worker?(
             job.class.name,
             job.queue_name,
@@ -120,6 +115,7 @@ module ActiveJob
 
             true
           else
+
             false
           end
         end
