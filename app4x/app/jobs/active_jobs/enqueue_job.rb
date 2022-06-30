@@ -11,10 +11,12 @@ class ActiveJobs::EnqueueJob < ApplicationJob
     true
   end
 
-  def self.enqueue_multiple(total = 100, times = 10)
+  def self.enqueue_multiple(total = 10, times = 100)
+    ActiveJobs::WithPerformOnlyJob.enqueue_multiple(10, 100)
+    sleep(30)
+
     [
       ActiveJobs::WithEnqueueOnlyJob,
-      ActiveJobs::WithPerformOnlyJob,
       ActiveJobs::WithTimeoutJob,
       ActiveJobs::WithUniqueJob,
       ActiveJobs::WithoutUniqueJob
