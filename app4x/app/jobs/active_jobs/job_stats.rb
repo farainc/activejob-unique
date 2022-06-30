@@ -48,11 +48,11 @@ module ActiveJobs
       end
     end
 
-    def run(job_args)
+    def run(job_args, sleep_time = rand(0...10))
       db_job = Db::ActiveJobUnique.find_by(job_name: self.class.name, job_args: job_args)
       return false if db_job.blank?
 
-      sleep(rand(0...10) / 10.00)
+      sleep(sleep_time / 10.00)
 
       Db::ActiveJobUnique.update_counters(db_job.id, performed: 1)
     end

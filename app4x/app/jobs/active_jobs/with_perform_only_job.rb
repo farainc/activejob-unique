@@ -5,7 +5,7 @@ class ActiveJobs::WithPerformOnlyJob < ApplicationJob
   unique_for :while_executing, true
 
   def perform(job_args, *_args)
-    run(job_args)
+    run(job_args, 300)
 
     true
   end
