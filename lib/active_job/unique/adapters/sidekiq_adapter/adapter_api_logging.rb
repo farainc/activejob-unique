@@ -18,10 +18,10 @@ module ActiveJob
             end
 
             def incr_progress_stage_log_id_score(conn, job_score_key, base, new_id)
-              if conn.zadd(job_score_key, [0, "#{base}:#{new_id}"], nx: true) == 1
-                conn.zincrby(job_score_key, conn.zincrby(job_score_key, 1.0, base), "#{base}:#{new_id}").to_f
+              if conn.zadd(job_score_key, "NX", [0, "#{base}:#{new_id}"]) == 1
+                conn.zincrby(job_score_key, conn.zincrby(job_score_key, 1.0, base), "#{base}:#{new_id}")
               else
-                conn.zincrby(job_score_key, 0.0, "#{base}:#{new_id}").to_f
+                conn.zincrby(job_score_key, 0.0, "#{base}:#{new_id}")
               end
             rescue StandardError => ex
               Sidekiq.logger.error ex
@@ -56,24 +56,28 @@ module ActiveJob
 
                   job_id_score = day_score + queue_id_score + uniqueness_id_score + time_score
 
-                  if conn.zadd(job_score_key, [job_id_score, job_id_value], nx: true) == 0
+                  if conn.zadd(job_score_key, "NX", [job_id_score, job_id_value]) == 0
                     job_id_score = conn.zscore(job_score_key, job_id_value).to_f
                   end
                 end
 
                 job_log_score = job_id_score + progress_stage_score
-                conn.zadd(job_log_key, [job_log_score, job_log_value], nx: true)
+                conn.zadd(job_log_key, "NX", [job_log_score, job_log_value])
 
                 # remove over limits logs
                 min_score = day_score
                 max_score = min_score + DAY_SCORE_BASE
 
                 loop do
-                  job_score_logs = conn.zrevrangebyscore(
+                  job_score_logs = conn.zrange(
                     job_score_key,
                     "(#{max_score}",
                     min_score,
-                    limit: [debug_limits, debug_limits + 100 + 1]
+                    "BYSCORE",
+                    "REV",
+                    "LIMIT",
+                    debug_limits,
+                    debug_limits + 100 + 1
                   )
 
                   job_score_logs.each do |log|

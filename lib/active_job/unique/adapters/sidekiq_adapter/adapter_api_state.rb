@@ -29,7 +29,7 @@ module ActiveJob
 
             def getset_progress_stage_state_flag(state_key, data)
               Sidekiq.redis_pool.with do |conn|
-                conn.getset(state_key, data)
+                conn.set(state_key, data, "GET")
               end
             end
 

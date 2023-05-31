@@ -1,4 +1,4 @@
-if Redis::VERSION < '4.2'
+if Sidekiq::VERSION < '7' && Redis::VERSION < '4.2'
   module RedisCompatible
     extend ActiveSupport::Concern
 

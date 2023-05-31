@@ -55,11 +55,15 @@ module ActiveJob
                                 min_score + DAY_SCORE_BASE
                               end
 
-                  job_logs = conn.zrevrangebyscore(
+                  job_logs = conn.zrange(
                     job_score_key,
                     "(#{max_score}",
                     min_score,
-                    limit: [begin_index, begin_index + count + 1]
+                    "BYSCORE",
+                    "REV",
+                    "LIMIT",
+                    begin_index,
+                    begin_index + count + 1
                   )
 
                   [job_logs.size > count, job_logs[0..count - 1]]
