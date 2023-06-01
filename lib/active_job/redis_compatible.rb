@@ -1,13 +1,23 @@
 if defined?(Redis) && Redis::VERSION < '4.2'
-  if defined?(Sidekiq) && Sidekiq::VERSION < '7'
-    module RedisCompatible
-      extend ActiveSupport::Concern
+  module RedisCompatible
+    extend ActiveSupport::Concern
 
-      def exists?(key)
-        exists(key)
-      end
+    def exists?(key)
+      exists(key)
     end
-
-    Redis.send(:include, RedisCompatible)
   end
+
+  Redis.include RedisCompatible
+end
+
+if defined?(Sidekiq::RedisClientAdapter::CompatClient)
+  module RedisCompatible
+    extend ActiveSupport::Concern
+
+    def exists?(key)
+      exists(key)
+    end
+  end
+
+  Sidekiq::RedisClientAdapter::CompatClient.include RedisCompatible
 end
