@@ -33,9 +33,9 @@ module ActiveJob
                 Sidekiq.redis_pool.with do |conn|
                   if @job_prefix == '*' && @queue_name == '*'
                     @total_size = conn.zcard(WebApi.job_progress_stats_jobs)
-                    @job_stats = conn.zrevrange(WebApi.job_progress_stats_jobs, begin_index, end_index)
+                    @job_stats = conn.zrange(WebApi.job_progress_stats_jobs, begin_index, end_index, "REV")
                   else
-                    @job_stats = conn.zrevrange(WebApi.job_progress_stats_jobs, 0, -1)
+                    @job_stats = conn.zrange(WebApi.job_progress_stats_jobs, 0, -1, "REV")
                     @job_stats.reject!{|job| (job =~ /^#{@job_prefix}/i) != 0 } if @job_prefix != '*'
                     @job_stats = WebApi.query_job_progress_stats_job_names(@job_stats, @queue_name, @current_page) if @queue_name != '*'
 

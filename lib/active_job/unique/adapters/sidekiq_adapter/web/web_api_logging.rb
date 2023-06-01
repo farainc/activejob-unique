@@ -89,11 +89,14 @@ module ActiveJob
                   job_logs = []
 
                   loop do
-                    temp_logs = conn.zrangebyscore(
+                    temp_logs = conn.zrange(
                       job_log_key,
                       job_id_score,
                       "(#{job_id_score + 1}",
-                      limit: [0, 101]
+                      "BYSCORE",
+                      "LIMIT",
+                      0,
+                      101
                     )
 
                     temp_logs.each do |log|
