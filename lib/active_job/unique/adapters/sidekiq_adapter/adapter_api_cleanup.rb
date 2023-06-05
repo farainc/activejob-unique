@@ -43,30 +43,23 @@ module ActiveJob
                 sidekiq_queues = {}
                 sidekiq_workers = Sidekiq::Workers.new
 
-                cursor = "0"
-                loop do
-                  cursor, values = conn.hscan(state_key, count: 100)
+                conn.hscan(state_key, count: 1000) do |name, value|
+                  job_name, queue_name, uniqueness_id = name.to_s.split(PROGRESS_STATS_SEPARATOR)
+                  progress_stage, progress_at, job_id = value.to_s.split(PROGRESS_STATS_SEPARATOR)
+                  progress_at = progress_at.to_f
 
-                  values&.each do |name, value|
-                    job_name, queue_name, uniqueness_id = name.to_s.split(PROGRESS_STATS_SEPARATOR)
-                    progress_stage, progress_at, job_id = value.to_s.split(PROGRESS_STATS_SEPARATOR)
-                    progress_at = progress_at.to_f
+                  # only check expired jobs
+                  next if progress_at > expired_at
 
-                    # only check expired jobs
-                    next if progress_at > expired_at
-
-                    # skip if job existed in queue or worker
-                    if (progress_stage =~ /^enqueue/i) == 0
-                      queue = sidekiq_queues[queue_name] || Sidekiq::Queue.new(queue_name)
-                      next if queue.latency > (Time.now.utc.to_f - progress_at)
-                    elsif (progress_stage =~ /^perform/i) == 0
-                      next if sidekiq_workers.any? { |_p, _t, w| w['queue'] == queue_name && w['payload']['wrapped'] == job_name && w['payload']['args'][0]['uniqueness_id'] == uniqueness_id && w['payload']['args'][0]['job_id'] == job_id }
-                    end
-
-                    conn.hdel(state_key, name)
+                  # skip if job existed in queue or worker
+                  if (progress_stage =~ /^enqueue/i) == 0
+                    queue = sidekiq_queues[queue_name] || Sidekiq::Queue.new(queue_name)
+                    next if queue.latency > (Time.now.utc.to_f - progress_at)
+                  elsif (progress_stage =~ /^perform/i) == 0
+                    next if sidekiq_workers.any? { |_p, _t, w| w['queue'] == queue_name && w['payload']['wrapped'] == job_name && w['payload']['args'][0]['uniqueness_id'] == uniqueness_id && w['payload']['args'][0]['job_id'] == job_id }
                   end
 
-                  break if cursor == "0"
+                  conn.hdel(state_key, name)
                 end
 
                 conn.hset(job_progress_stats_cleanup, 'cleanup_expired_progress_state_uniqueness', (Time.now.utc + 60).to_f)
@@ -123,14 +116,14 @@ module ActiveJob
                   max_score
                 )
 
-                cursor = '0'
-
                 loop do
-                  cursor, values = conn.hscan(log_data_key, cursor, match: log_data_field_match, count: 100)
-                  keys = values&.map{|kv| kv[0]}
-                  conn.hdel(log_data_key, keys) if keys&.size.positive?
+                  values = conn.hscan(log_data_key, match: log_data_field_match, count: 1000)
+                  break if values.blank?
 
-                  break if cursor == '0'
+                  keys = values&.map{|kv| kv[0]}
+                  break if keys.blank?
+
+                  conn.hdel(log_data_key, keys)
                 end
               end
 

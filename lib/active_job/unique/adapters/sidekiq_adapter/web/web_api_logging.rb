@@ -66,7 +66,7 @@ module ActiveJob
                     begin_index + count + 1
                   )
 
-                  [job_logs.size > count, job_logs[0..count - 1]]
+                  [job_logs.size > count, job_logs[0, count]]
                 end
               end
 

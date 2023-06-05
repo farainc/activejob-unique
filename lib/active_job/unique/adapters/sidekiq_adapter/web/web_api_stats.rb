@@ -23,10 +23,9 @@ module ActiveJob
                     matched_job_name_collection = {}
                     match_filter = "*#{PROGRESS_STATS_SEPARATOR}#{queue_name_filter}#{PROGRESS_STATS_SEPARATOR}*"
 
-                    cursor = "0"
-
                     loop do
-                      cursor, values = conn.hscan(job_progress_stats_key, cursor, match: match_filter, count: 100)
+                      values = conn.hscan(job_progress_stats_key, cursor, match: match_filter, count: 1000)
+                      break if values.blank?
 
                       values&.each do |name, value|
                         job_name, _, _ = name.to_s.split(PROGRESS_STATS_SEPARATOR)
@@ -34,8 +33,6 @@ module ActiveJob
 
                         matched_job_name_collection[job_name] = true
                       end
-
-                      break if cursor == "0"
                     end
 
                     matched_job_names = job_names.reject{|job_name| !matched_job_name_collection.key?(job_name) }
@@ -61,26 +58,19 @@ module ActiveJob
 
                   match_filter = "*#{PROGRESS_STATS_SEPARATOR}#{queue_name_filter}#{PROGRESS_STATS_SEPARATOR}*"
 
-                  cursor = "0"
-                  loop do
-                    cursor, values = conn.hscan(job_progress_stats_key, cursor, match: match_filter, count: 100)
+                  conn.hscan(job_progress_stats_key, match: match_filter, count: 1000) do |name, value|
+                    job_name, queue_name, progress_stage = name.to_s.split(PROGRESS_STATS_SEPARATOR)
+                    next unless job_names.include?(job_name)
 
-                    values&.each do |name, value|
-                      job_name, queue_name, progress_stage = name.to_s.split(PROGRESS_STATS_SEPARATOR)
-                      next unless job_names.include?(job_name)
+                    stats_job_group[job_name] ||= {}
+                    stats_job_group[job_name][queue_name] ||= {}
+                    stats_job_group[job_name][queue_name]['enqueue'] ||= {}
+                    stats_job_group[job_name][queue_name]['perform'] ||= {}
 
-                      stats_job_group[job_name] ||= {}
-                      stats_job_group[job_name][queue_name] ||= {}
-                      stats_job_group[job_name][queue_name]['enqueue'] ||= {}
-                      stats_job_group[job_name][queue_name]['perform'] ||= {}
+                    stage, progress = progress_stage.split('_')
+                    next if stage.to_s.empty? || progress.to_s.empty?
 
-                      stage, progress = progress_stage.split('_')
-                      next if stage.to_s.empty? || progress.to_s.empty?
-
-                      stats_job_group[job_name][queue_name][stage][progress] = value
-                    end
-
-                    break if cursor == "0"
+                    stats_job_group[job_name][queue_name][stage][progress] = value
                   end
                 end
 

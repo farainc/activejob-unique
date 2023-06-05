@@ -14,10 +14,11 @@ module ActiveJob
                   state_key = job_progress_stage_state
 
                   uniqueness_keys = {}
-
-                  cursor = "0"
+                  i = 0
                   loop do
-                    cursor, values = conn.hscan(state_key, count: 100)
+                    i += 1
+                    values = conn.hscan(state_key, count: 1000)
+                    break if values.blank?
 
                     values&.each  do |name, value|
                       job_name, queue_name, _ = name.to_s.split(PROGRESS_STATS_SEPARATOR)
@@ -35,8 +36,7 @@ module ActiveJob
                       uniqueness_keys[job_name][queue_name][stage] += 1
                     end
 
-                    # maxmium 10,000
-                    break if cursor == "0" || cursor >= "10000"
+                    break if i > 10
                   end
 
                   uniqueness_keys
@@ -49,13 +49,17 @@ module ActiveJob
                   match_filter = [job_name, queue_name, "*"].join(PROGRESS_STATS_SEPARATOR)
 
                   job_stats = []
+                  i = 0
+                  end_index = begin_index + count
 
-                  cursor = begin_index
                   loop do
-                    cursor, values = conn.hscan(state_key, cursor, match: match_filter, count: 100)
+                    values = conn.hscan(state_key, match: match_filter, count: 100)
+                    break if values.blank?
 
                     values&.each do |name, value|
                       next if stage != '*' && (value =~ /^#{stage}/i).nil?
+                      i += 1
+                      next if i < begin_index
 
                       n_job_name, n_queue_name, uniqueness_id = name.to_s.split(PROGRESS_STATS_SEPARATOR)
                       progress_stage, timestamp, job_id = value.to_s.split(PROGRESS_STATS_SEPARATOR)
@@ -70,14 +74,16 @@ module ActiveJob
                       }
 
                       job_stats << stats
+
+                      break if i > end_index
                     end
 
-                    break if job_stats.size >= 100 || cursor == "0"
+                    break if job_stats.size > count
                   end
 
-                  next_page_availabe = job_stats.size > 100 || cursor != "0"
+                  next_page_availabe = job_stats.size > count
 
-                  [next_page_availabe, job_stats[0, 100]]
+                  [next_page_availabe, job_stats[0, count]]
                 end
               end
 
@@ -86,14 +92,12 @@ module ActiveJob
                   state_key = job_progress_stage_state
                   match_filter = [job_name, queue_name, uniqueness_id].join(PROGRESS_STATS_SEPARATOR)
 
-                  cursor = "0"
                   loop do
-                    cursor, values = conn.hscan(state_key, cursor, match: match_filter, count: 100)
+                    values = conn.hscan(state_key, cursor, match: match_filter, count: 1000)
+                    break if values.blank?
 
-                    keys = values&.map{|kv| kv[0] if /^#{stage}/ =~ kv[1]}.compact
+                    keys = values&.select{|k, v| /^#{stage}/ =~ v}&.keys
                     conn.hdel(state_key, keys) if keys&.size.positive?
-
-                    break if cursor == "0"
                   end
                 end
 
@@ -105,10 +109,12 @@ module ActiveJob
                   state_key = "#{job_progress_stage_state}#{PROGRESS_STATS_SEPARATOR}*"
 
                   processing_keys = {}
+                  i = 0
 
-                  cursor = "0"
                   loop do
-                    cursor, values = conn.scan(match: state_key, count: 1000)
+                    values = conn.scan(match: state_key, count: 1000)
+                    break if values.blank?
+
                     values&.each do |key|
                       _, job_name, _ = key.to_s.split(PROGRESS_STATS_SEPARATOR)
                       next unless job_names.include?(job_name)
@@ -118,7 +124,8 @@ module ActiveJob
                     end
 
                     # maxmium 10,000
-                    break if cursor == "0" || cursor >= "10000"
+                    i += 1
+                    break if i > 10
                   end
 
                   processing_keys
@@ -131,10 +138,7 @@ module ActiveJob
 
                   job_stats = []
 
-                  cursor, values = conn.scan(begin_index, match: match_filter, count: 100)
-                  next_page_availabe = cursor != "0"
-
-                  values&.each do |name|
+                  conn.scan(begin_index, match: match_filter, count: count + 1) do |name|
                     _, n_job_name, n_queue_name, uniqueness_id, progress_stage = name.to_s.split(PROGRESS_STATS_SEPARATOR)
 
                     stats = {
@@ -148,23 +152,22 @@ module ActiveJob
                     job_stats << stats
                   end
 
-                  [next_page_availabe, job_stats]
+                  [job_stats.size > count, job_stats[0, count]]
                 end
               end
 
               def cleanup_job_progress_state_processing(job_name, queue_name, uniqueness_id, stage)
                 Sidekiq.redis_pool.with do |conn|
-                  cursor = "0"
                   match_filter = [job_progress_stage_state, job_name, queue_name, uniqueness_id].join(PROGRESS_STATS_SEPARATOR)
 
                   if stage != '*'
                     conn.del("#{match_filter}#{PROGRESS_STATS_SEPARATOR}#{stage}")
                   else
                     loop do
-                      cursor, keys = conn.scan(cursor, match: "#{match_filter}#{PROGRESS_STATS_SEPARATOR}*", count: 100)
-                      conn.del(*keys) if keys
+                      keys = conn.scan(match: "#{match_filter}#{PROGRESS_STATS_SEPARATOR}*", count: 100)
+                      break if keys.blank?
 
-                      break if cursor == '0'
+                      conn.del(*keys)
                     end
                   end
                 end

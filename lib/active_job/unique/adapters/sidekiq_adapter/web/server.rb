@@ -28,7 +28,7 @@ module ActiveJob
                 @current_page = 1 if @current_page < 1
 
                 begin_index = (@current_page - 1) * @count
-                end_index = begin_index + @count - 1
+                end_index = begin_index + @count
 
                 Sidekiq.redis_pool.with do |conn|
                   if @job_prefix == '*' && @queue_name == '*'
@@ -40,7 +40,7 @@ module ActiveJob
                     @job_stats = WebApi.query_job_progress_stats_job_names(@job_stats, @queue_name, @current_page) if @queue_name != '*'
 
                     @total_size = @job_stats.size
-                    @job_stats = @job_stats[begin_index..end_index]
+                    @job_stats = @job_stats[begin_index, end_index]
                   end
                 end
 
