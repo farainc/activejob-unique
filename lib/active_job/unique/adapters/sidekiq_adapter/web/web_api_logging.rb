@@ -20,7 +20,7 @@ module ActiveJob
 
                     job_log_keys[job_name] = {}
 
-                    queues.keys.each do |queue_name|
+                    queues.keys&.each do |queue_name|
                       min = conn.zscore(job_score_key, "queue:#{queue_name}").to_f
                       next if min.nil?
 
@@ -99,7 +99,7 @@ module ActiveJob
                       101
                     )
 
-                    temp_logs.each do |log|
+                    temp_logs&.each do |log|
                       next unless (log =~ /^#{job_id}#{PROGRESS_STATS_SEPARATOR}/i) == 0
 
                       _, progress_stage, timestamp, reason, mode, expiration, expires, debug = log.split(PROGRESS_STATS_SEPARATOR)

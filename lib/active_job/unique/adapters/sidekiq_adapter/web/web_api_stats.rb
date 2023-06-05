@@ -28,7 +28,7 @@ module ActiveJob
                     loop do
                       cursor, values = conn.hscan(job_progress_stats_key, cursor, match: match_filter, count: 100)
 
-                      values.each do |name, value|
+                      values&.each do |name, value|
                         job_name, _, _ = name.to_s.split(PROGRESS_STATS_SEPARATOR)
                         next unless job_names.include?(job_name)
 
@@ -65,7 +65,7 @@ module ActiveJob
                   loop do
                     cursor, values = conn.hscan(job_progress_stats_key, cursor, match: match_filter, count: 100)
 
-                    values.each do |name, value|
+                    values&.each do |name, value|
                       job_name, queue_name, progress_stage = name.to_s.split(PROGRESS_STATS_SEPARATOR)
                       next unless job_names.include?(job_name)
 

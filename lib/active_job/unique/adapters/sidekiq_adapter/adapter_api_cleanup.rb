@@ -83,7 +83,7 @@ module ActiveJob
                 timestamp = conn.hget(job_progress_stats_cleanup, 'cleanup_expired_progress_stage_logs').to_f
                 return false if !force_cleanup && timestamp > now.to_f
 
-                conn.zrange(job_progress_stats_jobs, 0, -1).each do |job_name|
+                conn.zrange(job_progress_stats_jobs, 0, -1)&.each do |job_name|
                   job_score_key = "#{job_progress_stage_log_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_score"
                   job_log_key = "#{job_progress_stage_log_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_logs"
                   log_data_key = job_progress_stage_log_key(job_name)

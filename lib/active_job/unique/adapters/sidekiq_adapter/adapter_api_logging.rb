@@ -80,7 +80,7 @@ module ActiveJob
                     debug_limits + 100 + 1
                   )
 
-                  job_score_logs.each do |log|
+                  job_score_logs&.each do |log|
                     temp_job_id_score = conn.zscore(job_score_key, log).to_f
 
                     conn.zremrangebyscore(
