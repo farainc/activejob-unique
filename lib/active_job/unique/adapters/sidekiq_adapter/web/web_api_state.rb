@@ -19,7 +19,7 @@ module ActiveJob
                   loop do
                     cursor, values = conn.hscan(state_key, count: 100)
 
-                    values.each  do |name, value|
+                    values&.each  do |name, value|
                       job_name, queue_name, _ = name.to_s.split(PROGRESS_STATS_SEPARATOR)
                       next unless job_names.include?(job_name)
                       next if queue_name.to_s.empty?
@@ -50,16 +50,13 @@ module ActiveJob
 
                   job_stats = []
 
-                  cursor, values = conn.hscan(state_key, begin_index, match: match_filter, count: 100)
-                  next_page_availabe = cursor != "0"
+                  cursor = begin_index
+                  loop do
+                    cursor, values = conn.hscan(state_key, cursor, match: match_filter, count: 100)
 
-                  values.each do |name, value|
-                    next if stage != '*' && (value =~ /^#{stage}/i).nil?
+                    values&.each do |name, value|
+                      next if stage != '*' && (value =~ /^#{stage}/i).nil?
 
-                    i += 1
-                    next if i < begin_index
-
-                    if i < end_index
                       n_job_name, n_queue_name, uniqueness_id = name.to_s.split(PROGRESS_STATS_SEPARATOR)
                       progress_stage, timestamp, job_id = value.to_s.split(PROGRESS_STATS_SEPARATOR)
 
@@ -73,14 +70,14 @@ module ActiveJob
                       }
 
                       job_stats << stats
-                    else
-                      next_page_availabe = true
-
-                      break
                     end
+
+                    break if job_stats.size >= 100 || cursor == "0"
                   end
 
-                  [next_page_availabe, job_stats]
+                  next_page_availabe = job_stats.size > 100 || cursor != "0"
+
+                  [next_page_availabe, job_stats[0, 100]]
                 end
               end
 
@@ -93,8 +90,8 @@ module ActiveJob
                   loop do
                     cursor, values = conn.hscan(state_key, cursor, match: match_filter, count: 100)
 
-                    keys = values.select{|k, v| /^#{stage}/ =~ v}.keys
-                    conn.hdel(state_key, keys) if keys.size.positive?
+                    keys = values&.map{|kv| kv[0] if /^#{stage}/ =~ kv[1]}.compact
+                    conn.hdel(state_key, keys) if keys&.size.positive?
 
                     break if cursor == "0"
                   end
@@ -112,7 +109,7 @@ module ActiveJob
                   cursor = "0"
                   loop do
                     cursor, values = conn.scan(match: state_key, count: 1000)
-                    values.each do |key|
+                    values&.each do |key|
                       _, job_name, _ = key.to_s.split(PROGRESS_STATS_SEPARATOR)
                       next unless job_names.include?(job_name)
                       next if processing_keys.include?(job_name)
@@ -137,7 +134,7 @@ module ActiveJob
                   cursor, values = conn.scan(begin_index, match: match_filter, count: 100)
                   next_page_availabe = cursor != "0"
 
-                  values.each do |name|
+                  values&.each do |name|
                     _, n_job_name, n_queue_name, uniqueness_id, progress_stage = name.to_s.split(PROGRESS_STATS_SEPARATOR)
 
                     stats = {

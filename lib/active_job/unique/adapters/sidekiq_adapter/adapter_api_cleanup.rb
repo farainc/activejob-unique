@@ -47,7 +47,7 @@ module ActiveJob
                 loop do
                   cursor, values = conn.hscan(state_key, count: 100)
 
-                  values.each do |name, value|
+                  values&.each do |name, value|
                     job_name, queue_name, uniqueness_id = name.to_s.split(PROGRESS_STATS_SEPARATOR)
                     progress_stage, progress_at, job_id = value.to_s.split(PROGRESS_STATS_SEPARATOR)
                     progress_at = progress_at.to_f
@@ -126,9 +126,9 @@ module ActiveJob
                 cursor = '0'
 
                 loop do
-                  cursor, key_values = conn.hscan(log_data_key, cursor, match: log_data_field_match, count: 100)
-                  keys = key_values.map { |kv| kv[0] }
-                  conn.hdel(log_data_key, keys) if keys.size.positive?
+                  cursor, values = conn.hscan(log_data_key, cursor, match: log_data_field_match, count: 100)
+                  keys = values&.map{|kv| kv[0]}
+                  conn.hdel(log_data_key, keys) if keys&.size.positive?
 
                   break if cursor == '0'
                 end
