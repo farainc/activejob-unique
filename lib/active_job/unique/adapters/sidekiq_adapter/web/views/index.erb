@@ -76,10 +76,19 @@
   stages = ['processed', 'skipped', 'failed', 'attempted', 'processing']
 %>
 <div class='row header'>
-  <div class='col-sm-5 col-xs-12'>
+  <div class='col-sm-4 col-xs-12'>
     <h3><a class="no-decoration" href="<%= root_path %>job_stats">Job Stats</a> / <span class="title"><%= @total_size %> jobs</span>
   </div>
-  <div class='col-sm-7 col-xs-12'>
+  <div class='col-sm-4 col-xs-12'>
+    <div class="input-group">
+      <span class="input-group-addon glyphicon glyphicon-search"></span>
+      <input id="search_job_name" type="text" class="form-control" placeholder="Search job name">
+      <span class="input-group-btn">
+        <button class="btn btn-default" type="button" onclick="javascript:searchByJobName();">Filter</button>
+      </span>
+    </div>
+  </div>
+  <div class='col-sm-4 col-xs-12'>
     <% if @job_stats.size > 0 && @total_size > @count %>
       <%= erb :_paging, :locals => { :url => "#{root_path}job_stats/#{@job_prefix}/#{@queue_name}" } %>
     <% end %>
@@ -339,5 +348,10 @@
       $.ajax({url: '/job_stats/cleanup?r='+ (new Date()).getTime()}).done(function(data) { setTimeout(activejobUniqueCleanupJobStats, 30000);});
     }
     activejobUniqueCleanupJobStats();
+
+    function searchByJobName() {
+      var name = $('#search_job_name').val().replace(/\//, '');
+      window.location = '/job_stats/'+ name + '/*';
+    }
   </script>
 <% end %>

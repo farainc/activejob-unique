@@ -32,10 +32,10 @@ module ActiveJob
                 end
               end
 
-              def query_job_progress_stage_log_jobs(day, job_name, queue_name, uniqueness_id, count, begin_index)
+              def query_job_progress_stage_log_jobs(day, job_name, queue_name, uniqueness_id, count, offset)
                 Sidekiq.redis_pool.with do |conn|
                   job_score_key = "#{job_progress_stage_log_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_score"
-                  return [false, []] unless conn.exists?(job_score_key)
+                  return [false, [], 0] unless conn.exists?(job_score_key)
 
                   day_score = ensure_job_stage_log_day_base(day)
 
@@ -62,11 +62,11 @@ module ActiveJob
                     "REV",
                     "BYSCORE",
                     "LIMIT",
-                    begin_index,
+                    offset,
                     count + 1
                   )
 
-                  [job_logs.size > count, job_logs[0, count]]
+                  [job_logs.size > count, job_logs[0, count], offset + [count, job_logs.size].min]
                 end
               end
 
@@ -95,7 +95,7 @@ module ActiveJob
                       "BYSCORE",
                       "LIMIT",
                       begin_index,
-                      1000
+                      100
                     )
 
                     temp_logs&.each do |log|
@@ -119,7 +119,7 @@ module ActiveJob
                     begin_index += temp_logs.size
 
                     # break if completed || search to the end.
-                    break if temp_logs.size < 1000
+                    break if temp_logs.size < 100
                   end
 
                   args = JSON.parse(conn.hget(log_data_key, log_data_field)) rescue {}

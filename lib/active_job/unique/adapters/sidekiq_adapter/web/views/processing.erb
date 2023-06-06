@@ -32,7 +32,7 @@
   </div>
   <div class='col-sm-5 col-xs-8'>
     <% if @job_stats.size > 0 && @total_size.to_i > @count %>
-      <%= erb :_paging, :locals => { :url => "#{root_path}job_stats/processing/#{@job_name}/#{@queue_name}/#{@uniqueness_id}" } %>
+      <%= erb :_paging, :locals => { :url => "#{root_path}job_stats/processing/#{@job_name}/#{@queue_name}/#{@uniqueness_id}?offset=#{@next_offset}" } %>
     <% end %>
   </div>
   <div class='col-sm-2 col-xs-4 text-right'>
@@ -52,12 +52,12 @@
         <th>Uniqueness Id</th>
         <th>Expires</th>
         <th class="text-center">Progress Stage</th>
-        <th class="text-center title"><%= @job_stats.size + @begin_index %></th>
+        <th class="text-center title"><%= @job_stats.size + @offset %></th>
       </thead>
       <tbody>
         <% @job_stats.each_with_index do |stats, idx| %>
           <tr>
-            <td><%= @begin_index + idx + 1 %></td>
+            <td><%= @offset + idx + 1 %></td>
             <td>
               <a class="no-decoration" href="<%= "#{root_path}job_stats/processing/#{stats[:job_name]}/*/*" %>"><%= stats[:job_name] %></a>
             </td>

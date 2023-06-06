@@ -43,8 +43,8 @@ module ActiveJob
                 sidekiq_queues = {}
                 sidekiq_workers = Sidekiq::Workers.new
 
-                conn.hscan(state_key, count: 1000) do |name, value|
-                  job_name, queue_name, uniqueness_id = name.to_s.split(PROGRESS_STATS_SEPARATOR)
+                conn.hscan(state_key, count: 100) do |key, value|
+                  job_name, queue_name, uniqueness_id = key.to_s.split(PROGRESS_STATS_SEPARATOR)
                   progress_stage, progress_at, job_id = value.to_s.split(PROGRESS_STATS_SEPARATOR)
                   progress_at = progress_at.to_f
 
@@ -116,14 +116,8 @@ module ActiveJob
                   max_score
                 )
 
-                loop do
-                  values = conn.hscan(log_data_key, match: log_data_field_match, count: 1000)
-                  break if values.blank?
-
-                  keys = values&.map{|kv| kv[0]}
-                  break if keys.blank?
-
-                  conn.hdel(log_data_key, keys)
+                conn.hscan(log_data_key, match: log_data_field_match) do |k, v|
+                  conn.hdel(log_data_key, k)
                 end
               end
 

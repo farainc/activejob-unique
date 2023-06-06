@@ -32,7 +32,7 @@
   </div>
   <div class='col-sm-5 col-xs-8'>
     <% if @job_logs.size > 0 && @total_size.to_i > @count %>
-      <%= erb :_paging, :locals => { :url => "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{@queue_name}/#{@uniqueness_id}" } %>
+      <%= erb :_paging, :locals => { :url => "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{@queue_name}/#{@uniqueness_id}?offset=#{@next_offset}" } %>
     <% end %>
   </div>
   <div class='col-sm-2 col-xs-4 text-right'>
@@ -65,7 +65,7 @@
         <th>Queue</th>
         <th>Uniqueness Id</th>
         <th>Job Id</th>
-        <th class="text-center title"><%= @job_logs.size + @begin_index %></th>
+        <th class="text-center title"><%= @job_logs.size + @offset %></th>
       </thead>
       <tbody>
         <%
@@ -73,7 +73,7 @@
             queue_name, uniqueness_id, job_id = log.to_s.split(':')
         %>
           <tr>
-            <td><%= @begin_index + idx + 1 %></td>
+            <td><%= @offset + idx + 1 %></td>
             <td><%= @day %></td>
             <td><a class="no-decoration" href="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/*/*"%>"><%= @job_name %></a></td>
             <td><a class="no-decoration" href="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{queue_name}/*"%>"><%= queue_name %></a></td>

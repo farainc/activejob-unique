@@ -77,7 +77,7 @@ module ActiveJob
                     "BYSCORE",
                     "LIMIT",
                     debug_limits,
-                    1000
+                    100
                   )
 
                   job_score_logs&.each do |log|
@@ -92,7 +92,7 @@ module ActiveJob
                     conn.zrem(job_score_key, log)
                   end
 
-                  break if job_score_logs.size < 1000
+                  break if job_score_logs.size < 100
                 end
               end
             rescue StandardError => ex

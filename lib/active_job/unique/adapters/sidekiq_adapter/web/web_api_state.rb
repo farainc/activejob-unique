@@ -14,76 +14,60 @@ module ActiveJob
                   state_key = job_progress_stage_state
 
                   uniqueness_keys = {}
-                  i = 0
-                  loop do
-                    i += 1
-                    values = conn.hscan(state_key, count: 1000)
-                    break if values.blank?
 
-                    values&.each  do |name, value|
-                      job_name, queue_name, _ = name.to_s.split(PROGRESS_STATS_SEPARATOR)
-                      next unless job_names.include?(job_name)
-                      next if queue_name.to_s.empty?
+                  conn.hscan(state_key) do |key, value|
+                    job_name, queue_name, _ = key.to_s.split(PROGRESS_STATS_SEPARATOR)
+                    next unless job_names.include?(job_name)
+                    next if queue_name.to_s.empty?
 
-                      progress_stage, _, _ = value.to_s.split(PROGRESS_STATS_SEPARATOR)
-                      stage, _ = progress_stage.split('_')
-                      next if stage.to_s.empty?
+                    progress_stage, _, _ = value.to_s.split(PROGRESS_STATS_SEPARATOR)
+                    stage, _ = progress_stage.split('_')
+                    next if stage.to_s.empty?
 
-                      uniqueness_keys[job_name] ||= {}
-                      uniqueness_keys[job_name][queue_name] ||= {}
-                      uniqueness_keys[job_name][queue_name][stage] ||= 0
+                    uniqueness_keys[job_name] ||= {}
+                    uniqueness_keys[job_name][queue_name] ||= {}
+                    uniqueness_keys[job_name][queue_name][stage] ||= 0
 
-                      uniqueness_keys[job_name][queue_name][stage] += 1
-                    end
+                    uniqueness_keys[job_name][queue_name][stage] += 1
 
-                    break if i > 10
+                    break if uniqueness_keys.size > 10_000
                   end
 
                   uniqueness_keys
                 end
               end
 
-              def query_job_progress_stage_state_uniqueness(job_name, queue_name, stage, count, begin_index)
+              def query_job_progress_stage_state_uniqueness(job_name, queue_name, stage, count, offset)
                 Sidekiq.redis_pool.with do |conn|
                   state_key = job_progress_stage_state
                   match_filter = [job_name, queue_name, "*"].join(PROGRESS_STATS_SEPARATOR)
 
                   job_stats = []
-                  i = 0
-                  end_index = begin_index + count
+                  next_page_availabe = false
 
-                  loop do
-                    values = conn.hscan(state_key, match: match_filter, count: 100)
-                    break if values.blank?
+                  conn.hscan(state_key, offset, match: match_filter) do |key, value|
+                    next_page_availabe = job_stats.size > count
+                    break if job_stats.size >= count
 
-                    values&.each do |name, value|
-                      next if stage != '*' && (value =~ /^#{stage}/i).nil?
-                      i += 1
-                      next if i < begin_index
+                    offset += 1
+                    next if stage != '*' && (value =~ /^#{stage}/i).nil?
 
-                      n_job_name, n_queue_name, uniqueness_id = name.to_s.split(PROGRESS_STATS_SEPARATOR)
-                      progress_stage, timestamp, job_id = value.to_s.split(PROGRESS_STATS_SEPARATOR)
+                    n_job_name, n_queue_name, uniqueness_id = key.to_s.split(PROGRESS_STATS_SEPARATOR)
+                    progress_stage, timestamp, job_id = value.to_s.split(PROGRESS_STATS_SEPARATOR)
 
-                      stats = {
-                        job_name: n_job_name,
-                        queue: n_queue_name,
-                        progress_stage: progress_stage,
-                        uniqueness_id: uniqueness_id,
-                        timestamp: Time.at(timestamp.to_f).utc,
-                        job_id: job_id
-                      }
+                    stats = {
+                      job_name: n_job_name,
+                      queue: n_queue_name,
+                      progress_stage: progress_stage,
+                      uniqueness_id: uniqueness_id,
+                      timestamp: Time.at(timestamp.to_f).utc,
+                      job_id: job_id
+                    }
 
-                      job_stats << stats
-
-                      break if i > end_index
-                    end
-
-                    break if job_stats.size > count
+                    job_stats << stats
                   end
 
-                  next_page_availabe = job_stats.size > count
-
-                  [next_page_availabe, job_stats[0, count]]
+                  [next_page_availabe, job_stats[0, count], offset]
                 end
               end
 
@@ -92,12 +76,9 @@ module ActiveJob
                   state_key = job_progress_stage_state
                   match_filter = [job_name, queue_name, uniqueness_id].join(PROGRESS_STATS_SEPARATOR)
 
-                  loop do
-                    values = conn.hscan(state_key, match: match_filter, count: 1000)
-                    break if values.blank?
-
-                    keys = values&.select{|k, v| /^#{stage}/ =~ v}&.keys
-                    conn.hdel(state_key, keys) if keys&.size.positive?
+                  conn.hscan(state_key, match: match_filter) do |key, value|
+                    next unless /^#{stage}/ =~ value
+                    conn.hdel(state_key, key)
                   end
                 end
 
@@ -109,50 +90,42 @@ module ActiveJob
                   state_key = "#{job_progress_stage_state}#{PROGRESS_STATS_SEPARATOR}*"
 
                   processing_keys = {}
-                  i = 0
 
-                  loop do
-                    values = conn.scan(match: state_key, count: 1000)
-                    break if values.blank?
+                  conn.scan(match: state_key) do |key|
+                    _, job_name, _ = key.to_s.split(PROGRESS_STATS_SEPARATOR)
+                    next unless job_names.include?(job_name)
+                    next if processing_keys.include?(job_name)
 
-                    values&.each do |key|
-                      _, job_name, _ = key.to_s.split(PROGRESS_STATS_SEPARATOR)
-                      next unless job_names.include?(job_name)
-                      next if processing_keys.include?(job_name)
-
-                      processing_keys[job_name] = true
-                    end
-
-                    # maxmium 10,000
-                    i += 1
-                    break if i > 10
+                    processing_keys[job_name] = true
                   end
 
                   processing_keys
                 end
               end
 
-              def query_job_progress_stage_state_processing(job_name, queue_name, uniqueness_id, count, begin_index)
+              def query_job_progress_stage_state_processing(job_name, queue_name, uniqueness_id, count, offset)
                 Sidekiq.redis_pool.with do |conn|
                   match_filter = [job_progress_stage_state, job_name, queue_name, uniqueness_id, "*"].join(PROGRESS_STATS_SEPARATOR)
 
                   job_stats = []
 
-                  conn.scan(begin_index, match: match_filter, count: count + 1) do |name|
-                    _, n_job_name, n_queue_name, uniqueness_id, progress_stage = name.to_s.split(PROGRESS_STATS_SEPARATOR)
+                  conn.scan(offset, match: match_filter, count: count + 1) do |key|
+                    offset += 1
+
+                    _, n_job_name, n_queue_name, uniqueness_id, progress_stage = key.to_s.split(PROGRESS_STATS_SEPARATOR)
 
                     stats = {
                       job_name: n_job_name,
                       queue: n_queue_name,
                       progress_stage: progress_stage,
                       uniqueness_id: uniqueness_id,
-                      expires: Time.at(conn.get(name).to_f).utc
+                      expires: Time.at(conn.get(key).to_f).utc
                     }
 
                     job_stats << stats
                   end
 
-                  [job_stats.size > count, job_stats[0, count]]
+                  [job_stats.size > count, job_stats[0, count], offset]
                 end
               end
 

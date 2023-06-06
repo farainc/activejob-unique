@@ -23,24 +23,22 @@ module ActiveJob
                 @job_stats_all_time = {}
                 @job_log_keys = {}
                 @uniqueness_flag_keys = {}
-                @count = (params[:count] || 10).to_i
-                @current_page = params[:page].to_i
-                @current_page = 1 if @current_page < 1
-
-                begin_index = (@current_page - 1) * @count
-                end_index = begin_index + @count
+                @count = [params[:count].to_i, 10].max
+                @current_page = [params[:page].to_i, 1].max
+                @offset = params[:offset].to_i
 
                 Sidekiq.redis_pool.with do |conn|
                   if @job_prefix == '*' && @queue_name == '*'
                     @total_size = conn.zcard(WebApi.job_progress_stats_jobs)
-                    @job_stats = conn.zrange(WebApi.job_progress_stats_jobs, begin_index, end_index, "REV")
+                    @end = @total_size - @count * (@current_page - 1)
+                    @job_stats = conn.zrange(WebApi.job_progress_stats_jobs, [@end - @count, 0].max , @end, "REV")
                   else
-                    jobs = conn.zrange(WebApi.job_progress_stats_jobs, 0, -1, "REV")
-                    jobs.reject!{|job| (job =~ /^#{@job_prefix}/i) != 0 } if @job_prefix != '*'
-                    @job_stats = WebApi.query_job_progress_stats_job_names(jobs, @queue_name, @current_page) if @queue_name != '*'
+                    @job_stats = conn.zrange(WebApi.job_progress_stats_jobs, 0, -1, "REV")
+                    @job_stats.reject!{|job| (job =~ /#{@job_prefix}/i) != 0 } if @job_prefix != '*'
+                    @job_stats = WebApi.query_job_progress_stats_job_names(@job_stats, @queue_name, @current_page) if @queue_name != '*'
 
                     @total_size = @job_stats.size
-                    @job_stats = @job_stats[begin_index, end_index]
+                    @job_stats = @job_stats[@offset, @count]
                   end
                 end
 
@@ -63,19 +61,16 @@ module ActiveJob
                 @stage = route_params[:stage]
                 @job_stats = []
 
-                @count = (params[:count] || 25).to_i
-                @current_page = params[:page].to_i
-                @current_page = 1 if @current_page < 1
+                @count = [params[:count].to_i, 25].max
+                @current_page = [params[:page].to_i, 1].max
+                @offset = params[:offset].to_i
 
-                @begin_index = (@current_page - 1) * @count
-                next_page_availabe = false
-
-                next_page_availabe, @job_stats = WebApi.query_job_progress_stage_state_uniqueness(
+                next_page_availabe, @job_stats, @next_offset = WebApi.query_job_progress_stage_state_uniqueness(
                   @job_name,
                   @queue_name,
                   @stage,
                   @count,
-                  @begin_index
+                  @offset
                 )
 
                 @total_size = @count * (@current_page - 1) + @job_stats.size
@@ -109,19 +104,16 @@ module ActiveJob
                 @uniqueness_id = route_params[:uniqueness_id]
                 @job_stats = []
 
-                @count = (params[:count] || 25).to_i
-                @current_page = params[:page].to_i
-                @current_page = 1 if @current_page < 1
+                @count = [params[:count].to_i, 25].max
+                @current_page = [params[:page].to_i, 1].max
+                @offset = params[:offset].to_i
 
-                @begin_index = (@current_page - 1) * @count
-                next_page_availabe = false
-
-                next_page_availabe, @job_stats = WebApi.query_job_progress_stage_state_processing(
+                next_page_availabe, @job_stats, @next_offset = WebApi.query_job_progress_stage_state_processing(
                   @job_name,
                   @queue_name,
                   @uniqueness_id,
                   @count,
-                  @begin_index
+                  @offset
                 )
 
                 @total_size = @count * (@current_page - 1) + @job_stats.size
@@ -159,20 +151,17 @@ module ActiveJob
                 @uniqueness_id = route_params[:uniqueness_id].to_s
                 @uniqueness_id = '*' unless @uniqueness_id.size == 32
 
-                @count = (params[:count] || 25).to_i
-                @current_page = params[:page].to_i
-                @current_page = 1 if @current_page < 1
+                @count = [params[:count].to_i, 25].max
+                @current_page = [params[:page].to_i, 1].max
+                @offset = params[:offset].to_i
 
-                @begin_index = (@current_page - 1) * @count
-                next_page_availabe = false
-
-                next_page_availabe, @job_logs = WebApi.query_job_progress_stage_log_jobs(
+                next_page_availabe, @job_logs, @next_offset = WebApi.query_job_progress_stage_log_jobs(
                   @day,
                   @job_name,
                   @queue_name,
                   @uniqueness_id,
                   @count,
-                  @begin_index
+                  @offset
                 )
 
                 @total_size = @count * (@current_page - 1) + @job_logs.size
