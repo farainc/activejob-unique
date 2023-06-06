@@ -30,7 +30,7 @@ module ActiveJob
                       matched_job_name_collection[job_name] = true
                     end
 
-                    matched_job_names = job_names.reject{|job_name| !matched_job_name_collection.key?(job_name) }
+                    matched_job_names = job_names.select{ |job_name| matched_job_name_collection.key?(job_name) }
 
                     # save matched_job_names to redis cache
                     conn.hset(job_progress_stats_key, queue_name_jobs_field_key, matched_job_names.join(PROGRESS_STATS_SEPARATOR))

@@ -46,10 +46,8 @@ module ActiveJob
                   next_page_availabe = false
 
                   conn.hscan(state_key, offset, match: match_filter) do |key, value|
-                    next_page_availabe = job_stats.size > count
-                    break if job_stats.size >= count
+                    break if job_stats.size > count
 
-                    offset += 1
                     next if stage != '*' && (value =~ /^#{stage}/i).nil?
 
                     n_job_name, n_queue_name, uniqueness_id = key.to_s.split(PROGRESS_STATS_SEPARATOR)
@@ -67,7 +65,7 @@ module ActiveJob
                     job_stats << stats
                   end
 
-                  [next_page_availabe, job_stats[0, count], offset]
+                  [job_stats.size > count, job_stats[0, count]]
                 end
               end
 
@@ -108,9 +106,13 @@ module ActiveJob
                   match_filter = [job_progress_stage_state, job_name, queue_name, uniqueness_id, "*"].join(PROGRESS_STATS_SEPARATOR)
 
                   job_stats = []
+                  i = 0
 
-                  conn.scan(offset, match: match_filter, count: count + 1) do |key|
-                    offset += 1
+                  conn.scan(match: match_filter) do |key|
+                    next if i < offset
+                    break if job_stats.count > count
+
+                    i += 1
 
                     _, n_job_name, n_queue_name, uniqueness_id, progress_stage = key.to_s.split(PROGRESS_STATS_SEPARATOR)
 
@@ -125,7 +127,7 @@ module ActiveJob
                     job_stats << stats
                   end
 
-                  [job_stats.size > count, job_stats[0, count], offset]
+                  [job_stats.size > count, job_stats[0, count]]
                 end
               end
 

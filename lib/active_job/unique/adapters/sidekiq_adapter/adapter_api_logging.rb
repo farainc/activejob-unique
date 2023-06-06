@@ -52,7 +52,7 @@ module ActiveJob
                 if job_id_score.zero?
                   # time_score with timezone
                   now = Time.now.in_time_zone(ActiveJob::Unique::Stats.timezone)
-                  time_score = ((now - now.to_date.in_time_zone(ActiveJob::Unique::Stats.timezone)) / 10).to_i
+                  time_score = ((now - now.to_time.in_time_zone(ActiveJob::Unique::Stats.timezone)) / 10).to_i
 
                   job_id_score = day_score + queue_id_score + uniqueness_id_score + time_score
 

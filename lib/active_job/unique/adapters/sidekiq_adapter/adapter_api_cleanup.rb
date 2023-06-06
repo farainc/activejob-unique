@@ -23,7 +23,7 @@ module ActiveJob
                 day = sequence_day(now - ONE_DAY_SECONDS)
                 cleanup_progress_stats("#{job_progress_stats}:#{day}")
 
-                next_cleanup_at = now.to_date.in_time_zone(ActiveJob::Unique::Stats.timezone)
+                next_cleanup_at = now.midnight
                 conn.hset(job_progress_stats_cleanup, 'cleanup_expired_progress_stats', (next_cleanup_at + ONE_DAY_SECONDS + 4800).to_f)
               end
 
@@ -34,7 +34,8 @@ module ActiveJob
               Sidekiq.redis_pool.with do |conn|
                 now = Time.now.utc.to_f
                 timestamp = conn.hget(job_progress_stats_cleanup, 'cleanup_expired_progress_state_uniqueness').to_f
-                return false if !force_cleanup && timestamp > now
+
+                return if !force_cleanup && timestamp > now
 
                 state_key = job_progress_stage_state
 
@@ -70,10 +71,11 @@ module ActiveJob
 
             def cleanup_expired_progress_stage_logs(force_cleanup = false)
               Sidekiq.redis_pool.with do |conn|
-                now = Time.now.utc
+                now = Time.now.in_time_zone(ActiveJob::Unique::Stats.timezone)
                 day = sequence_day(now - 7 * ONE_DAY_SECONDS)
 
                 timestamp = conn.hget(job_progress_stats_cleanup, 'cleanup_expired_progress_stage_logs').to_f
+
                 return false if !force_cleanup && timestamp > now.to_f
 
                 conn.zrange(job_progress_stats_jobs, 0, -1)&.each do |job_name|
@@ -85,7 +87,7 @@ module ActiveJob
                   cleanup_progress_stage_logs(day, job_score_key, job_log_key, log_data_key, log_data_field_match)
                 end
 
-                next_cleanup_at = now.to_date.in_time_zone(ActiveJob::Unique::Stats.timezone)
+                next_cleanup_at = now.midnight
                 conn.hset(job_progress_stats_cleanup, 'cleanup_expired_progress_stage_logs', (next_cleanup_at + 5400).to_f)
               end
 

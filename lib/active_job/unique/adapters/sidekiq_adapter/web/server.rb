@@ -11,8 +11,9 @@ module ActiveJob
               end
 
               app.get '/job_stats/:job_prefix/:queue_name' do
-                view_path = File.join(File.expand_path(__dir__), 'views')
+                @view_dir = File.join(File.expand_path(__dir__), 'views')
 
+                @stages = ['processed', 'skipped', 'failed', 'attempted', 'processing']
                 @today = WebApi.sequence_today
 
                 @job_prefix = route_params[:job_prefix].to_s
@@ -23,18 +24,21 @@ module ActiveJob
                 @job_stats_all_time = {}
                 @job_log_keys = {}
                 @uniqueness_flag_keys = {}
+
                 @count = [params[:count].to_i, 10].max
                 @current_page = [params[:page].to_i, 1].max
-                @offset = params[:offset].to_i
+                @offset = @count * (@current_page - 1)
 
                 Sidekiq.redis_pool.with do |conn|
                   if @job_prefix == '*' && @queue_name == '*'
                     @total_size = conn.zcard(WebApi.job_progress_stats_jobs)
-                    @end = @total_size - @count * (@current_page - 1)
+                    @end = @total_size - @offset
                     @job_stats = conn.zrange(WebApi.job_progress_stats_jobs, [@end - @count, 0].max , @end, "REV")
                   else
                     @job_stats = conn.zrange(WebApi.job_progress_stats_jobs, 0, -1, "REV")
-                    @job_stats.reject!{|job| (job =~ /#{@job_prefix}/i) != 0 } if @job_prefix != '*'
+                    @job_stats.select!{|job| job =~ /#{@job_prefix.gsub(/\*/, '')}/i } if @job_prefix != '*'
+
+                    @job_stats ||= []
                     @job_stats = WebApi.query_job_progress_stats_job_names(@job_stats, @queue_name, @current_page) if @queue_name != '*'
 
                     @total_size = @job_stats.size
@@ -50,11 +54,11 @@ module ActiveJob
 
                 @job_log_keys = WebApi.group_job_progress_stage_log_keys(@job_stats_all_time)
 
-                render(:erb, File.read(File.join(view_path, 'index.erb')))
+                render(:erb, File.read(File.join(@view_dir, 'index.erb')))
               end
 
               app.get '/job_stats/uniqueness/:job_name/:queue_name/:stage' do
-                view_path = File.join(File.expand_path(__dir__), 'views')
+                @view_dir = File.join(File.expand_path(__dir__), 'views')
 
                 @job_name = route_params[:job_name]
                 @queue_name = route_params[:queue_name]
@@ -63,9 +67,9 @@ module ActiveJob
 
                 @count = [params[:count].to_i, 25].max
                 @current_page = [params[:page].to_i, 1].max
-                @offset = params[:offset].to_i
+                @offset = @count * (@current_page - 1)
 
-                next_page_availabe, @job_stats, @next_offset = WebApi.query_job_progress_stage_state_uniqueness(
+                next_page_availabe, @job_stats = WebApi.query_job_progress_stage_state_uniqueness(
                   @job_name,
                   @queue_name,
                   @stage,
@@ -76,7 +80,7 @@ module ActiveJob
                 @total_size = @count * (@current_page - 1) + @job_stats.size
                 @total_size += 1 if next_page_availabe
 
-                render(:erb, File.read(File.join(view_path, 'uniqueness.erb')))
+                render(:erb, File.read(File.join(@view_dir, 'uniqueness.erb')))
               end
 
               # delete single uniqueness flag
@@ -97,7 +101,7 @@ module ActiveJob
               end
 
               app.get '/job_stats/processing/:job_name/:queue_name/:uniqueness_id' do
-                view_path = File.join(File.expand_path(__dir__), 'views')
+                @view_dir = File.join(File.expand_path(__dir__), 'views')
 
                 @job_name = route_params[:job_name]
                 @queue_name = route_params[:queue_name]
@@ -106,9 +110,9 @@ module ActiveJob
 
                 @count = [params[:count].to_i, 25].max
                 @current_page = [params[:page].to_i, 1].max
-                @offset = params[:offset].to_i
+                @offset = @count * (@current_page - 1)
 
-                next_page_availabe, @job_stats, @next_offset = WebApi.query_job_progress_stage_state_processing(
+                next_page_availabe, @job_stats = WebApi.query_job_progress_stage_state_processing(
                   @job_name,
                   @queue_name,
                   @uniqueness_id,
@@ -119,7 +123,7 @@ module ActiveJob
                 @total_size = @count * (@current_page - 1) + @job_stats.size
                 @total_size += 1 if next_page_availabe
 
-                render(:erb, File.read(File.join(view_path, 'processing.erb')))
+                render(:erb, File.read(File.join(@view_dir, 'processing.erb')))
               end
 
               # delete single processing flag
@@ -140,7 +144,7 @@ module ActiveJob
               end
 
               app.get '/job_stats/logs/:day/:job_name/:queue_name/:uniqueness_id' do
-                view_path = File.join(File.expand_path(__dir__), 'views')
+                @view_dir = File.join(File.expand_path(__dir__), 'views')
 
                 @job_logs = []
                 @job_name = route_params[:job_name]
@@ -153,9 +157,9 @@ module ActiveJob
 
                 @count = [params[:count].to_i, 25].max
                 @current_page = [params[:page].to_i, 1].max
-                @offset = params[:offset].to_i
+                @offset = @count * (@current_page - 1)
 
-                next_page_availabe, @job_logs, @next_offset = WebApi.query_job_progress_stage_log_jobs(
+                next_page_availabe, @job_logs = WebApi.query_job_progress_stage_log_jobs(
                   @day,
                   @job_name,
                   @queue_name,
@@ -167,11 +171,11 @@ module ActiveJob
                 @total_size = @count * (@current_page - 1) + @job_logs.size
                 @total_size += 1 if next_page_availabe
 
-                render(:erb, File.read(File.join(view_path, 'logs.erb')))
+                render(:erb, File.read(File.join(@view_dir, 'logs.erb')))
               end
 
               app.get '/job_stats/logs/:day/:job_name/:queue_name/:uniqueness_id/:job_id' do
-                view_path = File.join(File.expand_path(__dir__), 'views')
+                @view_dir = File.join(File.expand_path(__dir__), 'views')
 
                 @job_log = {}
                 @job_name = route_params[:job_name]
@@ -188,7 +192,7 @@ module ActiveJob
                   @job_id
                 )
 
-                render(:erb, File.read(File.join(view_path, 'log.erb')))
+                render(:erb, File.read(File.join(@view_dir, 'log.erb')))
               end
 
               # delete all uniqueness logs

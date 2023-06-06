@@ -66,7 +66,7 @@ module ActiveJob
                     count + 1
                   )
 
-                  [job_logs.size > count, job_logs[0, count], offset + [count, job_logs.size].min]
+                  [job_logs.size > count, job_logs[0, count]]
                 end
               end
 
