@@ -36,11 +36,11 @@
       <tr>
         <th>
             <small>Job</small>
-            <a href="<%= root_path %>job_stats/processing/*/*/*"><small class="text-info">Processing</small></a>
+            <a class="no-decoration" href="<%= root_path %>job_stats/processing/*/*/*"><small class="text-info">Processing</small></a>
         </th>
         <th><small>Queue</small></th>
         <th class="text-center">
-          <a href="<%= root_path %>job_stats/uniqueness/*/*/*">
+          <a class="no-decoration" href="<%= root_path %>job_stats/uniqueness/*/*/*">
             <small class="text-warning">Uniqueness</small>
           </a>
         </th>
@@ -135,7 +135,7 @@
               <% if @job_log_keys[job_name] %>
                 <%= "/" if processing_flag %>
                 <a class="no-decoration nowrap" href="<%= root_path %>job_stats/logs/<%= @today %>/<%= job_name %>/*/*">
-                  All logs
+                  Job logs
                 </a>
               <% end %>
               </small>
@@ -144,7 +144,7 @@
               <small>
               <% if @job_log_keys[job_name] && @job_log_keys[job_name][queue_name] %>
                 <a class="no-decoration nowrap" href="<%= root_path %>job_stats/logs/<%= @today %>/<%= job_name %>/<%= queue_name %>/*">
-                  logs
+                  Queue logs
                 </a>
               <% end %>
               </small>
@@ -227,7 +227,7 @@
                 <small>
                   <% if @job_log_keys[job_name] && @job_log_keys[job_name][queue_name] %>
                     <a class="no-decoration nowrap" href="<%= root_path %>job_stats/logs/<%= @today %>/<%= job_name %>/<%= queue_name %>/*">
-                      logs
+                      Queue logs
                     </a>
                   <% end %>
                 </small>
