@@ -71,10 +71,10 @@ module ActiveJob
                 loop do
                   job_score_logs = conn.zrange(
                     job_score_key,
-                    min_score,
                     "(#{max_score}",
-                    "BYSCORE",
+                    min_score,
                     "REV",
+                    "BYSCORE",
                     "LIMIT",
                     debug_limits,
                     1000

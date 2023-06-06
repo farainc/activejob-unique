@@ -57,10 +57,10 @@ module ActiveJob
 
                   job_logs = conn.zrange(
                     job_score_key,
-                    min_score,
                     "(#{max_score}",
-                    "BYSCORE",
+                    min_score,
                     "REV",
+                    "BYSCORE",
                     "LIMIT",
                     begin_index,
                     count + 1
