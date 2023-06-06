@@ -29,7 +29,7 @@
           day = (Time.now.in_time_zone(ActiveJob::Unique::Stats.timezone) - i*86400).to_date.strftime('%Y%m%d').to_i
       %>
         <td class="text-center<%= day == @day ? ' alert-success' : ''%>">
-          <a class="no-decoration center-block" href="<%= "#{root_path}job_stats/logs/#{day}/#{@job_name}/#{@queue_name}/#{@uniqueness_id}" %>"><%= day %></a>
+          <a class="center-block" href="<%= "#{root_path}job_stats/logs/#{day}/#{@job_name}/#{@queue_name}/#{@uniqueness_id}" %>"><%= day %></a>
         </td>
       <% end %>
     </tr>
@@ -55,10 +55,10 @@
           <tr>
             <td><%= @offset + idx + 1 %></td>
             <td><%= @day %></td>
-            <td><a class="no-decoration" href="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/*/*"%>"><%= @job_name %></a></td>
-            <td><a class="no-decoration" href="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{queue_name}/*"%>"><%= queue_name %></a></td>
-            <td><a class="no-decoration" href="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{queue_name}/#{uniqueness_id}"%>"><%= uniqueness_id %></a></td>
-            <td><a class="no-decoration" href="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{queue_name}/#{uniqueness_id}/#{job_id}"%>"><%= job_id %></a></td>
+            <td><a href="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/*/*"%>"><%= @job_name %></a></td>
+            <td><a href="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{queue_name}/*"%>"><%= queue_name %></a></td>
+            <td><a href="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{queue_name}/#{uniqueness_id}"%>"><%= uniqueness_id %></a></td>
+            <td><a href="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{queue_name}/#{uniqueness_id}/#{job_id}"%>"><%= job_id %></a></td>
             <td class="text-center">
               <form action="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{queue_name}/#{uniqueness_id}/#{job_id}/delete"%>" method="post">
                 <%= csrf_tag if respond_to?(:csrf_tag) %>

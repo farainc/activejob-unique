@@ -36,12 +36,12 @@
       <tr>
         <th>
             <small>Job</small>
-            <a class="text-info" href="<%= root_path %>job_stats/processing/*/*/*"><small>Processing</small></a>
+            <a href="<%= root_path %>job_stats/processing/*/*/*"><small class="text-info">Processing</small></a>
         </th>
         <th><small>Queue</small></th>
         <th class="text-center">
-          <a class="text-warning" href="<%= root_path %>job_stats/uniqueness/*/*/*">
-            <small>Uniqueness</small>
+          <a href="<%= root_path %>job_stats/uniqueness/*/*/*">
+            <small class="text-warning">Uniqueness</small>
           </a>
         </th>
         <th colspan='2' class="text-center text-success nowrap"><small>Processed %</small></th>
@@ -92,13 +92,13 @@
           <tr>
             <td class="nowrap">
               <% if job_name_group.size >= 2 %>
-                <a class="no-decoration" href="<%= root_path %>job_stats/<%= job_name_group[0] %>/<%= @queue_name %>"><%= job_name_group[0] %></a>::<%= job_name_group[1..-1].join('::') %>
+                <a href="<%= root_path %>job_stats/<%= job_name_group[0] %>/<%= @queue_name %>"><%= job_name_group[0] %></a>::<%= job_name_group[1..-1].join('::') %>
               <% else %>
                 <%= job_name %>
               <% end %>
             </td>
             <td>
-              <a class="no-decoration" href="<%= root_path %>job_stats/<%= @job_prefix %>/<%= queue_name %>">
+              <a href="<%= root_path %>job_stats/<%= @job_prefix %>/<%= queue_name %>">
                 <%= queue_name %>
               </a>
             </td>
@@ -128,7 +128,7 @@
             <td rowspan="<%= additional_queues.size * 2 + 1 %>">
               <small>
               <% if processing_flag %>
-                <a class="no-decoration" href="<%= root_path %>job_stats/processing/<%= job_name %>/*/*">
+                <a href="<%= root_path %>job_stats/processing/<%= job_name %>/*/*">
                   Processing flags
                 </a>
               <% end %>
@@ -197,13 +197,13 @@
           %>
             <tr>
               <td>
-                <a class="no-decoration" href="<%= root_path %>job_stats/<%= @job_prefix %>/<%= queue_name %>">
+                <a href="<%= root_path %>job_stats/<%= @job_prefix %>/<%= queue_name %>">
                   <%= queue_name %>
                 </a>
               </td>
               <td class="text-center">
                 <% if enqueue_uniqueness_flag.positive? %>
-                  <a class="no-decoration" href="<%= root_path %>job_stats/uniqueness/<%= job_name %>/<%= queue_name %>/enqueue" title="View uniqueness flags">
+                  <a href="<%= root_path %>job_stats/uniqueness/<%= job_name %>/<%= queue_name %>/enqueue" title="View uniqueness flags">
                     <%= stats_label(zero_to_empty(enqueue_uniqueness_flag), 'warning') %>
                   </a>
                 <% end %>
@@ -234,7 +234,7 @@
               </td>
               <td class="text-center">
                 <% if perform_uniqueness_flag.positive? %>
-                  <a class="no-decoration" href="<%= root_path %>job_stats/uniqueness/<%= job_name %>/<%= queue_name %>/perform" title="View uniqueness flags">
+                  <a href="<%= root_path %>job_stats/uniqueness/<%= job_name %>/<%= queue_name %>/perform" title="View uniqueness flags">
                     <%= stats_label(zero_to_empty(perform_uniqueness_flag), 'warning') %>
                   </a>
                 <% end %>

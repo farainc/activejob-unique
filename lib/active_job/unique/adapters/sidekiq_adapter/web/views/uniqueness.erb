@@ -48,10 +48,10 @@
           <tr>
             <td><%= @offset + idx + 1 %></td>
             <td>
-              <a class="no-decoration" href="<%= "#{root_path}job_stats/uniqueness/#{stats[:job_name]}/*/*" %>"><%= stats[:job_name] %></a>
+              <a href="<%= "#{root_path}job_stats/uniqueness/#{stats[:job_name]}/*/*" %>"><%= stats[:job_name] %></a>
             </td>
             <td>
-              <a class="no-decoration" href="<%= "#{root_path}job_stats/uniqueness/#{stats[:job_name]}/#{stats[:queue]}/*" %>"><%= stats[:queue] %></a>
+              <a href="<%= "#{root_path}job_stats/uniqueness/#{stats[:job_name]}/#{stats[:queue]}/*" %>"><%= stats[:queue] %></a>
             </td>
             <td><%= stats[:uniqueness_id] %></td>
             <td><%= stats[:job_id] %></td>
@@ -61,11 +61,11 @@
             </td>
             <td class="text-center">
               <% if stats[:progress_stage] =~ /^enqueue/i %>
-                <a class="no-decoration" href="<%= "#{root_path}job_stats/uniqueness/#{stats[:job_name]}/#{stats[:queue]}/enqueue" %>">
+                <a href="<%= "#{root_path}job_stats/uniqueness/#{stats[:job_name]}/#{stats[:queue]}/enqueue" %>">
                   <%= stats_label('E', 'info') %>
                 </a>
               <% else %>
-                <a class="no-decoration" href="<%= "#{root_path}job_stats/uniqueness/#{stats[:job_name]}/#{stats[:queue]}/perform" %>">
+                <a href="<%= "#{root_path}job_stats/uniqueness/#{stats[:job_name]}/#{stats[:queue]}/perform" %>">
                   <%= stats_label('P', 'primary') %>
                 </a>
               <% end %>
@@ -84,9 +84,3 @@
   </table>
 </div>
 <div style="margin-top:-10px;margin-bottom:15px;"><small><strong>Time Zone:</strong> <%= ActiveJob::Unique::Stats.timezone %></small></div>
-
-<script>
-  function filterUniquenessFlags() {
-
-  }
-</script>
