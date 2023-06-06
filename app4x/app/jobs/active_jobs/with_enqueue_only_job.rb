@@ -2,7 +2,7 @@ class ActiveJobs::WithEnqueueOnlyJob < ApplicationJob
   include ActiveJobs::JobStats
 
   queue_as :with_enqueue_only
-  unique_for :until_executing, true
+  unique_for :until_executing, debug: true
 
   def perform(job_args, *_args)
     run(job_args)

@@ -192,7 +192,7 @@ module ActiveJob
         #   end
         #
         #   puts MyJob.new(*args).perform_now # => "Hello World!"
-        def unique_for(option = nil, debug = false, debug_limits = 1000)
+        def unique_for(option = nil, debug: false, debug_limits: 1000)
           # default duration for a job is 10.minutes after perform processing
           # set longer duration for long running jobs
           return false if option.blank?

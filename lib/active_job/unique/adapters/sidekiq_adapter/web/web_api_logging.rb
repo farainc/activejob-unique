@@ -57,13 +57,13 @@ module ActiveJob
 
                   job_logs = conn.zrange(
                     job_score_key,
-                    "(#{max_score}",
                     min_score,
+                    "(#{max_score}",
                     "BYSCORE",
                     "REV",
                     "LIMIT",
                     begin_index,
-                    begin_index + count + 1
+                    count + 1
                   )
 
                   [job_logs.size > count, job_logs[0, count]]
@@ -84,7 +84,6 @@ module ActiveJob
                   job_id_score = conn.zscore(job_score_key, "#{queue_name}:#{uniqueness_id}:#{job_id}").to_f
 
                   begin_index = 0
-                  completed = false
 
                   job_logs = []
 
@@ -95,8 +94,8 @@ module ActiveJob
                       "(#{job_id_score + 1}",
                       "BYSCORE",
                       "LIMIT",
-                      0,
-                      101
+                      begin_index,
+                      1000
                     )
 
                     temp_logs&.each do |log|
@@ -120,7 +119,7 @@ module ActiveJob
                     begin_index += temp_logs.size
 
                     # break if completed || search to the end.
-                    break if temp_logs.size <= 100
+                    break if temp_logs.size < 1000
                   end
 
                   args = JSON.parse(conn.hget(log_data_key, log_data_field)) rescue {}

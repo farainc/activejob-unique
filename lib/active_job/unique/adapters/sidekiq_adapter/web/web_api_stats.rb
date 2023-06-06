@@ -24,7 +24,7 @@ module ActiveJob
                     match_filter = "*#{PROGRESS_STATS_SEPARATOR}#{queue_name_filter}#{PROGRESS_STATS_SEPARATOR}*"
 
                     loop do
-                      values = conn.hscan(job_progress_stats_key, cursor, match: match_filter, count: 1000)
+                      values = conn.hscan(job_progress_stats_key, match: match_filter, count: 1000)
                       break if values.blank?
 
                       values&.each do |name, value|

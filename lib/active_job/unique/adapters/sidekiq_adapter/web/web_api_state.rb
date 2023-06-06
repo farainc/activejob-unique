@@ -93,7 +93,7 @@ module ActiveJob
                   match_filter = [job_name, queue_name, uniqueness_id].join(PROGRESS_STATS_SEPARATOR)
 
                   loop do
-                    values = conn.hscan(state_key, cursor, match: match_filter, count: 1000)
+                    values = conn.hscan(state_key, match: match_filter, count: 1000)
                     break if values.blank?
 
                     keys = values&.select{|k, v| /^#{stage}/ =~ v}&.keys

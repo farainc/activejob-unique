@@ -71,13 +71,13 @@ module ActiveJob
                 loop do
                   job_score_logs = conn.zrange(
                     job_score_key,
-                    "(#{max_score}",
                     min_score,
+                    "(#{max_score}",
                     "BYSCORE",
                     "REV",
                     "LIMIT",
                     debug_limits,
-                    debug_limits + 100 + 1
+                    1000
                   )
 
                   job_score_logs&.each do |log|
@@ -92,9 +92,8 @@ module ActiveJob
                     conn.zrem(job_score_key, log)
                   end
 
-                  break if job_score_logs.size <= 100
+                  break if job_score_logs.size < 1000
                 end
-
               end
             rescue StandardError => ex
               Sidekiq.logger.error ex

@@ -1,5 +1,6 @@
 class ActiveJobs::EnqueueJob < ApplicationJob
   queue_as :default
+  unique_for false, debug: true
 
   def perform(klass_name, args_list)
     klass = klass_name.constantize
