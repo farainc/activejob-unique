@@ -220,7 +220,7 @@ module ActiveJob
                 uniqueness_id = route_params[:uniqueness_id].to_s
                 job_id = route_params[:job_id]
 
-                WebApi.cleanup_job_progress_state_log_one(
+                WebApi.cleanup_job_progress_stage_log_one(
                   day,
                   job_name,
                   queue_name,
