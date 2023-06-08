@@ -1,17 +1,15 @@
+require: rubocop-performance
+
 AllCops:
   TargetRubyVersion: 3
-
-Rails:
-  Enabled: true
-
-Rails/OutputSafety:
-  Description: 'The use of `html_safe` or `raw` may be a security risk.'
-  Enabled: false
 
 Documentation:
   Enabled: false
 
-Metrics/LineLength:
+Metrics/BlockLength:
+  Enabled: false
+
+Layout/LineLength:
   Enabled: false
 
 Metrics/AbcSize:
@@ -30,10 +28,10 @@ Metrics/ParameterLists:
   Enabled: false
 
 Metrics/CyclomaticComplexity:
-  Max: 15
+  Max: 25
 
 Metrics/PerceivedComplexity:
-  Max: 15
+  Max: 100
 
 Metrics/BlockNesting:
   Max: 5
@@ -42,9 +40,6 @@ Style/AsciiComments:
   Enabled: false
 
 Style/ClassAndModuleChildren:
-  Enabled: false
-
-Style/AccessorMethodName:
   Enabled: false
 
 Style/FrozenStringLiteralComment:
@@ -62,7 +57,15 @@ Style/RescueModifier:
 Lint/RescueException:
   Enabled: false
 
-Style/FileName:
+Naming/FileName:
   Description: 'Use snake_case for source file names.'
   StyleGuide: 'https://github.com/bbatsov/ruby-style-guide#snake-case-files'
   Enabled: false
+
+Naming/AccessorMethodName:
+  Description: Check the naming of accessor methods for get_/set_.
+  StyleGuide: 'https://github.com/bbatsov/ruby-style-guide#accessor_mutator_method_names'
+  Enabled: false
+
+Naming/MethodParameterName:
+  MinNameLength: 2
