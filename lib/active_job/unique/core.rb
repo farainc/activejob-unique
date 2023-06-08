@@ -200,9 +200,7 @@ module ActiveJob
           self.uniqueness_expiration = 0
 
           # convert duration to integer
-          if option.is_a?(ActiveSupport::Duration)
-            option = option.to_i
-          end
+          option = option.to_i if option.is_a?(ActiveSupport::Duration)
 
           if option == true
             self.uniqueness_mode = UNIQUENESS_MODE_UNTIL_AND_WHILE_EXECUTING
@@ -215,7 +213,7 @@ module ActiveJob
 
           self.uniqueness_debug = (debug == true)
 
-          debug_limits = debug_limits.to_i.abs()
+          debug_limits = debug_limits.to_i.abs
           debug_limits = 1000 if debug_limits.zero?
           self.uniqueness_debug_limits = debug_limits
 
@@ -227,4 +225,4 @@ module ActiveJob
 end
 
 # include unique core
-ActiveJob::Base.send(:include, ActiveJob::Unique::Core)
+ActiveJob::Base.include ActiveJob::Unique::Core

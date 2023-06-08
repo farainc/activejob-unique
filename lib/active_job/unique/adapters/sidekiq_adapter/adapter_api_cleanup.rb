@@ -14,7 +14,7 @@ module ActiveJob
               end
             end
 
-            def cleanup_expired_progress_stats(force_cleanup = false)
+            def cleanup_expired_progress_stats(force_cleanup: false)
               Sidekiq.redis_pool.with do |conn|
                 now = Time.now.in_time_zone(ActiveJob::Unique::Stats.timezone)
                 timestamp = conn.hget(job_progress_stats_cleanup, 'cleanup_expired_progress_stats').to_f
@@ -30,19 +30,18 @@ module ActiveJob
               true
             end
 
-            def cleanup_expired_progress_state_uniqueness(force_cleanup = false)
+            def cleanup_expired_progress_state_uniqueness(force_cleanup: false)
               Sidekiq.redis_pool.with do |conn|
                 now = Time.now.utc.to_f
                 timestamp = conn.hget(job_progress_stats_cleanup, 'cleanup_expired_progress_state_uniqueness').to_f
 
-                return if !force_cleanup && timestamp > now
+                return false if !force_cleanup && timestamp > now
 
                 state_key = job_progress_stage_state
 
                 # check 5.minutes before's
                 expired_at = now - 60
                 sidekiq_queues = {}
-                sidekiq_workers = Sidekiq::Workers.new
 
                 conn.hscan(state_key, count: 100) do |key, value|
                   job_name, queue_name, uniqueness_id = key.to_s.split(PROGRESS_STATS_SEPARATOR)
@@ -53,11 +52,11 @@ module ActiveJob
                   next if progress_at > expired_at
 
                   # skip if job existed in queue or worker
-                  if (progress_stage =~ /^enqueue/i) == 0
+                  if /^enqueue/i.match?(progress_stage)
                     queue = sidekiq_queues[queue_name] || Sidekiq::Queue.new(queue_name)
                     next if queue.latency > (Time.now.utc.to_f - progress_at)
-                  elsif (progress_stage =~ /^perform/i) == 0
-                    next if sidekiq_workers.any? { |_p, _t, w| w['queue'] == queue_name && w['payload']['wrapped'] == job_name && w['payload']['args'][0]['uniqueness_id'] == uniqueness_id && w['payload']['args'][0]['job_id'] == job_id }
+                  elsif /^perform/i.match?(progress_stage)
+                    next if another_job_in_worker?(job_name, queue_name, uniqueness_id, job_id)
                   end
 
                   conn.hdel(state_key, name)
@@ -69,7 +68,7 @@ module ActiveJob
               true
             end
 
-            def cleanup_expired_progress_stage_logs(force_cleanup = false)
+            def cleanup_expired_progress_stage_logs(force_cleanup: false)
               Sidekiq.redis_pool.with do |conn|
                 now = Time.now.in_time_zone(ActiveJob::Unique::Stats.timezone)
                 day = sequence_day(now - 7 * ONE_DAY_SECONDS)
@@ -118,7 +117,7 @@ module ActiveJob
                   max_score
                 )
 
-                conn.hscan(log_data_key, match: log_data_field_match) do |k, v|
+                conn.hscan(log_data_key, match: log_data_field_match) do |k, _v|
                   conn.hdel(log_data_key, k)
                 end
               end

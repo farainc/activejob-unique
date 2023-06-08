@@ -10,7 +10,6 @@ module ActiveJob
       module UniquenessAdapter
         extend ActiveSupport::Autoload
 
-
         autoload :AdapterApi
         autoload :AdapterApiStats
         autoload :AdapterApiState

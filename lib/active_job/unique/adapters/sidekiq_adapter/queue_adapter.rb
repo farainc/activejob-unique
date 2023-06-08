@@ -18,11 +18,10 @@ module ActiveJob
           def uniqueness_api
             self.class.uniqueness_api
           end
-
         end
       end
     end
   end
 end
 
-ActiveJob::QueueAdapters::SidekiqAdapter.send(:include, ActiveJob::Unique::Adapters::SidekiqAdapter::QueueAdapter)
+ActiveJob::QueueAdapters::SidekiqAdapter.include ActiveJob::Unique::Adapters::SidekiqAdapter::QueueAdapter

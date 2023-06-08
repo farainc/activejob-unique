@@ -10,13 +10,13 @@ module ActiveJob
                 redirect '/job_stats/*/*'
               end
 
-              app.get '/job_stats/:job_prefix/:queue_name' do
+              app.get '/job_stats/:job_name/:queue_name' do
                 @view_dir = File.join(File.expand_path(__dir__), 'views')
 
-                @stages = ['processed', 'skipped', 'failed', 'attempted', 'processing']
+                @stages = %w[processed skipped failed attempted processing]
                 @today = WebApi.sequence_today
 
-                @job_prefix = route_params[:job_prefix].to_s
+                @job_name = route_params[:job_name].to_s
                 @queue_name = route_params[:queue_name].to_s
 
                 @job_stats = []
@@ -30,13 +30,13 @@ module ActiveJob
                 @offset = @count * (@current_page - 1)
 
                 Sidekiq.redis_pool.with do |conn|
-                  if @job_prefix == '*' && @queue_name == '*'
+                  if @job_name == '*' && @queue_name == '*'
                     @total_size = conn.zcard(WebApi.job_progress_stats_jobs)
                     @end = @total_size - @offset
-                    @job_stats = conn.zrange(WebApi.job_progress_stats_jobs, [@end - @count, 0].max , @end, "REV")
+                    @job_stats = conn.zrange(WebApi.job_progress_stats_jobs, [@end - @count, 0].max, @end, 'REV')
                   else
-                    @job_stats = conn.zrange(WebApi.job_progress_stats_jobs, 0, -1, "REV")
-                    @job_stats.select!{|job| job =~ /#{@job_prefix.gsub(/\*/, '')}/i } if @job_prefix != '*'
+                    @job_stats = conn.zrange(WebApi.job_progress_stats_jobs, 0, -1, 'REV')
+                    @job_stats.select! { |job| /#{@job_name.delete('*')}/i.match(job) } if @job_name != '*'
 
                     @job_stats ||= []
                     @job_stats = WebApi.query_job_progress_stats_job_names(@job_stats, @queue_name, @current_page) if @queue_name != '*'
@@ -236,7 +236,7 @@ module ActiveJob
                 WebApi.cleanup_expired_progress_state_uniqueness
                 WebApi.cleanup_expired_progress_stage_logs
 
-                json({cleanup: 'OK'})
+                json({ cleanup: 'OK' })
               end
             end
           end

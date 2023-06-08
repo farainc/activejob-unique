@@ -26,10 +26,9 @@ module ActiveJob
             end
 
             def another_job_in_worker?(job_name, queue_name, uniqueness_id, job_id)
-              Sidekiq::Workers.new.any? {|_p, _t, w| w['queue'] == queue_name && w['payload']['wrapped'] == job_name && w['payload']['args'][0]['uniqueness_id'] == uniqueness_id && w['payload']['args'][0]['job_id'] != job_id }
+              Sidekiq::Workers.new.any? { |_p, _t, w| w['queue'] == queue_name && w['payload']['wrapped'] == job_name && w['payload']['args'][0]['uniqueness_id'] == uniqueness_id && w['payload']['args'][0]['job_id'] != job_id }
             end
           end
-
         end
       end
     end

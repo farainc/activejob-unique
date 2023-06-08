@@ -16,12 +16,12 @@ module ActiveJob
                   uniqueness_keys = {}
 
                   conn.hscan(state_key) do |key, value|
-                    job_name, queue_name, _ = key.to_s.split(PROGRESS_STATS_SEPARATOR)
+                    job_name, queue_name, = key.to_s.split(PROGRESS_STATS_SEPARATOR)
                     next unless job_names.include?(job_name)
                     next if queue_name.to_s.empty?
 
-                    progress_stage, _, _ = value.to_s.split(PROGRESS_STATS_SEPARATOR)
-                    stage, _ = progress_stage.split('_')
+                    progress_stage, = value.to_s.split(PROGRESS_STATS_SEPARATOR)
+                    stage, = progress_stage.split('_')
                     next if stage.to_s.empty?
 
                     uniqueness_keys[job_name] ||= {}
@@ -40,15 +40,14 @@ module ActiveJob
               def query_job_progress_stage_state_uniqueness(job_name, queue_name, stage, count, offset)
                 Sidekiq.redis_pool.with do |conn|
                   state_key = job_progress_stage_state
-                  match_filter = [job_name, queue_name, "*"].join(PROGRESS_STATS_SEPARATOR)
+                  match_filter = [job_name, queue_name, '*'].join(PROGRESS_STATS_SEPARATOR)
 
                   job_stats = []
-                  next_page_availabe = false
 
                   conn.hscan(state_key, offset, match: match_filter) do |key, value|
                     break if job_stats.size > count
 
-                    next if stage != '*' && (value =~ /^#{stage}/i).nil?
+                    next if stage != '*' && !/^#{stage}/i.match?(value)
 
                     n_job_name, n_queue_name, uniqueness_id = key.to_s.split(PROGRESS_STATS_SEPARATOR)
                     progress_stage, timestamp, job_id = value.to_s.split(PROGRESS_STATS_SEPARATOR)
@@ -75,7 +74,8 @@ module ActiveJob
                   match_filter = [job_name, queue_name, uniqueness_id].join(PROGRESS_STATS_SEPARATOR)
 
                   conn.hscan(state_key, match: match_filter) do |key, value|
-                    next unless /^#{stage}/ =~ value
+                    next unless /^#{stage}/.match?(value)
+
                     conn.hdel(state_key, key)
                   end
                 end
@@ -90,7 +90,7 @@ module ActiveJob
                   processing_keys = {}
 
                   conn.scan(match: state_key) do |key|
-                    _, job_name, _ = key.to_s.split(PROGRESS_STATS_SEPARATOR)
+                    _, job_name, = key.to_s.split(PROGRESS_STATS_SEPARATOR)
                     next unless job_names.include?(job_name)
                     next if processing_keys.include?(job_name)
 
@@ -103,7 +103,7 @@ module ActiveJob
 
               def query_job_progress_stage_state_processing(job_name, queue_name, uniqueness_id, count, offset)
                 Sidekiq.redis_pool.with do |conn|
-                  match_filter = [job_progress_stage_state, job_name, queue_name, uniqueness_id, "*"].join(PROGRESS_STATS_SEPARATOR)
+                  match_filter = [job_progress_stage_state, job_name, queue_name, uniqueness_id, '*'].join(PROGRESS_STATS_SEPARATOR)
 
                   job_stats = []
                   i = 0
@@ -150,7 +150,7 @@ module ActiveJob
                 true
               end
 
-              #end ClassMethods
+              # end ClassMethods
             end
           end
         end

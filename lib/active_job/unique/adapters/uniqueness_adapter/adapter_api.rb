@@ -15,15 +15,10 @@ module ActiveJob
           include ActiveJob::Unique::Adapters::UniquenessAdapter::AdapterApiCleanup
 
           class << self
-            def another_job_in_queue?(queue_name, enqueued_at)
-              false
-            end
+            def another_job_in_queue?(queue_name, enqueued_at); end
 
-            def another_job_in_worker?(job_name, queue_name, uniqueness_id, job_id)
-              false
-            end
+            def another_job_in_worker?(job_name, queue_name, uniqueness_id, job_id); end
           end
-
         end
       end
     end

@@ -12,20 +12,20 @@ module ActiveJob
               Sidekiq.redis_pool.with do |conn|
                 conn.hsetnx(log_data_key, log_data_field, log_data)
               end
-            rescue StandardError => ex
-              Sidekiq.logger.error ex
-              Sidekiq.logger.error ex.backtrace.join("\n") unless ex.backtrace.nil?
+            rescue StandardError => e
+              Sidekiq.logger.error e
+              Sidekiq.logger.error e.backtrace&.join("\n")
             end
 
             def incr_progress_stage_log_id_score(conn, job_score_key, base, new_id)
-              if conn.zadd(job_score_key, "NX", [0, "#{base}:#{new_id}"]) == 1
+              if conn.zadd(job_score_key, 'NX', [0, "#{base}:#{new_id}"]) == 1
                 conn.zincrby(job_score_key, conn.zincrby(job_score_key, 1.0, base), "#{base}:#{new_id}")
               else
                 conn.zincrby(job_score_key, 0.0, "#{base}:#{new_id}")
               end
-            rescue StandardError => ex
-              Sidekiq.logger.error ex
-              Sidekiq.logger.error ex.backtrace.join("\n") unless ex.backtrace.nil?
+            rescue StandardError => e
+              Sidekiq.logger.error e
+              Sidekiq.logger.error e.backtrace&.join("\n")
             end
 
             def incr_progress_stage_log(day,
@@ -56,13 +56,11 @@ module ActiveJob
 
                   job_id_score = day_score + queue_id_score + uniqueness_id_score + time_score
 
-                  if conn.zadd(job_score_key, "NX", [job_id_score, job_id_value]) == 0
-                    job_id_score = conn.zscore(job_score_key, job_id_value).to_f
-                  end
+                  job_id_score = conn.zscore(job_score_key, job_id_value).to_f if conn.zadd(job_score_key, 'NX', [job_id_score, job_id_value]).zero?
                 end
 
                 job_log_score = job_id_score + progress_stage_score
-                conn.zadd(job_log_key, "NX", [job_log_score, job_log_value])
+                conn.zadd(job_log_key, 'NX', [job_log_score, job_log_value])
 
                 # remove over limits logs
                 min_score = day_score
@@ -73,9 +71,9 @@ module ActiveJob
                     job_score_key,
                     "(#{max_score}",
                     min_score,
-                    "REV",
-                    "BYSCORE",
-                    "LIMIT",
+                    'REV',
+                    'BYSCORE',
+                    'LIMIT',
                     debug_limits,
                     100
                   )
@@ -95,13 +93,12 @@ module ActiveJob
                   break if job_score_logs.size < 100
                 end
               end
-            rescue StandardError => ex
-              Sidekiq.logger.error ex
-              Sidekiq.logger.error ex.backtrace.join("\n") unless ex.backtrace.nil?
+            rescue StandardError => e
+              Sidekiq.logger.error e
+              Sidekiq.logger.error e.backtrace&.join("\n")
             end
           end
           # end ClassMethods
-
         end
       end
     end

@@ -19,7 +19,7 @@ module ActiveJob
         autoload :AdapterApiState
         autoload :AdapterApiLogging
         autoload :AdapterApiCleanup
-        
+
         autoload :QueueAdapter
       end
     end

@@ -31,7 +31,7 @@ module ActiveJob
         end
 
         def sequence_day_score(day)
-          ((Date.parse(day.to_s) - Time.at(0).in_time_zone(ActiveJob::Unique::Stats.timezone).to_date).to_i) % 8 + 1
+          (Date.parse(day.to_s) - Time.at(0).in_time_zone(ActiveJob::Unique::Stats.timezone).to_date).to_i % 8 + 1
         end
 
         def sequence_today

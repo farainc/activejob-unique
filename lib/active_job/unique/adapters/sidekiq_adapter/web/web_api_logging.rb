@@ -9,7 +9,6 @@ module ActiveJob
             extend ActiveSupport::Concern
 
             module ClassMethods
-
               def group_job_progress_stage_log_keys(job_stats_all_time)
                 Sidekiq.redis_pool.with do |conn|
                   job_log_keys = {}
@@ -47,9 +46,9 @@ module ActiveJob
 
                   min_score = day_score + queue_id_score + uniqueness_id_score
 
-                  max_score = if uniqueness_id_score > 0
+                  max_score = if uniqueness_id_score.positive?
                                 min_score + UNIQUENESS_ID_SCORE_BASE
-                              elsif queue_id_score > 0
+                              elsif queue_id_score.positive?
                                 min_score + QUEUE_SCORE_BASE
                               else
                                 min_score + DAY_SCORE_BASE
@@ -59,9 +58,9 @@ module ActiveJob
                     job_score_key,
                     "(#{max_score}",
                     min_score,
-                    "REV",
-                    "BYSCORE",
-                    "LIMIT",
+                    'REV',
+                    'BYSCORE',
+                    'LIMIT',
                     offset,
                     count + 1
                   )
@@ -92,14 +91,14 @@ module ActiveJob
                       job_log_key,
                       job_id_score,
                       "(#{job_id_score + 1}",
-                      "BYSCORE",
-                      "LIMIT",
+                      'BYSCORE',
+                      'LIMIT',
                       begin_index,
                       100
                     )
 
                     temp_logs&.each do |log|
-                      next unless (log =~ /^#{job_id}#{PROGRESS_STATS_SEPARATOR}/i) == 0
+                      next unless /^#{job_id}#{PROGRESS_STATS_SEPARATOR}/i.match?(log)
 
                       _, progress_stage, timestamp, reason, mode, expiration, expires, debug = log.split(PROGRESS_STATS_SEPARATOR)
 
@@ -124,7 +123,7 @@ module ActiveJob
 
                   args = JSON.parse(conn.hget(log_data_key, log_data_field)) rescue {}
 
-                  { logs: job_logs.sort_by{ |log| log[:sort_key] }, args: args }
+                  { logs: job_logs.sort_by { |log| log[:sort_key] }, args: args }
                 end
               end
 
@@ -170,13 +169,13 @@ module ActiveJob
                 end
               end
 
-              def cleanup_job_progress_stage_log_one(day, job_name, queue_name, uniqueness_id, job_id)
+              def cleanup_job_progress_stage_log_one(_day, job_name, queue_name, uniqueness_id, job_id)
                 Sidekiq.redis_pool.with do |conn|
                   job_score_key = "#{job_progress_stage_log_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_score"
-                  return unless conn.exists?(job_score_key)
+                  return false unless conn.exists?(job_score_key)
 
                   job_log_key = "#{job_progress_stage_log_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_logs"
-                  return unless conn.exists?(job_log_key)
+                  return false unless conn.exists?(job_log_key)
 
                   job_id_value = "#{queue_name}:#{uniqueness_id}:#{job_id}"
                   job_id_score = conn.zscore(job_score_key, job_id_value).to_f
@@ -193,7 +192,7 @@ module ActiveJob
                 end
               end
 
-              #end ClassMethods
+              # end ClassMethods
             end
           end
         end

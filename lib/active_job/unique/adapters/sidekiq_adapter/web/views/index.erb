@@ -1,12 +1,12 @@
 <%= erb File.read(File.join(@view_dir, '_shared.erb')) %>
 
 <div class='row header'>
-  <div class='col-sm-10 col-xs-12'>
-    <h3><a class="no-decoration" href="<%= root_path %>job_stats">Job Stats</a> / <span class="title"><%= @total_size %> jobs</span>
+  <div class='col-md-10 col-sm-8 col-xs-12'>
+    <h3 class="overflow-nowrap"><a class="no-decoration" href="<%= root_path %>job_stats">Job Stats</a> / <span class="title"><%= @total_size %> jobs</span>
   </div>
-  <div class='col-sm-2 col-xs-12'>
+  <div class='col-md-2 col-sm-4 col-xs-12'>
     <% if @job_stats.size > 0 && @total_size > @count %>
-      <%= erb :_paging, :locals => { :url => "#{root_path}job_stats/#{@job_prefix}/#{@queue_name}" } %>
+      <%= erb :_paging, :locals => { :url => "#{root_path}job_stats/#{@job_name}/#{@queue_name}" } %>
     <% end %>
   </div>
 </div>
@@ -18,7 +18,7 @@
         <th colspan='2' class="text-center media-middle">
           <form class="form-inline" onsubmit="javascript:filterJobNameAndQueueName('<%= root_path %>job_stats/', '');return false;">
             <div class="input-group" style="width:48%;margin-right:1%;">
-              <input id="filter_job_name" type="text" class="form-control" placeholder="Filter job name..." value="<%= @job_prefix.to_s.gsub(/^\*|\*$/, '') %>">
+              <input id="filter_job_name" type="text" class="form-control" placeholder="Filter job name..." value="<%= @job_name.to_s.gsub(/^\*|\*$/, '') %>">
             </div>
             <div class="input-group" style="width:48%;margin-left:1%;">
               <input id="filter_queue_name" type="text" class="form-control" placeholder="Filter queue name..." value="<%= @queue_name.to_s.gsub(/^\*|\*$/, '') %>">
@@ -98,7 +98,7 @@
               <% end %>
             </td>
             <td>
-              <a href="<%= root_path %>job_stats/<%= @job_prefix %>/<%= queue_name %>">
+              <a href="<%= root_path %>job_stats/<%= @job_name %>/<%= queue_name %>">
                 <%= queue_name %>
               </a>
             </td>
@@ -197,7 +197,7 @@
           %>
             <tr>
               <td>
-                <a href="<%= root_path %>job_stats/<%= @job_prefix %>/<%= queue_name %>">
+                <a href="<%= root_path %>job_stats/<%= @job_name %>/<%= queue_name %>">
                   <%= queue_name %>
                 </a>
               </td>
@@ -262,7 +262,7 @@
 </div>
 <div style="margin-top:-10px;margin-bottom:15px;"><small><strong>Time Zone:</strong> <%= ActiveJob::Unique::Stats.timezone %></small></div>
 
-<% if @job_prefix == '*' && @queue_name == '*' %>
+<% if @job_name == '*' && @queue_name == '*' %>
   <script>
     function activejobUniqueCleanupJobStats() {
       fetch('/job_stats/cleanup?r='+ (new Date()).getTime()).then(function(){ setTimeout(activejobUniqueCleanupJobStats, 30000); });

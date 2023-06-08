@@ -16,9 +16,9 @@ module ActiveJob
                 score = conn.zincrby(stats_jobs_key, 1.0, job_name).to_f
                 conn.zadd(stats_jobs_key, [day_score, job_name]) if score < day_score
               end
-            rescue StandardError => ex
-              Sidekiq.logger.error ex
-              Sidekiq.logger.error ex.backtrace.join("\n") unless ex.backtrace.nil?
+            rescue StandardError => e
+              Sidekiq.logger.error e
+              Sidekiq.logger.error e.backtrace&.join("\n")
             end
 
             def incr_progress_stats(stats_key, field_name, day)
@@ -33,14 +33,12 @@ module ActiveJob
                   multi.hincrby("#{stats_key}:#{day}", field_name, 1)
                 end
               end
-            rescue StandardError => ex
-              Sidekiq.logger.error ex
-              Sidekiq.logger.error ex.backtrace.join("\n") unless ex.backtrace.nil?
+            rescue StandardError => e
+              Sidekiq.logger.error e
+              Sidekiq.logger.error e.backtrace&.join("\n")
             end
-
           end
           # end ClassMethods
-
         end
       end
     end

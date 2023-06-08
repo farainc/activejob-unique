@@ -2,11 +2,17 @@
   a.no-decoration:focus, a.no-decoration:hover {
     text-decoration: none;
   }
+  .header.row .float-pagination, .header.row .float-pagination>div {
+    display: inline-block;
+  }
   .header.row .pagination {
-    margin: 25px 0;
+    margin: 25px 0 20px 0;
+  }
+  .header.row form {
+    display: inline-block;
   }
   .header.row form .btn {
-    margin-top: 25px;
+    margin: 26px 0 20px 0;
   }
   form .btn {
     margin-right: 0;
@@ -19,6 +25,10 @@
   }
   .break-all {
     word-break: break-all;
+  }
+  .overflow-nowrap {
+    white-space: nowrap;
+    overflow: hidden;
   }
   .label-none {
     background: #eee;

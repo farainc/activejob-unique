@@ -8,15 +8,11 @@ module ActiveJob
           extend ActiveSupport::Concern
 
           module ClassMethods
-            def initialize_progress_stats(stats_jobs_key, job_name)
-            end
+            def initialize_progress_stats(stats_jobs_key, job_name); end
 
-            def incr_progress_stats(stats_key, field_name, day)
-            end
-
+            def incr_progress_stats(stats_key, field_name, day); end
           end
           # end ClassMethods
-
         end
       end
     end

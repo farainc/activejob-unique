@@ -15,7 +15,6 @@ module ActiveJob
             include ActiveJob::Unique::Adapters::SidekiqAdapter::Web::WebApiStats
             include ActiveJob::Unique::Adapters::SidekiqAdapter::Web::WebApiState
             include ActiveJob::Unique::Adapters::SidekiqAdapter::Web::WebApiLogging
-
           end
         end
       end
