@@ -58,6 +58,6 @@ module ActiveJob
     DAILY_SCORE_BASE  = 10_000_000
     UNIQUENESS_ID_SCORE_BASE = 10_000
 
-    ONE_DAY_SECONDS   = 86400
+    ONE_DAY_SECONDS = 86_400
   end
 end
