@@ -65,7 +65,7 @@ module ActiveJob
                 @stage = route_params[:stage]
                 @job_stats = []
 
-                @count = [params[:count].to_i, 25].max
+                @count = [params[:count].to_i, 100].max
                 @current_page = [params[:page].to_i, 1].max
                 @offset = @count * (@current_page - 1)
 
@@ -108,7 +108,7 @@ module ActiveJob
                 @uniqueness_id = route_params[:uniqueness_id]
                 @job_stats = []
 
-                @count = [params[:count].to_i, 25].max
+                @count = [params[:count].to_i, 100].max
                 @current_page = [params[:page].to_i, 1].max
                 @offset = @count * (@current_page - 1)
 
