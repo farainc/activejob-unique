@@ -40,7 +40,7 @@ module ActiveJob
               def query_job_progress_stage_state_uniqueness(job_name, queue_name, stage, count, offset)
                 Sidekiq.redis_pool.with do |conn|
                   state_key = job_progress_stage_state
-                  match_filter = [job_name, queue_name, '*'].join(PROGRESS_STATS_SEPARATOR)
+                  match_filter = [job_name, queue_name, '*'].join(PROGRESS_STATS_SEPARATOR).gsub(/\*\*/, '*')
 
                   job_stats = []
                   i = 0
@@ -107,7 +107,7 @@ module ActiveJob
 
               def query_job_progress_stage_state_processing(job_name, queue_name, uniqueness_id, count, offset)
                 Sidekiq.redis_pool.with do |conn|
-                  match_filter = [job_progress_stage_state, job_name, queue_name, uniqueness_id, '*'].join(PROGRESS_STATS_SEPARATOR)
+                  match_filter = [job_progress_stage_state, job_name, queue_name, uniqueness_id, '*'].join(PROGRESS_STATS_SEPARATOR).gsub(/\*\*/, '*')
 
                   job_stats = []
                   i = 0
