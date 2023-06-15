@@ -43,11 +43,15 @@ module ActiveJob
                   match_filter = [job_name, queue_name, '*'].join(PROGRESS_STATS_SEPARATOR)
 
                   job_stats = []
+                  i = 0
 
-                  conn.hscan(state_key, offset, match: match_filter) do |key, value|
+                  conn.hscan(state_key, match: match_filter) do |key, value|
                     break if job_stats.size > count
 
                     next if stage != '*' && !/^#{stage}/i.match?(value)
+                    next if i < offset
+
+                    i += 1
 
                     n_job_name, n_queue_name, uniqueness_id = key.to_s.split(PROGRESS_STATS_SEPARATOR)
                     progress_stage, timestamp, job_id = value.to_s.split(PROGRESS_STATS_SEPARATOR)
