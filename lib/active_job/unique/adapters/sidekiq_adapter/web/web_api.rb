@@ -11,6 +11,7 @@ module ActiveJob
         module Web
           class WebApi
             include ActiveJob::Unique::ApiBase
+            include ActiveJob::Unique::Adapters::SidekiqAdapter::AdapterApiBase
             include ActiveJob::Unique::Adapters::SidekiqAdapter::AdapterApiCleanup
             include ActiveJob::Unique::Adapters::SidekiqAdapter::Web::WebApiStats
             include ActiveJob::Unique::Adapters::SidekiqAdapter::Web::WebApiState
