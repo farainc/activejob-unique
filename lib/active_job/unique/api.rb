@@ -101,7 +101,7 @@ module ActiveJob
           progress_stage_state, timestamp = get_progress_stage_state(job)
 
           # if processing & not expired
-          return true if PROGRESS_STAGE_PERFORM_PROCESSING == progress_stage_state.to_s.to_sym && timestamp.to_f > -5.minutes.from_now.to_f
+          return true if progress_stage_state.to_s.to_sym == PROGRESS_STAGE_PERFORM_PROCESSING && timestamp.to_f > -5.minutes.from_now.to_f
 
           # check another_job_in_worker? from adapter api
           if job.queue_adapter_uniqueness_api.another_job_in_worker?(

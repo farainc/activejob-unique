@@ -15,15 +15,15 @@ module ActiveJob
         end
 
         def enqueue_only_uniqueness_mode?(uniqueness_mode)
-          UNIQUENESS_MODE_UNTIL_EXECUTING == uniqueness_mode.to_s.to_sym
+          uniqueness_mode.to_s.to_sym == UNIQUENESS_MODE_UNTIL_EXECUTING
         end
 
         def perform_only_uniqueness_mode?(uniqueness_mode)
-          UNIQUENESS_MODE_WHILE_EXECUTING == uniqueness_mode.to_s.to_sym
+          uniqueness_mode.to_s.to_sym == UNIQUENESS_MODE_WHILE_EXECUTING
         end
 
         def until_timeout_uniqueness_mode?(uniqueness_mode)
-          UNIQUENESS_MODE_UNTIL_TIMEOUT == uniqueness_mode.to_s.to_sym
+          uniqueness_mode.to_s.to_sym == UNIQUENESS_MODE_UNTIL_TIMEOUT
         end
 
         def sequence_day(now)
