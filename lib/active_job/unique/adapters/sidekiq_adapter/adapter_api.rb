@@ -1,6 +1,7 @@
 require 'sidekiq'
 require 'sidekiq/api'
 
+require_relative 'adapter_api_base'
 require_relative 'adapter_api_stats'
 require_relative 'adapter_api_state'
 require_relative 'adapter_api_logging'
