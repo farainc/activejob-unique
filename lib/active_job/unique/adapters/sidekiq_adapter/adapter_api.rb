@@ -1,5 +1,4 @@
 require 'sidekiq'
-require 'sidekiq/api'
 
 require_relative 'adapter_api_base'
 require_relative 'adapter_api_stats'
