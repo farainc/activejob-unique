@@ -56,7 +56,7 @@ module ActiveJob
                     queue = sidekiq_queues[queue_name] || Sidekiq::Queue.new(queue_name)
                     next if queue.latency > (Time.now.utc.to_f - progress_at)
                   elsif /^perform/i.match?(progress_stage)
-                    next if another_job_in_worker?(job_name, queue_name, uniqueness_id, job_id)
+                    next if uniqueness_api.another_job_in_worker?(job_name, queue_name, uniqueness_id, job_id)
                   end
 
                   conn.hdel(state_key, name)
