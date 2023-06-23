@@ -32,8 +32,8 @@ module ActiveJob
                 Sidekiq.redis_pool.with do |conn|
                   if @job_name == '*' && @queue_name == '*'
                     @total_size = conn.zcard(WebApi.job_progress_stats_jobs)
-                    @end = @total_size - @offset
-                    @job_stats = conn.zrange(WebApi.job_progress_stats_jobs, [@end - @count, 0].max, @end, 'REV')
+                    @end = @offset + @count
+                    @job_stats = conn.zrange(WebApi.job_progress_stats_jobs, [@offset, 0].max, @end, 'REV')
                   else
                     @job_stats = conn.zrange(WebApi.job_progress_stats_jobs, 0, -1, 'REV')
                     @job_stats.select! { |job| /#{@job_name.delete('*')}/i.match(job) } if @job_name != '*'
