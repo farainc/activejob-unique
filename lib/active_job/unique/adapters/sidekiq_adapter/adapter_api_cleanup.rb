@@ -43,7 +43,7 @@ module ActiveJob
                 expired_at = now - 60
                 sidekiq_queues = {}
 
-                conn.hscan(state_key, count: 100) do |key, value|
+                conn.hscan(state_key) do |key, value|
                   job_name, queue_name, uniqueness_id = key.to_s.split(PROGRESS_STATS_SEPARATOR)
                   progress_stage, progress_at, job_id = value.to_s.split(PROGRESS_STATS_SEPARATOR)
                   progress_at = progress_at.to_f
