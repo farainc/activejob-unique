@@ -31,6 +31,8 @@ module ActiveJob
             end
 
             def cleanup_expired_progress_state_uniqueness(force_cleanup: false)
+              count = 0
+
               Sidekiq.redis_pool.with do |conn|
                 now = Time.now.utc.to_f
                 timestamp = conn.hget(job_progress_stats_cleanup, 'cleanup_expired_progress_state_uniqueness').to_f
@@ -60,15 +62,17 @@ module ActiveJob
                   end
 
                   conn.hdel(state_key, name)
+                  count += 1
                 end
 
                 conn.hset(job_progress_stats_cleanup, 'cleanup_expired_progress_state_uniqueness', (Time.now.utc + 60).to_f)
               end
 
-              true
+              count
             end
 
             def cleanup_expired_progress_stage_logs(force_cleanup: false)
+              count = 0
               Sidekiq.redis_pool.with do |conn|
                 now = Time.now.in_time_zone(ActiveJob::Unique::Stats.timezone)
                 day = sequence_day(now - 7 * ONE_DAY_SECONDS)
@@ -83,14 +87,14 @@ module ActiveJob
                   log_data_key = job_progress_stage_log_key(job_name)
                   log_data_field_match = "#{sequence_day_score(day)}#{PROGRESS_STATS_SEPARATOR}*"
 
-                  cleanup_progress_stage_logs(day, job_score_key, job_log_key, log_data_key, log_data_field_match)
+                  count += cleanup_progress_stage_logs(day, job_score_key, job_log_key, log_data_key, log_data_field_match)
                 end
 
                 next_cleanup_at = now.midnight
                 conn.hset(job_progress_stats_cleanup, 'cleanup_expired_progress_stage_logs', (next_cleanup_at + 5400).to_f)
               end
 
-              true
+              count
             end
 
             def cleanup_progress_stage_logs(day,
@@ -99,6 +103,7 @@ module ActiveJob
                                             log_data_key,
                                             log_data_field_match)
 
+              count = 0
               Sidekiq.redis_pool.with do |conn|
                 day_score = ensure_job_stage_log_day_base(day)
 
@@ -119,10 +124,11 @@ module ActiveJob
 
                 conn.hscan(log_data_key, match: log_data_field_match) do |k, _v|
                   conn.hdel(log_data_key, k)
+                  count += 1
                 end
               end
 
-              true
+              count
             end
 
             # end ClassMethods
