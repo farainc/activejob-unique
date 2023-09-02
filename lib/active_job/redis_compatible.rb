@@ -15,7 +15,7 @@ if defined?(Sidekiq::RedisClientAdapter::CompatClient)
     extend ActiveSupport::Concern
 
     def exists?(key)
-      exists(key)
+      exists(key) != 0
     end
   end
 
