@@ -104,11 +104,19 @@ module ActiveJob
                                             log_data_field_match)
 
               count = 0
+              job_score_day_key = "#{job_score_key}:#{day}"
+
               Sidekiq.redis_pool.with do |conn|
                 day_score = ensure_job_stage_log_day_base(day)
 
                 min_score = day_score
                 max_score = day_score + DAY_SCORE_BASE - 0.1
+
+                conn.zremrangebyscore(
+                  job_score_day_key,
+                  '-inf',
+                  '+inf'
+                )
 
                 conn.zremrangebyscore(
                   job_score_key,

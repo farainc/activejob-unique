@@ -17,11 +17,11 @@ module ActiveJob
               Sidekiq.logger.error e.backtrace&.join("\n")
             end
 
-            def incr_progress_stage_log_id_score(conn, job_score_key, base, new_id)
-              if conn.zadd(job_score_key, 'NX', [0, "#{base}:#{new_id}"]) == 1
-                conn.zincrby(job_score_key, conn.zincrby(job_score_key, 1.0, base), "#{base}:#{new_id}")
+            def incr_progress_stage_log_id_score(conn, job_score_day_key, base, new_id)
+              if conn.zadd(job_score_day_key, 'NX', [0, "#{base}:#{new_id}"]) == 1
+                conn.zincrby(job_score_day_key, conn.zincrby(job_score_day_key, 1.0, base), "#{base}:#{new_id}")
               else
-                conn.zincrby(job_score_key, 0.0, "#{base}:#{new_id}")
+                conn.zscore(job_score_day_key, "#{base}:#{new_id}")
               end
             rescue StandardError => e
               Sidekiq.logger.error e
@@ -43,16 +43,16 @@ module ActiveJob
 
                 day_score = ensure_job_stage_log_day_base(day)
 
-                queue_id_score = incr_progress_stage_log_id_score(conn, job_score_key, 'queue', queue_name)
+                queue_id_score = incr_progress_stage_log_id_score(conn, "#{job_score_key}:#{day}", 'queue', queue_name)
                 queue_id_score = ensure_job_stage_log_queue_id_base(queue_id_score)
 
-                uniqueness_id_score = incr_progress_stage_log_id_score(conn, job_score_key, 'uniqueness_id', uniqueness_id)
+                uniqueness_id_score = incr_progress_stage_log_id_score(conn, "#{job_score_key}:#{day}", 'uniqueness_id', uniqueness_id)
                 uniqueness_id_score = ensure_job_stage_log_uniqueness_id_base(uniqueness_id_score)
 
                 if job_id_score.zero?
                   # time_score with timezone
                   now = Time.now.in_time_zone(ActiveJob::Unique::Stats.timezone)
-                  time_score = ((now - now.to_time.in_time_zone(ActiveJob::Unique::Stats.timezone)) / 10).to_i
+                  time_score = (now - now.to_date.in_time_zone(ActiveJob::Unique::Stats.timezone)).to_i
 
                   job_id_score = day_score + queue_id_score + uniqueness_id_score + time_score
 
@@ -66,31 +66,27 @@ module ActiveJob
                 min_score = day_score
                 max_score = min_score + DAY_SCORE_BASE
 
-                loop do
-                  job_score_logs = conn.zrange(
-                    job_score_key,
-                    "(#{max_score}",
-                    min_score,
-                    'REV',
-                    'BYSCORE',
-                    'LIMIT',
-                    debug_limits,
-                    100
+                job_score_logs = conn.zrange(
+                  job_score_key,
+                  "(#{max_score}",
+                  min_score,
+                  'REV',
+                  'BYSCORE',
+                  'LIMIT',
+                  debug_limits,
+                  100
+                )
+
+                job_score_logs&.each do |log|
+                  temp_job_id_score = conn.zscore(job_score_key, log).to_f
+
+                  conn.zremrangebyscore(
+                    job_log_key,
+                    temp_job_id_score,
+                    "(#{temp_job_id_score + 1}"
                   )
 
-                  job_score_logs&.each do |log|
-                    temp_job_id_score = conn.zscore(job_score_key, log).to_f
-
-                    conn.zremrangebyscore(
-                      job_log_key,
-                      temp_job_id_score,
-                      "(#{temp_job_id_score + 1}"
-                    )
-
-                    conn.zrem(job_score_key, log)
-                  end
-
-                  break if job_score_logs.size < 100
+                  conn.zrem(job_score_key, log)
                 end
               end
             rescue StandardError => e
