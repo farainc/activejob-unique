@@ -7,9 +7,9 @@ module ActiveJob
       extend ActiveSupport::Concern
 
       module ClassMethods
-        def get_progress_stage_state(job)
+        def get_progress_stage_state(job, uniqueness_progress_stage_group = job.uniqueness_progress_stage_group)
           state_key = job_progress_stage_state
-          state_field = job_progress_stage_state_field(job.class.name, job.queue_name, job.uniqueness_id, job.uniqueness_progress_stage_group)
+          state_field = job_progress_stage_state_field(job.class.name, job.queue_name, job.uniqueness_id, uniqueness_progress_stage_group)
 
           job.queue_adapter_uniqueness_api.get_progress_stage_state(state_key, state_field).to_s.split(PROGRESS_STATS_SEPARATOR)
         end

@@ -65,7 +65,7 @@ module ActiveJob
 
         # enqueue stage
         def another_job_enqueued?(job)
-          progress_stage_state, timestamp = get_progress_stage_state(job)
+          progress_stage_state, timestamp = get_progress_stage_state(job, PROGRESS_STAGE_ENQUEUE_GROUP)
 
           timestamp = timestamp.to_f
           return false if timestamp.zero?
@@ -111,7 +111,7 @@ module ActiveJob
 
         # perform stage
         def another_job_in_performing?(job)
-          progress_stage_state, timestamp = get_progress_stage_state(job)
+          progress_stage_state, timestamp = get_progress_stage_state(job, PROGRESS_STAGE_PERFORM_GROUP)
 
           # if processing & not expired
           return true if progress_stage_state.to_s.to_sym == PROGRESS_STAGE_PERFORM_PROCESSING &&
