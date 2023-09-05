@@ -68,11 +68,12 @@ module ActiveJob
           ].join(PROGRESS_STATS_SEPARATOR)
         end
 
-        def job_progress_stage_state_field(job_name, queue_name, uniqueness_id)
+        def job_progress_stage_state_field(job_name, queue_name, uniqueness_id, progress_stage_group)
           [
             job_name,
             queue_name,
-            uniqueness_id
+            uniqueness_id,
+            progress_stage_group
           ].join(PROGRESS_STATS_SEPARATOR)
         end
 

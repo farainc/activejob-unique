@@ -93,10 +93,11 @@ module ActiveJob
 
         around_perform do |job, block|
           r = nil
-          @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_PROCESSING
-          uniqueness_api.ensure_progress_stage_state(job)
 
           if uniqueness_api.allow_perform_processing?(job)
+            @uniqueness_progress_stage = PROGRESS_STAGE_PERFORM_PROCESSING
+
+            uniqueness_api.ensure_progress_stage_state(job)
             uniqueness_api.incr_progress_stats(job)
             uniqueness_api.set_until_timeout_uniqueness_mode_expiration(job)
 

@@ -3,11 +3,8 @@ class ActiveJobs::DebugJob < ApplicationJob
 
   queue_as :default
 
-
-  def perform(*args)
-    redis_pool.with do |conn|
-
-
+  def perform(*_args)
+    redis_pool.with do |_conn|
       debugger
     end
 
@@ -15,9 +12,7 @@ class ActiveJobs::DebugJob < ApplicationJob
   end
 
   def self.debug
-    redis_pool.with do |conn|
-
-
+    redis_pool.with do |_conn|
       debugger
     end
 
@@ -25,9 +20,9 @@ class ActiveJobs::DebugJob < ApplicationJob
   end
 
   def self.cleanup
-    self.queue_adapter.uniqueness_api.cleanup_expired_progress_stats
-    self.queue_adapter.uniqueness_api.cleanup_expired_progress_state_uniqueness
-    self.queue_adapter.uniqueness_api.cleanup_expired_progress_stage_logs
+    queue_adapter.uniqueness_api.cleanup_expired_progress_stats
+    queue_adapter.uniqueness_api.cleanup_expired_progress_state_uniqueness
+    queue_adapter.uniqueness_api.cleanup_expired_progress_stage_logs
   end
 
   before_enqueue do |job|
@@ -35,5 +30,4 @@ class ActiveJobs::DebugJob < ApplicationJob
 
   before_perform do |job|
   end
-
 end

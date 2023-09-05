@@ -31,11 +31,24 @@ module ActiveJob
               set_progress_stage_state(job)
             end
           when PROGRESS_STAGE_ENQUEUE_FAILED
-            expire_progress_state_stage(job)
-            expire_progress_stage_state_flag(job, PROGRESS_STAGE_ENQUEUE_PROCESSING)
+            progress_stage, timestamp, job_id = get_progress_stage_state(job)
+            if progress_stage.to_s.to_sym == PROGRESS_STAGE_ENQUEUE_PROCESSING &&
+               timestamp.to_f < job.uniqueness_timestamp.to_f &&
+               job_id == job.job_id
+
+              expire_progress_state_stage(job)
+              expire_progress_stage_state_flag(job, PROGRESS_STAGE_ENQUEUE_PROCESSING)
+            end
           when PROGRESS_STAGE_PERFORM_FAILED, PROGRESS_STAGE_PERFORM_PROCESSED
-            expire_progress_state_stage(job)
-            expire_progress_stage_state_flag(job, PROGRESS_STAGE_PERFORM_PROCESSING)
+            progress_stage, timestamp, job_id = get_progress_stage_state(job)
+
+            if progress_stage.to_s.to_sym == PROGRESS_STAGE_PERFORM_PROCESSING &&
+               timestamp.to_f < job.uniqueness_timestamp.to_f &&
+               job_id == job.job_id
+
+              expire_progress_state_stage(job)
+              expire_progress_stage_state_flag(job, PROGRESS_STAGE_PERFORM_PROCESSING)
+            end
           end
         end
 
@@ -98,10 +111,7 @@ module ActiveJob
 
         # perform stage
         def another_job_in_performing?(job)
-          progress_stage_state, timestamp, job_id = get_progress_stage_state(job)
-
-          # if same job_id
-          return false if job_id == job.job_id
+          progress_stage_state, timestamp = get_progress_stage_state(job)
 
           # if processing & not expired
           return true if progress_stage_state.to_s.to_sym == PROGRESS_STAGE_PERFORM_PROCESSING &&
