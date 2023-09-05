@@ -21,16 +21,7 @@ module ActiveJob
           case job.uniqueness_progress_stage
           when PROGRESS_STAGE_ENQUEUE_PROCESSING, PROGRESS_STAGE_PERFORM_PROCESSING
             set_progress_stage_state(job)
-          when PROGRESS_STAGE_ENQUEUE_PROCESSED
-            progress_stage, timestamp, job_id = get_progress_stage_state(job)
-
-            if progress_stage.to_s.to_sym == PROGRESS_STAGE_ENQUEUE_PROCESSING &&
-               timestamp.to_f < job.uniqueness_timestamp.to_f &&
-               job_id == job.job_id
-
-              set_progress_stage_state(job)
-            end
-          when PROGRESS_STAGE_ENQUEUE_FAILED
+          when PROGRESS_STAGE_ENQUEUE_FAILED, PROGRESS_STAGE_ENQUEUE_PROCESSED
             progress_stage, timestamp, job_id = get_progress_stage_state(job)
             if progress_stage.to_s.to_sym == PROGRESS_STAGE_ENQUEUE_PROCESSING &&
                timestamp.to_f < job.uniqueness_timestamp.to_f &&
