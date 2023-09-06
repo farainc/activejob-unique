@@ -14,18 +14,18 @@ module ActiveJob
               end
             rescue StandardError => ex
               Sidekiq.logger.error ex
-              Sidekiq.logger.error ex.backtrace.join("\n") unless ex.backtrace.nil?
+              Sidekiq.logger.error ex.backtrace&.join("\n")
             end
 
-            def incr_progress_stage_log_id_score(conn, job_score_key, base, new_id)
-              if conn.zadd(job_score_key, [0, "#{base}:#{new_id}"], nx: true) == 1
-                conn.zincrby(job_score_key, conn.zincrby(job_score_key, 1.0, base), "#{base}:#{new_id}").to_f
+            def incr_progress_stage_log_id_score(conn, job_score_day_key, base, new_id)
+              if conn.zadd(job_score_day_key, [0, "#{base}:#{new_id}"], nx: true) == 1
+                conn.zincrby(job_score_day_key, conn.zincrby(job_score_day_key, 1.0, base), "#{base}:#{new_id}").to_f
               else
-                conn.zincrby(job_score_key, 0.0, "#{base}:#{new_id}").to_f
+                conn.zscore(job_score_day_key, "#{base}:#{new_id}").to_f
               end
             rescue StandardError => ex
               Sidekiq.logger.error ex
-              Sidekiq.logger.error ex.backtrace.join("\n") unless ex.backtrace.nil?
+              Sidekiq.logger.error ex.backtrace&.join("\n")
             end
 
             def incr_progress_stage_log(day,
@@ -43,16 +43,16 @@ module ActiveJob
 
                 day_score = ensure_job_stage_log_day_base(day)
 
-                queue_id_score = incr_progress_stage_log_id_score(conn, job_score_key, 'queue', queue_name)
+                queue_id_score = incr_progress_stage_log_id_score(conn, "#{job_score_key}:#{day}", 'queue', queue_name)
                 queue_id_score = ensure_job_stage_log_queue_id_base(queue_id_score)
 
-                uniqueness_id_score = incr_progress_stage_log_id_score(conn, job_score_key, 'uniqueness_id', uniqueness_id)
+                uniqueness_id_score = incr_progress_stage_log_id_score(conn, "#{job_score_key}:#{day}", 'uniqueness_id', uniqueness_id)
                 uniqueness_id_score = ensure_job_stage_log_uniqueness_id_base(uniqueness_id_score)
 
                 if job_id_score.zero?
                   # time_score with timezone
                   now = Time.now.in_time_zone(ActiveJob::Unique::Stats.timezone)
-                  time_score = ((now - now.to_date.in_time_zone(ActiveJob::Unique::Stats.timezone)) / 10).to_i
+                  time_score = (now - now.to_date.in_time_zone(ActiveJob::Unique::Stats.timezone)).to_i
 
                   job_id_score = day_score + queue_id_score + uniqueness_id_score + time_score
 

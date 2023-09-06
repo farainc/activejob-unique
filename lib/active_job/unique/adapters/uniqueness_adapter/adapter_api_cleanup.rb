@@ -10,15 +10,12 @@ module ActiveJob
             end
 
             def cleanup_expired_progress_stats(force_cleanup = false)
-              true
             end
 
             def cleanup_expired_progress_state_uniqueness(force_cleanup = false)
-              true
             end
 
             def cleanup_expired_progress_stage_logs(force_cleanup = false)
-              true
             end
 
             def cleanup_progress_stage_logs(day,
@@ -27,7 +24,6 @@ module ActiveJob
                                             log_data_key,
                                             log_data_field_match)
 
-              true
             end
 
             # end ClassMethods

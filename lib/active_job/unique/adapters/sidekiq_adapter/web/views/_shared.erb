@@ -1,0 +1,122 @@
+<style type="text/css">
+  a.no-decoration:focus, a.no-decoration:hover {
+    text-decoration: none;
+  }
+  .header.row .float-pagination, .header.row .float-pagination>div {
+    display: inline-block;
+  }
+  .header.row .pagination {
+    margin: 25px 0 20px 0;
+  }
+  .header.row form {
+    display: inline-block;
+  }
+  .header.row form .btn {
+    margin: 26px 0 20px 0;
+  }
+  form .btn {
+    margin-right: 0;
+  }
+  hr {
+    margin: 5px 0;
+  }
+  .nowrap {
+    white-space: nowrap;
+  }
+  .break-all {
+    word-break: break-all;
+  }
+  .overflow-nowrap {
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  .label-none {
+    background: #eee;
+    color: #888;
+  }
+  .label-light {
+    background: #ddd;
+    color: #333;
+  }
+  .table>thead>tr>th.media-middle {
+    vertical-align: middle;
+  }
+  .normal-fontsize {
+    font-size: 14px;
+  }
+</style>
+
+<%
+  def nice_number(value)
+    value.to_s.reverse.gsub(/(\d{3})(?=\d)/, '\\1,').reverse
+  end
+
+  def short_number(value)
+    return value unless value.to_i >= 1000
+
+    return "#{(value.to_f / 1_000_000_000.00).round(1)}B" if value >= 1_000_000_000
+    return "#{(value.to_f / 1_000_000.00).round(1)}M" if value >= 1_000_000
+
+    "#{(value.to_f / 1_000.00).round(1)}K" if value >= 1_000
+  end
+
+  def stats_label(value, style)
+    if "#{value}" == "0"
+      return "<span class='label label-none'>#{value}</span>"
+    else
+      return "<span class='label label-#{style}'>#{value}</span>"
+    end
+  end
+
+  def zero_to_empty(value)
+    return '' if value.to_i == 0
+
+    value.to_i
+  end
+
+  def progress_label(progress, value = nil)
+    return '' if value && value.to_i == 0
+
+    case progress
+    when 'skipped'
+      'text-warning'
+    when 'failed'
+      'text-danger'
+    end
+  end
+
+  def percentage_label(value)
+    return 'text-success' if value >= 100
+    return 'text-info' if value >= 90
+    return 'text-warning' if value >= 80
+
+    'text-danger'
+  end
+%>
+<script>
+  function filterJobNameAndQueueName(baseUrl, additionalPath) {
+    var jobName = (document.getElementById('filter_job_name').value + '').replace(/\//ig, '');
+    var queueName = (document.getElementById('filter_queue_name').value + '').replace(/\//ig, '');
+
+    console.log(jobName);
+    console.log(queueName);
+
+    if (!jobName.match(/^\*/)) {
+      jobName = "*"+ jobName;
+    }
+
+    if (!jobName.match(/\*$/)) {
+      jobName += "*";
+    }
+
+    if (!queueName.match(/^\*/)) {
+      queueName = "*"+ queueName;
+    }
+
+    if (!queueName.match(/\*$/)) {
+      queueName += "*";
+    }
+
+    window.location = baseUrl + jobName + '/' + queueName + additionalPath;
+  }
+</script>

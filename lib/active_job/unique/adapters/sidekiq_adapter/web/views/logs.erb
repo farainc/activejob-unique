@@ -1,42 +1,22 @@
-<style type="text/css">
-  a.no-decoration:focus, a.no-decoration:hover {
-    text-decoration: none;
-  }
-  header.row .pagination {
-    margin: 25px 0 0 0 !important;
-  }
-  form .btn {
-    margin-right: 0;
-  }
-  .label-none {
-    background: #eee;
-    color: #999;
-  }
-</style>
-<%
-  def stats_label(value, style)
-    if "#{value}" == "0"
-      return "<span class='label label-none'>#{value}</span>"
-    else
-      return "<span class='label label-#{style}'>#{value}</span>"
-    end
-  end
-%>
+<%= erb File.read(File.join(@view_dir, '_shared.erb')) %>
+
 <div class='row header'>
-  <div class='col-sm-5 col-xs-12'>
-    <h3>
+  <div class='col-md-8 col-sm-7 col-xs-12'>
+    <h3 class="overflow-nowrap">
       <a class="no-decoration" href="<%= root_path %>job_stats">Job Stats</a>
       /
-      <a class="no-decoration" href="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{@queue_name}/*" %>">Logs</a>
+      <a class="no-decoration" href="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/*/*" %>"><%= @job_name %></a>
+      /
+      <%= @queue_name%>
     </h3>
   </div>
-  <div class='col-sm-5 col-xs-8'>
+  <div class='col-md-4 col-sm-5 col-xs-12'>
     <% if @job_logs.size > 0 && @total_size.to_i > @count %>
-      <%= erb :_paging, :locals => { :url => "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{@queue_name}/#{@uniqueness_id}" } %>
+      <div class="float-pagination">
+        <%= erb :_paging, :locals => { :url => "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{@queue_name}/#{@uniqueness_id}" } %>
+      </div>
     <% end %>
-  </div>
-  <div class='col-sm-2 col-xs-4 text-right'>
-    <form method="POST" style="margin-top: 25px;" action="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{@queue_name}/#{@uniqueness_id}/delete" %>">
+    <form class="pull-right" method="POST" action="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{@queue_name}/#{@uniqueness_id}/delete" %>">
       <%= csrf_tag %>
       <input class='btn btn-danger' type="submit" name="delete" value="Delete All" data-confirm="Are you sure you want to delete all uniqueness flag for [<%= @job_name %>]?"/>
     </form>
@@ -48,8 +28,8 @@
       <% (0..7).each do |i|
           day = (Time.now.in_time_zone(ActiveJob::Unique::Stats.timezone) - i*86400).to_date.strftime('%Y%m%d').to_i
       %>
-        <td class="text-center">
-          <a class="no-decoration" href="<%= "#{root_path}job_stats/logs/#{day}/#{@job_name}/#{@queue_name}/#{@uniqueness_id}" %>"><%= day %></a>
+        <td class="text-center<%= day == @day ? ' alert-success' : ''%>">
+          <a class="center-block" href="<%= "#{root_path}job_stats/logs/#{day}/#{@job_name}/#{@queue_name}/#{@uniqueness_id}" %>"><%= day %></a>
         </td>
       <% end %>
     </tr>
@@ -65,7 +45,7 @@
         <th>Queue</th>
         <th>Uniqueness Id</th>
         <th>Job Id</th>
-        <th class="text-center title"><%= @job_logs.size + @begin_index %></th>
+        <th class="text-center title"><%= @job_logs.size + @offset %></th>
       </thead>
       <tbody>
         <%
@@ -73,12 +53,12 @@
             queue_name, uniqueness_id, job_id = log.to_s.split(':')
         %>
           <tr>
-            <td><%= @begin_index + idx + 1 %></td>
+            <td><%= @offset + idx + 1 %></td>
             <td><%= @day %></td>
-            <td><a class="no-decoration" href="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/*/*"%>"><%= @job_name %></a></td>
-            <td><a class="no-decoration" href="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{queue_name}/*"%>"><%= queue_name %></a></td>
-            <td><a class="no-decoration" href="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{queue_name}/#{uniqueness_id}"%>"><%= uniqueness_id %></a></td>
-            <td><a class="no-decoration" href="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{queue_name}/#{uniqueness_id}/#{job_id}"%>"><%= job_id %></a></td>
+            <td><a href="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/*/*"%>"><%= @job_name %></a></td>
+            <td><a href="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{queue_name}/*"%>"><%= queue_name %></a></td>
+            <td><a href="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{queue_name}/#{uniqueness_id}"%>"><%= uniqueness_id %></a></td>
+            <td><a href="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{queue_name}/#{uniqueness_id}/#{job_id}"%>"><%= job_id %></a></td>
             <td class="text-center">
               <form action="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{queue_name}/#{uniqueness_id}/#{job_id}/delete"%>" method="post">
                 <%= csrf_tag if respond_to?(:csrf_tag) %>

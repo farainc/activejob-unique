@@ -1,41 +1,8 @@
-<style type="text/css">
-  a.no-decoration:focus, a.no-decoration:hover {
-    text-decoration: none;
-  }
-  header.row .pagination {
-    margin: 25px 0 0 0 !important;
-  }
-  form .btn {
-    margin-right: 0;
-  }
-  .label-none {
-    background: #eee;
-    color: #999;
-  }
-</style>
-<%
-  def stats_label(value, style)
-    if "#{value}" == "0"
-      return "<span class='label label-none'>#{value}</span>"
-    else
-      return "<span class='label label-#{style}'>#{value}</span>"
-    end
-  end
+<%= erb File.read(File.join(@view_dir, '_shared.erb')) %>
 
-  def progress_label(progress)
-    case progress
-    when 'enqueue_processed', 'perform_processed'
-      'text-success'
-    when 'enqueue_skipped', 'perform_skipped'
-      'text-warning'
-    when 'enqueue_failed', 'perform_failed'
-      'text-danger'
-    end
-  end
-%>
 <div class='row header'>
   <div class='col-sm-10 col-xs-8'>
-    <h3>
+    <h3 class="overflow-nowrap">
       <a class="no-decoration" href="<%= root_path %>job_stats">Job Stats</a>
       /
       <a class="no-decoration" href="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{@queue_name}/#{@uniqueness_id}" %>">Logs</a>
@@ -44,7 +11,7 @@
     </h3>
   </div>
   <div class='col-sm-2 col-xs-4 text-right'>
-    <form method="POST" style="margin-top: 25px;" action="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{@queue_name}/#{@uniqueness_id}/#{@job_id}/delete"%>">
+    <form method="POST" action="<%= "#{root_path}job_stats/logs/#{@day}/#{@job_name}/#{@queue_name}/#{@uniqueness_id}/#{@job_id}/delete"%>">
       <%= csrf_tag %>
       <input class='btn btn-danger' type="submit" name="delete" value="Delete All" data-confirm="Are you sure you want to delete the job log: [<%= @job_id %>]?"/>
     </form>
@@ -95,7 +62,7 @@
       <th>Debug</th>
     </thead>
     <tbody>
-      <% @job_log[:logs].each do |log| %>
+      <% @job_log[:logs]&.each do |log| %>
         <tr>
           <td class="<%= progress_label(log[:progress_stage])%>" rowspan="<%= log[:reason].empty? ? '' : 2 %>"><%= log[:progress_stage] %></td>
           <td><%= (relative_time(log[:timestamp]) rescue 'err') %></td>
