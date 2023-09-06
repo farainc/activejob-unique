@@ -49,7 +49,7 @@ module ActiveJob
 
           return false if timestamp < Time.now.utc.to_f
 
-          job.uniqueness_skipped_reason = "[#{job.uniqueness_progress_stage_group}] another_job_in_processing"
+          job.uniqueness_skipped_reason = "[#{job.uniqueness_progress_stage_group}] The same unique job is processing."
 
           true
         end
@@ -117,7 +117,7 @@ module ActiveJob
             job.job_id
           )
 
-            job.uniqueness_skipped_reason = "[#{job.uniqueness_progress_stage_group}] The same unique job is processing."
+            job.uniqueness_skipped_reason = "[#{job.uniqueness_progress_stage_group}] The same unique job in the worker."
 
             true
           else
