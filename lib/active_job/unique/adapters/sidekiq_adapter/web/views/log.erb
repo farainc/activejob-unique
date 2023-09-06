@@ -64,7 +64,7 @@
     <tbody>
       <% @job_log[:logs]&.each do |log| %>
         <tr>
-          <td class="<%= progress_label(log[:progress_stage])%>" rowspan="<%= log[:reason].empty? ? '' : 2 %>"><%= log[:progress_stage] %></td>
+          <td class="<%= progress_stage_label(log[:progress_stage])%>" rowspan="<%= log[:reason].empty? ? '' : 2 %>"><%= log[:progress_stage] %></td>
           <td><%= (relative_time(log[:timestamp]) rescue 'err') %></td>
           <td><%= log[:mode] %></td>
           <td><%= log[:expiration] %></td>
@@ -78,7 +78,7 @@
           <td><code><%= log[:debug] %></code></td>
         </tr>
         <% unless log[:reason].empty? %>
-          <tr><td class="<%= progress_label(log[:progress])%>" colspan="6"><%= log[:reason] %></td></tr>
+          <tr><td class="<%= progress_stage_label(log[:progress])%>" colspan="6"><%= log[:reason] %></td></tr>
         <% end %>
       <% end %>
     </tbody>

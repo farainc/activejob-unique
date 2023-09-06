@@ -85,6 +85,17 @@
     end
   end
 
+  def progress_stage_label(progress)
+    case progress
+    when 'enqueue_processed', 'perform_processed'
+      'text-success bg-success'
+    when 'enqueue_skipped', 'perform_skipped'
+      'text-warning bg-warning'
+    when 'enqueue_failed', 'perform_failed'
+      'text-danger bg-danger'
+    end
+  end
+
   def percentage_label(value)
     return 'text-success' if value >= 100
     return 'text-info' if value >= 90
