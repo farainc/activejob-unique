@@ -1,3 +1,4 @@
+require_relative 'adapter_api_base'
 require_relative 'adapter_api_cleanup'
 require_relative 'web/web_api'
 require_relative 'web/web_api_stats'
