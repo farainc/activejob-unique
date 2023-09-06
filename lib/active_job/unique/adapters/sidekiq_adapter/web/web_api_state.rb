@@ -73,6 +73,7 @@ module ActiveJob
               end
 
               def cleanup_job_progress_state_uniqueness(job_name, queue_name, stage, uniqueness_id)
+                count = 0
                 Sidekiq.redis_pool.with do |conn|
                   state_key = job_progress_stage_state
                   match_filter = [job_name, queue_name, uniqueness_id].join(PROGRESS_STATS_SEPARATOR)
@@ -80,10 +81,11 @@ module ActiveJob
 
                   conn.hscan(state_key, match: match_filter) do |key, _v|
                     conn.hdel(state_key, key)
+                    count += 1
                   end
                 end
 
-                true
+                count
               end
 
               def group_job_progress_stage_processing_flag_keys(job_names)
