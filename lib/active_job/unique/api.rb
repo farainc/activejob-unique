@@ -21,21 +21,25 @@ module ActiveJob
           case job.uniqueness_progress_stage
           when PROGRESS_STAGE_ENQUEUE_PROCESSING, PROGRESS_STAGE_PERFORM_PROCESSING
             set_progress_stage_state(job)
-          when PROGRESS_STAGE_ENQUEUE_PROCESSED
+          when PROGRESS_STAGE_ENQUEUE_FAILED, PROGRESS_STAGE_ENQUEUE_PROCESSED
             progress_stage, timestamp, job_id = get_progress_stage_state(job)
-
             if progress_stage.to_s.to_sym == PROGRESS_STAGE_ENQUEUE_PROCESSING &&
                timestamp.to_f < job.uniqueness_timestamp.to_f &&
                job_id == job.job_id
 
-              set_progress_stage_state(job)
+              expire_progress_state_stage(job)
+              expire_progress_stage_state_flag(job, PROGRESS_STAGE_ENQUEUE_PROCESSING)
             end
-          when PROGRESS_STAGE_ENQUEUE_FAILED
-            expire_progress_state_stage(job)
-            expire_progress_stage_state_flag(job, PROGRESS_STAGE_ENQUEUE_PROCESSING)
           when PROGRESS_STAGE_PERFORM_FAILED, PROGRESS_STAGE_PERFORM_PROCESSED
-            expire_progress_state_stage(job)
-            expire_progress_stage_state_flag(job, PROGRESS_STAGE_PERFORM_PROCESSING)
+            progress_stage, timestamp, job_id = get_progress_stage_state(job)
+
+            if progress_stage.to_s.to_sym == PROGRESS_STAGE_PERFORM_PROCESSING &&
+               timestamp.to_f < job.uniqueness_timestamp.to_f &&
+               job_id == job.job_id
+
+              expire_progress_state_stage(job)
+              expire_progress_stage_state_flag(job, PROGRESS_STAGE_PERFORM_PROCESSING)
+            end
           end
         end
 
@@ -52,7 +56,7 @@ module ActiveJob
 
         # enqueue stage
         def another_job_enqueued?(job)
-          progress_stage_state, timestamp = get_progress_stage_state(job)
+          progress_stage_state, timestamp = get_progress_stage_state(job, PROGRESS_STAGE_ENQUEUE_GROUP)
 
           timestamp = timestamp.to_f
           return false if timestamp.zero?
@@ -60,8 +64,9 @@ module ActiveJob
           return false unless [PROGRESS_STAGE_ENQUEUE_PROCESSING, PROGRESS_STAGE_ENQUEUE_PROCESSED].include?(progress_stage_state.to_s.to_sym)
 
           if job.queue_adapter_uniqueness_api.another_job_in_queue?(
+            job.class.name,
             job.queue_name,
-            timestamp
+            job.uniqueness_id
           )
 
             job.uniqueness_skipped_reason = "[#{job.uniqueness_progress_stage_group}] another_job_in_queue"
@@ -98,10 +103,11 @@ module ActiveJob
 
         # perform stage
         def another_job_in_performing?(job)
-          progress_stage_state, timestamp = get_progress_stage_state(job)
+          progress_stage_state, timestamp = get_progress_stage_state(job, PROGRESS_STAGE_PERFORM_GROUP)
 
           # if processing & not expired
-          return true if PROGRESS_STAGE_PERFORM_PROCESSING == progress_stage_state.to_s.to_sym && timestamp.to_f > -5.minutes.from_now.to_f
+          return true if progress_stage_state.to_s.to_sym == PROGRESS_STAGE_PERFORM_PROCESSING &&
+                         timestamp.to_f > -5.minutes.from_now.to_f
 
           # check another_job_in_worker? from adapter api
           if job.queue_adapter_uniqueness_api.another_job_in_worker?(
@@ -141,6 +147,7 @@ module ActiveJob
 
         def calculate_until_timeout_uniqueness_mode_expires(job)
           return unless until_timeout_uniqueness_mode?(job.uniqueness_mode)
+
           job.uniqueness_expires = job.uniqueness_expiration.seconds.from_now.utc.to_f
         end
 
