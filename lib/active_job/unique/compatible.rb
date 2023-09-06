@@ -25,7 +25,7 @@ module ActiveJob
           job_uniqueness_mode = job_data['uniqueness_mode'] || uniqueness_mode
 
           if uniqueness_api.valid_uniqueness_mode?(job_uniqueness_mode.to_s.to_sym)
-            job.uniqueness_mode         = job_uniqueness_mode
+            job.uniqueness_mode         = job_uniqueness_mode.to_sym
             job.uniqueness_id           = job_data['uniqueness_id']
             job.uniqueness_skipped      = job_data['uniqueness_skipped']
             job.uniqueness_expires      = job_data['uniqueness_expires']
@@ -46,7 +46,7 @@ module ActiveJob
           data['uniqueness_skipped']      = uniqueness_skipped
           data['uniqueness_expires']      = uniqueness_expires
           data['uniqueness_expiration']   = uniqueness_expiration
-          data['uniqueness_mode']         = uniqueness_mode
+          data['uniqueness_mode']         = uniqueness_mode.to_s
           data['uniqueness_debug']        = uniqueness_debug
           data['uniqueness_debug_limits'] = uniqueness_debug_limits
         end

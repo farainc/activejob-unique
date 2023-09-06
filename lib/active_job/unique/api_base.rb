@@ -15,15 +15,15 @@ module ActiveJob
         end
 
         def enqueue_only_uniqueness_mode?(uniqueness_mode)
-          UNIQUENESS_MODE_UNTIL_EXECUTING == uniqueness_mode.to_s.to_sym
+          uniqueness_mode.to_s.to_sym == UNIQUENESS_MODE_UNTIL_EXECUTING
         end
 
         def perform_only_uniqueness_mode?(uniqueness_mode)
-          UNIQUENESS_MODE_WHILE_EXECUTING == uniqueness_mode.to_s.to_sym
+          uniqueness_mode.to_s.to_sym == UNIQUENESS_MODE_WHILE_EXECUTING
         end
 
         def until_timeout_uniqueness_mode?(uniqueness_mode)
-          UNIQUENESS_MODE_UNTIL_TIMEOUT == uniqueness_mode.to_s.to_sym
+          uniqueness_mode.to_s.to_sym == UNIQUENESS_MODE_UNTIL_TIMEOUT
         end
 
         def sequence_day(now)
@@ -31,7 +31,7 @@ module ActiveJob
         end
 
         def sequence_day_score(day)
-          ((Date.parse(day.to_s) - Time.at(0).in_time_zone(ActiveJob::Unique::Stats.timezone).to_date).to_i) % 8 + 1
+          (Date.parse(day.to_s) - Time.at(0).in_time_zone(ActiveJob::Unique::Stats.timezone).to_date).to_i % 8 + 1
         end
 
         def sequence_today
@@ -68,11 +68,12 @@ module ActiveJob
           ].join(PROGRESS_STATS_SEPARATOR)
         end
 
-        def job_progress_stage_state_field(job_name, queue_name, uniqueness_id)
+        def job_progress_stage_state_field(job_name, queue_name, uniqueness_id, progress_stage_group)
           [
             job_name,
             queue_name,
-            uniqueness_id
+            uniqueness_id,
+            progress_stage_group
           ].join(PROGRESS_STATS_SEPARATOR)
         end
 
