@@ -64,8 +64,9 @@ module ActiveJob
           return false unless [PROGRESS_STAGE_ENQUEUE_PROCESSING, PROGRESS_STAGE_ENQUEUE_PROCESSED].include?(progress_stage_state.to_s.to_sym)
 
           if job.queue_adapter_uniqueness_api.another_job_in_queue?(
+            job.class.name,
             job.queue_name,
-            timestamp
+            job.uniqueness_id
           )
 
             job.uniqueness_skipped_reason = "[#{job.uniqueness_progress_stage_group}] another_job_in_queue"
