@@ -43,7 +43,6 @@ module ActiveJob
 
                 # check 5.minutes before's
                 expired_at = now - 60
-                sidekiq_queues = {}
 
                 conn.hscan(state_key) do |key, value|
                   job_name, queue_name, uniqueness_id = key.to_s.split(PROGRESS_STATS_SEPARATOR)
@@ -55,8 +54,7 @@ module ActiveJob
 
                   # skip if job existed in queue or worker
                   if /^enqueue/i.match?(progress_stage)
-                    queue = sidekiq_queues[queue_name] || Sidekiq::Queue.new(queue_name)
-                    next if queue.latency > (Time.now.utc.to_f - progress_at)
+                    next if another_job_in_queue?(job_name, queue_name, uniqueness_id)
                   elsif /^perform/i.match?(progress_stage)
                     next if another_job_in_worker?(job_name, queue_name, uniqueness_id, job_id)
                   end
