@@ -125,10 +125,10 @@ module ActiveJob
               def cleanup_job_progress_stage_logs(day, job_name, queue_name = '*', uniqueness_id = '*')
                 Sidekiq.redis_pool.with do |conn|
                   job_score_key = "#{job_progress_stage_log_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_score"
-                  return unless conn.exists?(job_score_key)
+                  return false unless conn.exists?(job_score_key)
 
                   job_log_key = "#{job_progress_stage_log_key(job_name)}#{PROGRESS_STATS_SEPARATOR}job_logs"
-                  return unless conn.exists?(job_log_key)
+                  return false unless conn.exists?(job_log_key)
 
                   day_score = ensure_job_stage_log_day_base(day)
 
@@ -140,9 +140,9 @@ module ActiveJob
 
                   min_score = day_score + queue_id_score + uniqueness_id_score
 
-                  max_score = if uniqueness_id_score > 0
+                  max_score = if uniqueness_id_score.positive?
                                 min_score + UNIQUENESS_ID_SCORE_BASE
-                              elsif queue_id_score > 0
+                              elsif queue_id_score.positive?
                                 min_score + QUEUE_SCORE_BASE
                               else
                                 min_score + DAY_SCORE_BASE

@@ -76,11 +76,10 @@ module ActiveJob
                 count = 0
                 Sidekiq.redis_pool.with do |conn|
                   state_key = job_progress_stage_state
-                  match_filter = [job_name, queue_name, uniqueness_id, stage].join(PROGRESS_STATS_SEPARATOR)
+                  match_filter = [job_name, queue_name, uniqueness_id].join(PROGRESS_STATS_SEPARATOR)
+                  match_filter = stage == '*' ? "#{match_filter}*" : "#{match_filter}#{PROGRESS_STATS_SEPARATOR}#{stage}"
 
-                  conn.hscan_each(state_key, match: match_filter) do |key, value|
-                    next unless /^#{stage}/.match?(value)
-
+                  conn.hscan_each(state_key, match: match_filter) do |key, _v|
                     conn.hdel(state_key, key)
                     count += 1
                   end
