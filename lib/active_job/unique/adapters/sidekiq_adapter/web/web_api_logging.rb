@@ -38,10 +38,10 @@ module ActiveJob
 
                   day_score = ensure_job_stage_log_day_base(day)
 
-                  queue_id_score = conn.zscore(job_score_key, "queue:#{queue_name}").to_f
+                  queue_id_score = conn.zscore("#{job_score_key}:#{day}", "queue:#{queue_name}").to_f
                   queue_id_score = ensure_job_stage_log_queue_id_base(queue_id_score)
 
-                  uniqueness_id_score = conn.zscore(job_score_key, "uniqueness_id:#{uniqueness_id}").to_f
+                  uniqueness_id_score = conn.zscore("#{job_score_key}:#{day}", "uniqueness_id:#{uniqueness_id}").to_f
                   uniqueness_id_score = ensure_job_stage_log_uniqueness_id_base(uniqueness_id_score)
 
                   min_score = day_score + queue_id_score + uniqueness_id_score
