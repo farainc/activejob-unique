@@ -56,7 +56,7 @@
             <td><%= stats[:uniqueness_id] %></td>
             <td><%= stats[:job_id] %></td>
             <td><%= (relative_time(stats[:timestamp]) rescue 'err')  %></td>
-            <td class="text-center <%= progress_label(stats[:progress_stage]) %>">
+            <td class="text-center <%= progress_stage_label(stats[:progress_stage]) %>">
               <%= stats[:progress_stage] %>
             </td>
             <td class="text-center">

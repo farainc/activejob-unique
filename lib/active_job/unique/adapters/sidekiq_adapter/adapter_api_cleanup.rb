@@ -53,9 +53,9 @@ module ActiveJob
                   next if progress_at > expired_at
 
                   # skip if job existed in queue or worker
-                  if /^enqueue/i.match?(progress_stage)
+                  if /^enqueue/i.match(progress_stage)
                     next if another_job_in_queue?(job_name, queue_name, uniqueness_id)
-                  elsif /^perform/i.match?(progress_stage)
+                  elsif /^perform/i.match(progress_stage)
                     next if another_job_in_worker?(job_name, queue_name, uniqueness_id, job_id)
                   end
 

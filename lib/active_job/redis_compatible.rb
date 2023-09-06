@@ -1,3 +1,5 @@
+Redis.exists_returns_integer = false if Redis::VERSION < '5'
+
 if Redis::VERSION < '4.2'
   module RedisCompatible
     extend ActiveSupport::Concern

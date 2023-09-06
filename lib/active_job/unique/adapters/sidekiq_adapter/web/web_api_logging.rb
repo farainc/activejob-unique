@@ -93,7 +93,7 @@ module ActiveJob
                     )
 
                     temp_logs.each do |log|
-                      next unless /^#{job_id}#{PROGRESS_STATS_SEPARATOR}/i.match?(log)
+                      next unless /^#{job_id}#{PROGRESS_STATS_SEPARATOR}/i.match(log)
 
                       _, progress_stage, timestamp, reason, mode, expiration, expires, debug = log.split(PROGRESS_STATS_SEPARATOR)
 

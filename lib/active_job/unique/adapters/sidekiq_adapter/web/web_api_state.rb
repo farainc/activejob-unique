@@ -48,7 +48,7 @@ module ActiveJob
                   conn.hscan_each(state_key, match: match_filter) do |key, value|
                     break if job_stats.size > count
 
-                    next if stage != '*' && !/^#{stage}/i.match?(value)
+                    next if stage != '*' && !/^#{stage}/i.match(value)
                     next if i < offset
 
                     i += 1
