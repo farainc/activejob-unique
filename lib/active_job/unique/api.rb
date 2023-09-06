@@ -49,7 +49,7 @@ module ActiveJob
 
           return false if timestamp < Time.now.utc.to_f
 
-          job.uniqueness_skipped_reason = "[#{job.uniqueness_progress_stage_group}] another_job_in_processing"
+          job.uniqueness_skipped_reason = "[#{job.uniqueness_progress_stage_group}] The same unique job in processing."
 
           true
         end
@@ -69,7 +69,7 @@ module ActiveJob
             job.uniqueness_id
           )
 
-            job.uniqueness_skipped_reason = "[#{job.uniqueness_progress_stage_group}] another_job_in_queue"
+            job.uniqueness_skipped_reason = "[#{job.uniqueness_progress_stage_group}] The same unique job in the queue."
 
             true
           else
@@ -117,7 +117,7 @@ module ActiveJob
             job.job_id
           )
 
-            job.uniqueness_skipped_reason = "[#{job.uniqueness_progress_stage_group}] another_job_in_worker"
+            job.uniqueness_skipped_reason = "[#{job.uniqueness_progress_stage_group}] The same unique job in the worker."
 
             true
           else
@@ -188,7 +188,7 @@ module ActiveJob
           timestamp = get_until_timeout_uniqueness_mode_expiration(job)
           return false if timestamp < Time.now.utc.to_f
 
-          job.uniqueness_skipped_reason = "[#{job.uniqueness_progress_stage_group}] another_job_not_expired_yet"
+          job.uniqueness_skipped_reason = "[#{job.uniqueness_progress_stage_group}] The same unique job has yet to expire."
 
           true
         end
