@@ -1,15 +1,27 @@
-Redis.exists_returns_integer = false if Redis::VERSION < '5'
+if defined?(Redis)
+  if Redis::VERSION < '4.2'
+    module RedisCompatible
+      extend ActiveSupport::Concern
 
-if Redis::VERSION < '4.2'
-  module RedisCompatible
-    extend ActiveSupport::Concern
-
-    def exists?(key)
-      exists(key)
+      def exists?(key)
+        exists(key)
+      end
     end
-  end
 
-  Redis.send(:include, RedisCompatible)
+    Redis.send(:include, RedisCompatible)
+  elsif Redis::VERSION > '4.2' && Redis::VERSION < '5'
+    Redis.exists_returns_integer = false
+  elsif Redis::VERSION >= '5'
+    module RedisCompatible
+      extend ActiveSupport::Concern
+
+      def exists?(key)
+        exists(key) != 0
+      end
+    end
+
+    Redis.send(:include, RedisCompatible)
+  end
 end
 
 if defined?(Sidekiq::RedisClientAdapter::CompatClient)
