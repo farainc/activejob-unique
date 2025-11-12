@@ -4,6 +4,7 @@ class CreateDbActiveJobUniques < ActiveRecord::Migration[5.1]
       t.string  :job_name, limit: 64
       t.integer :args
       t.integer :around_enqueue, null: false, default: 0
+      t.integer :enqueued, null: false, default: 0
       t.integer :around_perform, null: false, default: 0
       t.integer :performed, null: false, default: 0
 
