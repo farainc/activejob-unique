@@ -13,13 +13,14 @@
 ActiveRecord::Schema[7.0].define(version: 2018_08_03_055220) do
   create_table "active_job_uniques", charset: "utf8mb4", force: :cascade do |t|
     t.string "job_name", limit: 64
-    t.integer "job_args"
+    t.integer "args"
     t.integer "around_enqueue", default: 0, null: false
+    t.integer "enqueued", default: 0, null: false
     t.integer "around_perform", default: 0, null: false
     t.integer "performed", default: 0, null: false
     t.datetime "created_at", precision: nil, null: false
     t.datetime "updated_at", precision: nil, null: false
-    t.index ["job_name", "job_args"], name: "index_active_job_uniques_on_job_name_and_args", unique: true
+    t.index ["job_name", "args"], name: "index_active_job_uniques_on_job_name_and_args", unique: true
   end
 
 end
