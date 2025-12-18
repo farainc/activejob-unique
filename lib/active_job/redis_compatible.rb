@@ -1,4 +1,14 @@
 if defined?(Redis)
+  module ZaddCompatible
+    extend ActiveSupport::Concern
+
+    def zadd_safe(*args, **kwargs)
+      zadd(*args, **kwargs)
+    end
+  end
+
+  Redis.send(:include, ZaddCompatible)
+
   if Redis::VERSION < '4.2'
     module RedisCompatible
       extend ActiveSupport::Concern
@@ -34,4 +44,59 @@ if defined?(Sidekiq::RedisClientAdapter::CompatClient)
   end
 
   Sidekiq::RedisClientAdapter::CompatClient.include RedisCompatible
+
+  if Sidekiq::VERSION >= '7.1.0'
+    module SidekiqRedisHelpers
+      extend ActiveSupport::Concern
+
+      def getset(key, value)
+        args = [key, value, "GET"]
+
+        @client.call("SET", *args)
+      end
+
+      def zadd_safe(key, score_and_member, **kwargs)
+        args = [key]
+
+        args << "NX"  if kwargs[:nx]
+        args << "XX"  if kwargs[:xx]
+        args << "CH"  if kwargs[:ch]
+        args << "INCR" if kwargs[:incr]
+
+        args += score_and_member
+
+        @client.call("ZADD", *args)
+      end
+
+      def zrevrange(key, start, stop)
+        args = [key, min, max, "REV"]
+
+        @client.call("ZRANGE", *args)
+      end
+
+      def zrangebyscore(key, min, max, limit: nil)
+        args = [key, min, max, "BYSCORE"]
+
+        unless limit.nil?
+          args << "LIMIT"
+          args += limit
+        end
+
+        @client.call("ZRANGE", *args)
+      end
+
+      def zrevrangebyscore(key, max, min, limit: nil)
+        args = [key, min, max, "BYSCORE", "REV"]
+
+        unless limit.nil?
+          args << "LIMIT"
+          args += limit
+        end
+
+        @client.call("ZRANGE", *args)
+      end
+    end
+
+    Sidekiq::RedisClientAdapter::CompatClient.include SidekiqRedisHelpers
+  end
 end
