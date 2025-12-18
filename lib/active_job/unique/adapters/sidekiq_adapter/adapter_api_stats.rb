@@ -14,7 +14,7 @@ module ActiveJob
 
               Sidekiq.redis_pool.with do |conn|
                 score = conn.zincrby(stats_jobs_key, 1.0, job_name).to_f
-                conn.zadd(stats_jobs_key, [day_score, job_name]) if score < day_score
+                conn.zadd_safe(stats_jobs_key, [day_score, job_name]) if score < day_score
               end
             rescue StandardError => ex
               Sidekiq.logger.error ex
