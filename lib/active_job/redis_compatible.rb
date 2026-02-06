@@ -69,7 +69,7 @@ if defined?(Sidekiq::RedisClientAdapter::CompatClient)
       end
 
       def zrevrange(key, start, stop)
-        args = [key, min, max, "REV"]
+        args = [key, start, stop, "REV"]
 
         @client.call("ZRANGE", *args)
       end
