@@ -260,7 +260,7 @@
     </tbody>
   </table>
 </div>
-<div style="margin-top:-10px;margin-bottom:15px;"><small><strong>Time Zone:</strong> <%= ActiveJob::Unique::Stats.timezone %></small></div>
+<div style="margin-top:-10px;margin-bottom:15px;"><small><strong>Time Zone:</strong> <%= ::ActiveJob::Unique::Stats.timezone %></small></div>
 
 <% if @job_name == '*' && @queue_name == '*' %>
   <script>
