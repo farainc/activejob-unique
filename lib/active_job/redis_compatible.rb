@@ -96,6 +96,10 @@ if defined?(Sidekiq::RedisClientAdapter::CompatClient)
         @client.call("ZRANGE", *args)
       end
 
+      def multi(&block)
+        @client.multi(&block)
+      end
+
       def scan_each(match: nil, count: nil, &block)
         cursor = "0"
         loop do
