@@ -95,6 +95,20 @@ if defined?(Sidekiq::RedisClientAdapter::CompatClient)
 
         @client.call("ZRANGE", *args)
       end
+
+      def hscan_each(key, match: nil, count: nil, &block)
+        cursor = "0"
+        loop do
+          args = [key, cursor]
+          args += ["MATCH", match] if match
+          args += ["COUNT", count] if count
+          cursor, entries = @client.call("HSCAN", *args)
+          entries.each_slice(2) do |field, value|
+            block.call(field, value)
+          end
+          break if cursor == "0"
+        end
+      end
     end
 
     Sidekiq::RedisClientAdapter::CompatClient.include SidekiqRedisHelpers
