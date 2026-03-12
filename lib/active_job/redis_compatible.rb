@@ -34,8 +34,11 @@ if defined?(Redis)
   end
 end
 
-if defined?(Sidekiq::RedisClientAdapter::CompatClient)
-  module RedisCompatible
+ACTIVEJOB_UNIQUE_PATCH_SIDEKIQ_COMPAT = -> {
+  return unless defined?(Sidekiq::RedisClientAdapter::CompatClient)
+  return if Sidekiq::RedisClientAdapter::CompatClient.method_defined?(:zadd_safe)
+
+  module ::RedisCompatible
     extend ActiveSupport::Concern
 
     def exists?(key)
@@ -46,7 +49,7 @@ if defined?(Sidekiq::RedisClientAdapter::CompatClient)
   Sidekiq::RedisClientAdapter::CompatClient.include RedisCompatible
 
   if Sidekiq::VERSION >= '7.1.0'
-    module SidekiqRedisHelpers
+    module ::SidekiqRedisHelpers
       extend ActiveSupport::Concern
 
       def getset(key, value)
@@ -131,4 +134,15 @@ if defined?(Sidekiq::RedisClientAdapter::CompatClient)
 
     Sidekiq::RedisClientAdapter::CompatClient.include SidekiqRedisHelpers
   end
+}
+
+# Try immediately (works if Sidekiq loaded before this gem)
+ACTIVEJOB_UNIQUE_PATCH_SIDEKIQ_COMPAT.call
+
+# Also defer for when Sidekiq loads after this gem
+if defined?(Sidekiq) && Sidekiq.respond_to?(:configure_server)
+  Sidekiq.configure_server { |_| ACTIVEJOB_UNIQUE_PATCH_SIDEKIQ_COMPAT.call }
+  Sidekiq.configure_client { |_| ACTIVEJOB_UNIQUE_PATCH_SIDEKIQ_COMPAT.call } if Sidekiq.respond_to?(:configure_client)
+elsif defined?(ActiveSupport)
+  ActiveSupport.on_load(:active_job) { ACTIVEJOB_UNIQUE_PATCH_SIDEKIQ_COMPAT.call }
 end
