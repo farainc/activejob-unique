@@ -26,7 +26,7 @@ module ActiveJob
             expire_progress_state_stage(job)
             expire_progress_stage_state_flag(job, PROGRESS_STAGE_ENQUEUE_PROCESSING)
 
-          when PROGRESS_STAGE_ENQUEUE_PROCESSED,
+          when PROGRESS_STAGE_ENQUEUE_PROCESSED
             set_progress_stage_state(job)
             expire_progress_stage_state_flag(job, PROGRESS_STAGE_ENQUEUE_PROCESSING)
 
