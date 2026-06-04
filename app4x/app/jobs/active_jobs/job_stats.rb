@@ -12,6 +12,11 @@ module ActiveJobs
         block.call
       end
 
+      after_enqueue do |job|
+        db_job = Db::ActiveJobUnique.find_by(job_name: self.class.name, job_args: job.arguments[0])
+        Db::ActiveJobUnique.update_counters(db_job.id, enqueued: 1) if db_job.present?
+      end
+
       around_perform do |job, block|
         db_job = Db::ActiveJobUnique.find_by(job_name: self.class.name, job_args: job.arguments[0])
         Db::ActiveJobUnique.update_counters(db_job.id, around_perform: 1) if db_job.present?

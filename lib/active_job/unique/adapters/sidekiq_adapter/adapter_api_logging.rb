@@ -18,7 +18,7 @@ module ActiveJob
             end
 
             def incr_progress_stage_log_id_score(conn, job_score_day_key, base, new_id)
-              if conn.zadd(job_score_day_key, [0, "#{base}:#{new_id}"], nx: true) == 1
+              if conn.zadd_safe(job_score_day_key, [0, "#{base}:#{new_id}"], nx: true) == 1
                 conn.zincrby(job_score_day_key, conn.zincrby(job_score_day_key, 1.0, base), "#{base}:#{new_id}").to_f
               else
                 conn.zscore(job_score_day_key, "#{base}:#{new_id}").to_f
@@ -56,13 +56,13 @@ module ActiveJob
 
                   job_id_score = day_score + queue_id_score + uniqueness_id_score + time_score
 
-                  if conn.zadd(job_score_key, [job_id_score, job_id_value], nx: true) == 0
+                  if conn.zadd_safe(job_score_key, [job_id_score, job_id_value], nx: true) == 0
                     job_id_score = conn.zscore(job_score_key, job_id_value).to_f
                   end
                 end
 
                 job_log_score = job_id_score + progress_stage_score
-                conn.zadd(job_log_key, [job_log_score, job_log_value], nx: true)
+                conn.zadd_safe(job_log_key, [job_log_score, job_log_value], nx: true)
 
                 # remove over limits logs
                 min_score = day_score

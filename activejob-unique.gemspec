@@ -3,7 +3,7 @@ require File.expand_path('../lib/active_job/unique/version', __FILE__)
 Gem::Specification.new do |s|
     s.name = 'activejob-unique'
     s.version     = ActiveJob::Unique::VERSION.to_s
-    s.date        = '2021-03-08'
+    s.date        = '2025-11-15'
     s.summary     = 'ActiveJob unique jobs'
     s.description = 'ActiveJob uniqueness job adpater'
     s.authors     = ['josh.c']
@@ -16,5 +16,5 @@ Gem::Specification.new do |s|
 
     s.add_dependency 'activejob'
     s.add_dependency 'activesupport'
-    s.add_dependency 'sidekiq', '>= 4.2', '< 7'
+    s.add_dependency 'sidekiq', '>= 4.2', '< 9'
 end
