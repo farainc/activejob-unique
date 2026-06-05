@@ -19,16 +19,20 @@ module ActiveJob
           return unless valid_uniqueness_mode?(job.uniqueness_mode)
 
           case job.uniqueness_progress_stage
-          when PROGRESS_STAGE_ENQUEUE_PROCESSING, PROGRESS_STAGE_PERFORM_PROCESSING
+          when PROGRESS_STAGE_ENQUEUE_PROCESSING
             set_progress_stage_state(job)
+
+          when PROGRESS_STAGE_ENQUEUE_PROCESSED
+            set_progress_stage_state(job)
+            expire_progress_stage_state_flag(job, PROGRESS_STAGE_ENQUEUE_PROCESSING)
 
           when PROGRESS_STAGE_ENQUEUE_FAILED
             expire_progress_state_stage(job)
             expire_progress_stage_state_flag(job, PROGRESS_STAGE_ENQUEUE_PROCESSING)
 
-          when PROGRESS_STAGE_ENQUEUE_PROCESSED
+          when PROGRESS_STAGE_PERFORM_PROCESSING
             set_progress_stage_state(job)
-            expire_progress_stage_state_flag(job, PROGRESS_STAGE_ENQUEUE_PROCESSING)
+            expire_progress_stage_state_flag(job, PROGRESS_STAGE_ENQUEUE_PROCESSED)
 
           when PROGRESS_STAGE_PERFORM_FAILED, PROGRESS_STAGE_PERFORM_PROCESSED
             expire_progress_state_stage(job)
