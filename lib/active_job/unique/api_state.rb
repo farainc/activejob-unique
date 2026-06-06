@@ -22,9 +22,9 @@ module ActiveJob
           job.queue_adapter_uniqueness_api.set_progress_stage_state(state_key, state_field, state_data)
         end
 
-        def expire_progress_state_stage(job)
+        def expire_progress_state_stage(job, uniqueness_progress_stage_group = job.uniqueness_progress_stage_group)
           state_key = job_progress_stage_state
-          state_field = job_progress_stage_state_field(job.class.name, job.queue_name, job.uniqueness_id, job.uniqueness_progress_stage_group)
+          state_field = job_progress_stage_state_field(job.class.name, job.queue_name, job.uniqueness_id, uniqueness_progress_stage_group)
 
           job.queue_adapter_uniqueness_api.expire_progress_stage_state(state_key, state_field)
         end

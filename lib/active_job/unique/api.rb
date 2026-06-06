@@ -32,7 +32,7 @@ module ActiveJob
 
           when PROGRESS_STAGE_PERFORM_PROCESSING
             set_progress_stage_state(job)
-            expire_progress_stage_state_flag(job, PROGRESS_STAGE_ENQUEUE_PROCESSED)
+            expire_progress_state_stage(job, PROGRESS_STAGE_ENQUEUE_GROUP)
 
           when PROGRESS_STAGE_PERFORM_FAILED, PROGRESS_STAGE_PERFORM_PROCESSED
             expire_progress_state_stage(job)
@@ -80,7 +80,7 @@ module ActiveJob
           return true if perform_only_uniqueness_mode?(job.uniqueness_mode)
 
           # skip for another job in another_job_enqueued?
-          # return false if another_job_enqueued?(job)
+          return false if another_job_enqueued?(job)
 
           # skip for enqueue_only_uniqueness_mode &&
           # another job in perform_processing during enqueue?
