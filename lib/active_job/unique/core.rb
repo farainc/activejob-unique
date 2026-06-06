@@ -117,7 +117,7 @@ module ActiveJob
             uniqueness_api.incr_progress_stats(job)
           end
 
-          expire_progress_state_stage(job, PROGRESS_STAGE_ENQUEUE_GROUP)
+          uniqueness_api.expire_progress_state_stage(job, PROGRESS_STAGE_ENQUEUE_GROUP)
 
           r
         end
