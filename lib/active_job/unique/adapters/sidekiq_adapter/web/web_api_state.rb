@@ -49,9 +49,9 @@ module ActiveJob
                     break if job_stats.size > count
 
                     next if stage != '*' && !/^#{stage}/i.match(value)
-                    next if i < offset
 
                     i += 1
+                    next if i < offset
 
                     n_job_name, n_queue_name, uniqueness_id = key.to_s.split(PROGRESS_STATS_SEPARATOR)
                     progress_stage, timestamp, job_id = value.to_s.split(PROGRESS_STATS_SEPARATOR)
@@ -114,10 +114,10 @@ module ActiveJob
                   i = 0
 
                   conn.scan_each(match: match_filter, count: 100) do |key|
-                    next if i < offset
                     break if job_stats.count > count
 
                     i += 1
+                    next if i < offset
 
                     _, n_job_name, n_queue_name, uniqueness_id, progress_stage = key.to_s.split(PROGRESS_STATS_SEPARATOR)
 
