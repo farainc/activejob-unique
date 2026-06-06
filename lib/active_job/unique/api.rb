@@ -80,7 +80,7 @@ module ActiveJob
           return true if perform_only_uniqueness_mode?(job.uniqueness_mode)
 
           # skip for another job in another_job_enqueued?
-          return false if another_job_enqueued?(job)
+          # return false if another_job_enqueued?(job)
 
           # skip for enqueue_only_uniqueness_mode &&
           # another job in perform_processing during enqueue?
