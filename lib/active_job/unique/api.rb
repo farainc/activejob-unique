@@ -32,7 +32,6 @@ module ActiveJob
 
           when PROGRESS_STAGE_PERFORM_PROCESSING
             set_progress_stage_state(job)
-            expire_progress_state_stage(job, PROGRESS_STAGE_ENQUEUE_GROUP)
 
           when PROGRESS_STAGE_PERFORM_FAILED, PROGRESS_STAGE_PERFORM_PROCESSED
             expire_progress_state_stage(job)
