@@ -18,6 +18,7 @@ module ActiveJob
     PROGRESS_STAGE_ENQUEUE_GROUP = :enqueue
     PROGRESS_STAGE_PERFORM_GROUP = :perform
 
+    PROGRESS_STAGE_INITIALIZED = :initialized
     PROGRESS_STAGE_ENQUEUE_ATTEMPTED = :enqueue_attempted
     PROGRESS_STAGE_ENQUEUE_PROCESSING = :enqueue_processing
     PROGRESS_STAGE_ENQUEUE_FAILED = :enqueue_failed

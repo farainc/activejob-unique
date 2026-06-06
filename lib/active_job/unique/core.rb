@@ -39,6 +39,7 @@ module ActiveJob
           @uniqueness_debug_limits ||= self.class.uniqueness_debug_limits
           @uniqueness_expiration ||= self.class.uniqueness_expiration
           @uniqueness_timestamp = Time.now.utc
+          @uniqueness_progress_stage = PROGRESS_STAGE_INITIALIZED
           @uniqueness_progress_stage_group = PROGRESS_STAGE_ENQUEUE_GROUP
         end
 
